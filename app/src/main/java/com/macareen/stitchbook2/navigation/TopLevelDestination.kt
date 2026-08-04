@@ -3,6 +3,7 @@ package com.macareen.stitchbook2.navigation
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Inventory2
@@ -39,6 +40,12 @@ enum class TopLevelDestination(
         title = R.string.destination_stash,
         iconContentDescription = R.string.stash_icon_description,
         icon = Icons.Outlined.Inventory2
+    ),
+    Tools(
+        route = "tools",
+        title = R.string.destination_tools,
+        iconContentDescription = R.string.tools_icon_description,
+        icon = Icons.Outlined.Build
     ),
     Settings(
         route = "settings",

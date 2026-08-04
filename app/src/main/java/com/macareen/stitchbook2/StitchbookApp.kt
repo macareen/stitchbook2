@@ -26,7 +26,7 @@ import com.macareen.stitchbook2.navigation.TopLevelDestination
 import com.macareen.stitchbook2.navigation.navigateToTopLevelDestination
 
 /**
- * Top-level destinations (Home/Projects/Library/Stash/Settings) each already
+ * Top-level destinations (Home/Projects/Library/Stash/Tools/Settings) each already
  * render their own in-content headline, so a redundant static app-name bar
  * above them would just duplicate that identity -- the webapp itself shows
  * no header chrome above its own bottom nav on mobile. Every other
