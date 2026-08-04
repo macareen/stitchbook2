@@ -19,9 +19,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ExecutionCurrentAddressFrameEntity::class,
         ExecutionCompletedOccurrenceEntity::class,
         ExecutionCompletedOccurrenceFrameEntity::class,
-        ActiveExecutionEntity::class
+        ActiveExecutionEntity::class,
+        LibraryItemEntity::class,
+        StashItemEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 abstract class StitchbookDatabase : RoomDatabase() {
@@ -29,6 +31,8 @@ abstract class StitchbookDatabase : RoomDatabase() {
     abstract fun projectDao(): ProjectDao
     abstract fun guideDao(): GuideDao
     abstract fun executionDao(): ExecutionDao
+    abstract fun libraryDao(): LibraryDao
+    abstract fun stashDao(): StashDao
 
     companion object {
         private const val DATABASE_NAME = "stitchbook.db"
@@ -42,7 +46,7 @@ abstract class StitchbookDatabase : RoomDatabase() {
                     context.applicationContext,
                     StitchbookDatabase::class.java,
                     DATABASE_NAME
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .build()
                     .also { instance = it }
             }
@@ -330,6 +334,50 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
             CREATE UNIQUE INDEX IF NOT EXISTS
                 `index_active_executions_execution_id`
             ON `active_executions` (`execution_id`)
+            """.trimIndent()
+        )
+    }
+}
+
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `library_items` (
+                `id` TEXT NOT NULL,
+                `title` TEXT NOT NULL,
+                `craft` TEXT NOT NULL,
+                `author` TEXT,
+                `source_url` TEXT,
+                `tags` TEXT NOT NULL,
+                `notes` TEXT,
+                `bookmarked` INTEGER NOT NULL,
+                `created_at` INTEGER NOT NULL,
+                `updated_at` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent()
+        )
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `stash_items` (
+                `id` TEXT NOT NULL,
+                `name` TEXT NOT NULL,
+                `category` TEXT NOT NULL,
+                `brand` TEXT,
+                `colorway` TEXT,
+                `dye_lot` TEXT,
+                `weight_category` TEXT,
+                `fiber_content` TEXT,
+                `quantity` REAL NOT NULL,
+                `unit_label` TEXT NOT NULL,
+                `yardage_per_unit` REAL,
+                `notes` TEXT,
+                `created_at` INTEGER NOT NULL,
+                `updated_at` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
             """.trimIndent()
         )
     }

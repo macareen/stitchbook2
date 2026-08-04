@@ -87,11 +87,15 @@ class StitchbookMigrationTest {
     @Test
     fun migrationFromOneToTwoPreservesProjectsAndCreatesGuideSchema() =
         runBlocking {
+            // MIGRATION_3_4 must be included even though this test is only
+            // about the 1->2 step: Room always migrates up to the version
+            // declared on @Database (now 4), so every migration chain built
+            // here has to reach that version or Room rejects it outright.
             database = Room.databaseBuilder(
                 context,
                 StitchbookDatabase::class.java,
                 DATABASE_NAME
-            ).addMigrations(MIGRATION_1_2)
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build()
 
             val existing = database.projectDao()
@@ -131,7 +135,7 @@ class StitchbookMigrationTest {
                 setOf("guide_drafts", "draft_nodes"),
                 readForeignKeyParents("draft_nodes")
             )
-            assertEquals(2, database.openHelper.readableDatabase.version)
+            assertEquals(4, database.openHelper.readableDatabase.version)
         }
 
     @Test
@@ -175,11 +179,15 @@ class StitchbookMigrationTest {
             seedGuideRepository.publishDraft(GuideId("existing-guide"))
             seedDatabase.close()
 
+            // MIGRATION_3_4 must be included even though this test is only
+            // about the 2->3 step: Room always migrates up to the version
+            // declared on @Database (now 4), so every migration chain built
+            // here has to reach that version or Room rejects it outright.
             database = Room.databaseBuilder(
                 context,
                 StitchbookDatabase::class.java,
                 DATABASE_NAME
-            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build()
 
             val existingProject = database.projectDao()
                 .observeById("existing-project")
@@ -202,7 +210,8 @@ class StitchbookMigrationTest {
                 "definition_revisions", "revision_nodes",
                 "executions", "execution_current_address_frames",
                 "execution_completed_occurrences",
-                "execution_completed_occurrence_frames", "active_executions"
+                "execution_completed_occurrence_frames", "active_executions",
+                "library_items", "stash_items"
             )
             assertEquals(expectedTables, readTableNames())
 
@@ -230,7 +239,35 @@ class StitchbookMigrationTest {
                 readIndexNames("active_executions").isNotEmpty()
             )
 
-            assertEquals(3, database.openHelper.readableDatabase.version)
+            assertEquals(4, database.openHelper.readableDatabase.version)
+        }
+
+    @Test
+    fun migrationFromThreeToFourAddsLibraryAndStashSchemaWithoutTouchingExistingData() =
+        runBlocking {
+            val seedDatabase = Room.databaseBuilder(
+                context,
+                StitchbookDatabase::class.java,
+                DATABASE_NAME
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
+            seedDatabase.close()
+
+            database = Room.databaseBuilder(
+                context,
+                StitchbookDatabase::class.java,
+                DATABASE_NAME
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build()
+
+            val existingProject = database.projectDao()
+                .observeById("existing-project")
+                .first()
+            assertEquals("Existing", existingProject?.name)
+
+            assertTrue(readTableNames().containsAll(setOf("library_items", "stash_items")))
+            assertEquals(emptyList<LibraryItemEntity>(), database.libraryDao().observeAll().first())
+            assertEquals(emptyList<StashItemEntity>(), database.stashDao().observeAll().first())
+
+            assertEquals(4, database.openHelper.readableDatabase.version)
         }
 
     private fun readTableNames(): Set<String> {
