@@ -8,12 +8,14 @@ import com.macareen.stitchbook2.data.repository.LocalGuideRepository
 import com.macareen.stitchbook2.data.repository.LocalLibraryRepository
 import com.macareen.stitchbook2.data.repository.LocalProjectRepository
 import com.macareen.stitchbook2.data.repository.LocalStashRepository
+import com.macareen.stitchbook2.data.repository.LocalToolRepository
 import com.macareen.stitchbook2.domain.backup.BackupService
 import com.macareen.stitchbook2.domain.repository.ExecutionRepository
 import com.macareen.stitchbook2.domain.repository.GuideRepository
 import com.macareen.stitchbook2.domain.repository.LibraryRepository
 import com.macareen.stitchbook2.domain.repository.ProjectRepository
 import com.macareen.stitchbook2.domain.repository.StashRepository
+import com.macareen.stitchbook2.domain.repository.ToolRepository
 
 interface AppContainer {
     val projectRepository: ProjectRepository
@@ -21,6 +23,7 @@ interface AppContainer {
     val executionRepository: ExecutionRepository
     val libraryRepository: LibraryRepository
     val stashRepository: StashRepository
+    val toolRepository: ToolRepository
     val backupService: BackupService
 }
 
@@ -42,6 +45,9 @@ class DefaultAppContainer(context: Context) : AppContainer {
     override val stashRepository: StashRepository =
         LocalStashRepository(database.stashDao())
 
+    override val toolRepository: ToolRepository =
+        LocalToolRepository(database.toolDao())
+
     override val backupService: BackupService =
-        LocalBackupService(projectRepository, libraryRepository, stashRepository)
+        LocalBackupService(projectRepository, libraryRepository, stashRepository, toolRepository)
 }

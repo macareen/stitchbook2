@@ -9,9 +9,13 @@ import com.macareen.stitchbook2.domain.model.ProjectStatus
 import com.macareen.stitchbook2.domain.model.ProjectType
 import com.macareen.stitchbook2.domain.model.StashCategory
 import com.macareen.stitchbook2.domain.model.StashItem
+import com.macareen.stitchbook2.domain.model.ToolCategory
+import com.macareen.stitchbook2.domain.model.ToolItem
+import com.macareen.stitchbook2.domain.model.ToolSet
 import com.macareen.stitchbook2.domain.repository.LibraryRepository
 import com.macareen.stitchbook2.domain.repository.ProjectRepository
 import com.macareen.stitchbook2.domain.repository.StashRepository
+import com.macareen.stitchbook2.domain.repository.ToolRepository
 import kotlinx.coroutines.flow.first
 import org.json.JSONArray
 import org.json.JSONException
@@ -23,11 +27,14 @@ private const val KEY_EXPORTED_AT = "exportedAt"
 private const val KEY_PROJECTS = "projects"
 private const val KEY_LIBRARY_ITEMS = "libraryItems"
 private const val KEY_STASH_ITEMS = "stashItems"
+private const val KEY_TOOL_SETS = "toolSets"
+private const val KEY_TOOL_ITEMS = "toolItems"
 
 class LocalBackupService(
     private val projectRepository: ProjectRepository,
     private val libraryRepository: LibraryRepository,
-    private val stashRepository: StashRepository
+    private val stashRepository: StashRepository,
+    private val toolRepository: ToolRepository
 ) : BackupService {
 
     override suspend fun exportJson(): String {
@@ -37,6 +44,10 @@ class LocalBackupService(
         root.put(KEY_PROJECTS, JSONArray(projectRepository.observeProjects().first().map { it.toJson() }))
         root.put(KEY_LIBRARY_ITEMS, JSONArray(libraryRepository.observeLibraryItems().first().map { it.toJson() }))
         root.put(KEY_STASH_ITEMS, JSONArray(stashRepository.observeStashItems().first().map { it.toJson() }))
+        // Sets before items: a set's own row must exist in the export for a
+        // component's setId to resolve on import, mirroring the FK direction.
+        root.put(KEY_TOOL_SETS, JSONArray(toolRepository.observeToolSets().first().map { it.toJson() }))
+        root.put(KEY_TOOL_ITEMS, JSONArray(toolRepository.observeToolItems().first().map { it.toJson() }))
         return root.toString(2)
     }
 
@@ -87,7 +98,44 @@ class LocalBackupService(
                 null
             }
 
-            BackupImportResult.Success(projectCount, libraryItemCount, stashItemCount)
+            // Sets are replaced before items: an incoming item's setId must
+            // already exist (or be null) before that item's row is inserted,
+            // and a set being deleted here only clears set_id on any item
+            // rows left behind, never fails or deletes them (ON DELETE
+            // SET_NULL).
+            val toolSetCount = if (root.has(KEY_TOOL_SETS)) {
+                val sets = root.getJSONArray(KEY_TOOL_SETS).toObjectList().map { it.toToolSet() }
+                replaceAll(
+                    current = toolRepository.observeToolSets().first(),
+                    incoming = sets,
+                    delete = toolRepository::deleteToolSet,
+                    save = toolRepository::saveToolSet
+                )
+                sets.size
+            } else {
+                null
+            }
+
+            val toolItemCount = if (root.has(KEY_TOOL_ITEMS)) {
+                val items = root.getJSONArray(KEY_TOOL_ITEMS).toObjectList().map { it.toToolItem() }
+                replaceAll(
+                    current = toolRepository.observeToolItems().first(),
+                    incoming = items,
+                    delete = toolRepository::deleteToolItem,
+                    save = toolRepository::saveToolItem
+                )
+                items.size
+            } else {
+                null
+            }
+
+            BackupImportResult.Success(
+                projectCount,
+                libraryItemCount,
+                stashItemCount,
+                toolSetCount,
+                toolItemCount
+            )
         } catch (_: JSONException) {
             BackupImportResult.InvalidFormat
         } catch (_: IllegalArgumentException) {
@@ -99,6 +147,11 @@ class LocalBackupService(
         projectRepository.observeProjects().first().forEach { projectRepository.deleteProject(it) }
         libraryRepository.observeLibraryItems().first().forEach { libraryRepository.deleteLibraryItem(it) }
         stashRepository.observeStashItems().first().forEach { stashRepository.deleteStashItem(it) }
+        // Items before sets: no functional requirement (set_id is ON DELETE
+        // SET_NULL either way), but it reads as "clear the members, then the
+        // now-empty grouping" rather than the reverse.
+        toolRepository.observeToolItems().first().forEach { toolRepository.deleteToolItem(it) }
+        toolRepository.observeToolSets().first().forEach { toolRepository.deleteToolSet(it) }
     }
 
     private suspend fun <T> replaceAll(
@@ -212,5 +265,71 @@ private fun JSONObject.toStashItem(): StashItem = StashItem(
     updatedAt = getLong("updatedAt")
 )
 
+private fun ToolSet.toJson(): JSONObject = JSONObject().apply {
+    put("id", id)
+    put("name", name)
+    put("brand", brand ?: JSONObject.NULL)
+    put("notes", notes ?: JSONObject.NULL)
+    put("createdAt", createdAt)
+    put("updatedAt", updatedAt)
+}
+
+private fun JSONObject.toToolSet(): ToolSet = ToolSet(
+    id = getString("id"),
+    name = getString("name"),
+    brand = optNullableString("brand"),
+    notes = optNullableString("notes"),
+    createdAt = getLong("createdAt"),
+    updatedAt = getLong("updatedAt")
+)
+
+private fun ToolItem.toJson(): JSONObject = JSONObject().apply {
+    put("id", id)
+    put("name", name)
+    put("category", category.storageValue)
+    put("brand", brand ?: JSONObject.NULL)
+    put("material", material ?: JSONObject.NULL)
+    put("sizeMetricMm", sizeMetricMm ?: JSONObject.NULL)
+    put("sizeLabel", sizeLabel ?: JSONObject.NULL)
+    put("lengthMm", lengthMm ?: JSONObject.NULL)
+    put("statedCableLengthMm", statedCableLengthMm ?: JSONObject.NULL)
+    put("cableLengthDefinition", cableLengthDefinition ?: JSONObject.NULL)
+    put("approximateAssembledLengthMm", approximateAssembledLengthMm ?: JSONObject.NULL)
+    put("connectorFamily", connectorFamily ?: JSONObject.NULL)
+    put("compatibilityNotes", compatibilityNotes ?: JSONObject.NULL)
+    put("quantity", quantity)
+    put("storageLocation", storageLocation ?: JSONObject.NULL)
+    put("notes", notes ?: JSONObject.NULL)
+    put("setId", setId ?: JSONObject.NULL)
+    put("createdAt", createdAt)
+    put("updatedAt", updatedAt)
+}
+
+private fun JSONObject.toToolItem(): ToolItem = ToolItem(
+    id = getString("id"),
+    name = getString("name"),
+    category = ToolCategory.fromStorageValue(getString("category"))
+        ?: throw IllegalArgumentException("Unknown tool category value"),
+    brand = optNullableString("brand"),
+    material = optNullableString("material"),
+    sizeMetricMm = optNullableDouble("sizeMetricMm"),
+    sizeLabel = optNullableString("sizeLabel"),
+    lengthMm = optNullableDouble("lengthMm"),
+    statedCableLengthMm = optNullableDouble("statedCableLengthMm"),
+    cableLengthDefinition = optNullableString("cableLengthDefinition"),
+    approximateAssembledLengthMm = optNullableDouble("approximateAssembledLengthMm"),
+    connectorFamily = optNullableString("connectorFamily"),
+    compatibilityNotes = optNullableString("compatibilityNotes"),
+    quantity = getInt("quantity"),
+    storageLocation = optNullableString("storageLocation"),
+    notes = optNullableString("notes"),
+    setId = optNullableString("setId"),
+    createdAt = getLong("createdAt"),
+    updatedAt = getLong("updatedAt")
+)
+
 private fun JSONObject.optNullableString(name: String): String? =
     if (isNull(name)) null else getString(name)
+
+private fun JSONObject.optNullableDouble(name: String): Double? =
+    if (isNull(name)) null else getDouble(name)

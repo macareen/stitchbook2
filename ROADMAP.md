@@ -152,6 +152,8 @@ Every phase that adds durable user records must also extend the current versione
 
 ## Phase 5 — Tools, grouped sets, ranges, and compatibility
 
+**Status: domain model, Room schema (v6), and repository implemented; bulk creation, CRUD UI, and CSV import/export are not yet.** `ToolItem` (one physically countable component) and `ToolSet` (a named grouping such as a complete commercial interchangeable set) cover the full type list in the Scope below, with sizing/length stored canonically in millimeters plus an optional free-text convenience label, and interchangeable-cable fields (stated length, its definition, approximate assembled length) and informational (non-validated) connector-family/compatibility-notes fields. `ToolItem.setId` references its owning `ToolSet` without duplicating stock -- availability is always the component's own `quantity`, never a set-level count -- and deleting a set returns its components to standalone items (`ON DELETE SET NULL`) rather than deleting them. Tool sets and items are included in the versioned safety export alongside Projects, Library, and Stash. Not yet built: bulk creation by ranges/selections/templates, individual and grouped-set CRUD/list/detail UI, many-to-many project assignment, and CSV import/export.
+
 **Goal:** Represent real tool collections, including interchangeable systems, without flattening grouped sets.
 
 **Scope:**

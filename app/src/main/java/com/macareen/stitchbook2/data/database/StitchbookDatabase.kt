@@ -21,9 +21,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ExecutionCompletedOccurrenceFrameEntity::class,
         ActiveExecutionEntity::class,
         LibraryItemEntity::class,
-        StashItemEntity::class
+        StashItemEntity::class,
+        ToolSetEntity::class,
+        ToolItemEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = true
 )
 abstract class StitchbookDatabase : RoomDatabase() {
@@ -33,6 +35,7 @@ abstract class StitchbookDatabase : RoomDatabase() {
     abstract fun executionDao(): ExecutionDao
     abstract fun libraryDao(): LibraryDao
     abstract fun stashDao(): StashDao
+    abstract fun toolDao(): ToolDao
 
     companion object {
         private const val DATABASE_NAME = "stitchbook.db"
@@ -46,7 +49,13 @@ abstract class StitchbookDatabase : RoomDatabase() {
                     context.applicationContext,
                     StitchbookDatabase::class.java,
                     DATABASE_NAME
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                ).addMigrations(
+                    MIGRATION_1_2,
+                    MIGRATION_2_3,
+                    MIGRATION_3_4,
+                    MIGRATION_4_5,
+                    MIGRATION_5_6
+                )
                     .build()
                     .also { instance = it }
             }
@@ -395,5 +404,64 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
         db.execSQL("ALTER TABLE `library_items` ADD COLUMN `pdf_uri` TEXT")
         db.execSQL("ALTER TABLE `library_items` ADD COLUMN `pdf_file_name` TEXT")
         db.execSQL("ALTER TABLE `library_items` ADD COLUMN `pdf_last_viewed_page` INTEGER")
+    }
+}
+
+/**
+ * Adds the Tools inventory schema (PRODUCT_SPEC.md 6.8): individual tool
+ * components (`tool_items`) and the grouped sets they may optionally belong
+ * to (`tool_sets`). `set_id` uses ON DELETE SET NULL, not CASCADE -- a set is
+ * a label over existing inventory, so deleting the set must return its
+ * components to standalone items rather than deleting or orphan-failing them
+ * (see ARCHITECTURE.md 9).
+ */
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `tool_sets` (
+                `id` TEXT NOT NULL,
+                `name` TEXT NOT NULL,
+                `brand` TEXT,
+                `notes` TEXT,
+                `created_at` INTEGER NOT NULL,
+                `updated_at` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent()
+        )
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `tool_items` (
+                `id` TEXT NOT NULL,
+                `name` TEXT NOT NULL,
+                `category` TEXT NOT NULL,
+                `brand` TEXT,
+                `material` TEXT,
+                `size_metric_mm` REAL,
+                `size_label` TEXT,
+                `length_mm` REAL,
+                `stated_cable_length_mm` REAL,
+                `cable_length_definition` TEXT,
+                `approximate_assembled_length_mm` REAL,
+                `connector_family` TEXT,
+                `compatibility_notes` TEXT,
+                `quantity` INTEGER NOT NULL,
+                `storage_location` TEXT,
+                `notes` TEXT,
+                `set_id` TEXT,
+                `created_at` INTEGER NOT NULL,
+                `updated_at` INTEGER NOT NULL,
+                PRIMARY KEY(`id`),
+                FOREIGN KEY(`set_id`) REFERENCES `tool_sets`(`id`)
+                    ON UPDATE NO ACTION ON DELETE SET NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_tool_items_set_id` " +
+                "ON `tool_items` (`set_id`)"
+        )
     }
 }
