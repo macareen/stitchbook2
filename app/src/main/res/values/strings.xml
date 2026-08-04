@@ -195,18 +195,22 @@
 
     <string name="draft_editor_add_step">Add step</string>
     <string name="draft_editor_done_action">Done</string>
-    <string name="draft_editor_empty_description">This guide doesn\'t have any steps yet. Add one to get started.</string>
+    <string name="draft_editor_empty_description">Let\'s write your pattern. Try a Section to name a part (like Body), or jump straight to an Instruction if it\'s simple.</string>
     <string name="draft_choose_type_title">What kind of step?</string>
     <string name="draft_node_type_section">Section</string>
-    <string name="draft_node_type_range">Range</string>
+    <string name="draft_node_type_section_hint">Group steps into a labeled part, like Body or Sleeve</string>
+    <string name="draft_node_type_range">Row range</string>
+    <string name="draft_node_type_range_hint">A set of rows worked the same way, like Rows 1–4</string>
     <string name="draft_node_type_repeat">Repeat</string>
+    <string name="draft_node_type_repeat_hint">Do the steps inside a set number of times</string>
     <string name="draft_node_type_instruction">Instruction</string>
+    <string name="draft_node_type_instruction_hint">One line of what to actually knit</string>
     <string name="draft_field_title">Title</string>
-    <string name="draft_field_instruction_text">Instruction</string>
+    <string name="draft_field_instruction_text">What to knit</string>
     <string name="draft_field_range_unit_label">Unit label (e.g. row, round)</string>
     <string name="draft_field_range_start">Start</string>
     <string name="draft_field_range_end">End</string>
-    <string name="draft_field_repeat_count">Repeat count</string>
+    <string name="draft_field_repeat_count">How many times?</string>
     <string name="draft_field_repeat_label">Label (optional)</string>
     <string name="draft_action_add">Add</string>
     <string name="draft_action_save">Save</string>
@@ -215,6 +219,9 @@
     <string name="draft_add_inside_action">Add step inside</string>
     <string name="draft_edit_step_action">Edit step</string>
     <string name="draft_delete_step_title">Delete step</string>
+    <string name="draft_publish_action">Publish</string>
+    <string name="draft_start_knitting_action">Start Knitting</string>
+    <string name="draft_continue_knitting_action">Continue Knitting</string>
     <string name="draft_delete_step_confirmation">Delete \"%1$s\" and everything inside it?</string>
 
     <string name="focus_ready_title">Ready to start</string>

@@ -98,6 +98,13 @@ interface GuideRepository {
      * is no expected-version check against the caller's own copy here;
      * staleness protection for concurrent edits is handled by [saveDraft]'s
      * optimistic concurrency, not by this method.
+     *
+     * Throws [DraftValidationException] if the draft is structurally
+     * incomplete or otherwise invalid for publication (a required field is
+     * missing, a container is empty, a Range's bounds are invalid, and so
+     * on) -- the draft itself is left unchanged. Throws
+     * [DraftVersionConflictException] if the draft row backing this Guide
+     * was concurrently changed or no longer exists.
      */
     suspend fun publishDraft(guideId: GuideId): DefinitionRevision
 }

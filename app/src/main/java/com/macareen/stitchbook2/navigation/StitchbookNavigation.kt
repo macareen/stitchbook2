@@ -178,12 +178,16 @@ fun StitchbookNavHost(
             val viewModel: DraftEditorViewModel = viewModel(
                 factory = DraftEditorViewModel.factory(
                     guideId = GuideId(guideId),
-                    guideRepository = guideRepository
+                    guideRepository = guideRepository,
+                    executionRepository = executionRepository
                 )
             )
             DraftEditorRoute(
                 viewModel = viewModel,
-                onDone = navController::popBackStack
+                onDone = navController::popBackStack,
+                onStartOrContinue = {
+                    navController.navigate(GuideFocusDestination.route(guideId))
+                }
             )
         }
         composable(

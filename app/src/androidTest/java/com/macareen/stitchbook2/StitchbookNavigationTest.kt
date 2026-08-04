@@ -28,7 +28,7 @@ class StitchbookNavigationTest {
         composeTestRule.navigationItem(home).assertIsSelected()
         composeTestRule
             .onNodeWithText(
-                composeTestRule.activity.getString(R.string.home_description)
+                composeTestRule.activity.getString(R.string.home_hero_title)
             )
             .assertIsDisplayed()
 
@@ -43,11 +43,11 @@ class StitchbookNavigationTest {
     }
 
     @Test
-    fun topLevelNavigation_reachesEveryPlaceholder() {
+    fun topLevelNavigation_reachesEveryDestination() {
         val destinations = listOf(
-            R.string.destination_library to R.string.library_description,
-            R.string.destination_stash to R.string.stash_description,
-            R.string.destination_settings to R.string.settings_description
+            R.string.destination_library to R.string.library_header_title,
+            R.string.destination_stash to R.string.stash_header_title,
+            R.string.destination_settings to R.string.settings_header_title
         )
 
         val projects = composeTestRule.activity.getString(R.string.destination_projects)

@@ -1,14 +1,17 @@
 package com.macareen.stitchbook2.data.repository
 
 import com.macareen.stitchbook2.data.database.DraftConflictException
+import com.macareen.stitchbook2.data.database.DraftNotFoundException
 import com.macareen.stitchbook2.data.database.GuideDao
 import com.macareen.stitchbook2.data.database.GuideDraftEntity
 import com.macareen.stitchbook2.data.database.GuideEntity
+import com.macareen.stitchbook2.data.database.InvalidDraftForPublicationException
 import com.macareen.stitchbook2.data.database.InvalidDraftTreeException
 import com.macareen.stitchbook2.data.database.toDomain
 import com.macareen.stitchbook2.data.database.toNodeEntities
 import com.macareen.stitchbook2.domain.execution.DefinitionRevisionId
 import com.macareen.stitchbook2.domain.execution.GuideId
+import com.macareen.stitchbook2.domain.execution.InvalidGuideDefinitionException
 import com.macareen.stitchbook2.domain.guide.DefinitionRevision
 import com.macareen.stitchbook2.domain.guide.DraftId
 import com.macareen.stitchbook2.domain.guide.Guide
@@ -141,10 +144,24 @@ class LocalGuideRepository(
     }
 
     override suspend fun publishDraft(guideId: GuideId): DefinitionRevision {
-        return guideDao.publishDraft(
-            guideId = guideId.value,
-            revisionId = DefinitionRevisionId(newId()).value,
-            createdAt = currentTimeMillis()
-        ).toDomain()
+        return try {
+            guideDao.publishDraft(
+                guideId = guideId.value,
+                revisionId = DefinitionRevisionId(newId()).value,
+                createdAt = currentTimeMillis()
+            ).toDomain()
+        } catch (error: InvalidDraftForPublicationException) {
+            throw DraftValidationException(error.message.orEmpty())
+        } catch (error: InvalidGuideDefinitionException) {
+            throw DraftValidationException(error.message.orEmpty())
+        } catch (_: DraftNotFoundException) {
+            // The draft this publish targeted is gone -- from the caller's
+            // perspective that is exactly what a version conflict already
+            // means: the basis for this write no longer holds, so reload
+            // authoritative state the same way a stale saveDraft would.
+            throw DraftVersionConflictException(guideId)
+        } catch (_: DraftConflictException) {
+            throw DraftVersionConflictException(guideId)
+        }
     }
 }
