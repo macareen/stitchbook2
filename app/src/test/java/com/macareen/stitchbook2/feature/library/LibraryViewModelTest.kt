@@ -95,7 +95,9 @@ class LibraryViewModelTest {
             author = "   ",
             sourceUrl = "  ",
             tags = listOf(" tag-one ", "", "tag,two"),
-            notes = "  "
+            notes = "  ",
+            pdfUri = null,
+            pdfFileName = null
         )
 
         val saved = repository.items.value.single()
@@ -118,7 +120,9 @@ class LibraryViewModelTest {
             author = "",
             sourceUrl = "",
             tags = emptyList(),
-            notes = ""
+            notes = "",
+            pdfUri = null,
+            pdfFileName = null
         )
 
         assertTrue(repository.items.value.isEmpty())

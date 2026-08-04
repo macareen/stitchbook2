@@ -1,0 +1,1039 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 5,
+    "identityHash": "9d39748c7fc6abb79089bf83f304c21b",
+    "entities": [
+      {
+        "tableName": "projects",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `craft` TEXT NOT NULL, `project_type` TEXT NOT NULL, `status` TEXT NOT NULL, `notes` TEXT, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "craft",
+            "columnName": "craft",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "projectType",
+            "columnName": "project_type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "guides",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `project_id` TEXT NOT NULL, `name` TEXT NOT NULL, `notes` TEXT, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`project_id`) REFERENCES `projects`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "projectId",
+            "columnName": "project_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_guides_project_id",
+            "unique": false,
+            "columnNames": [
+              "project_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_guides_project_id` ON `${TABLE_NAME}` (`project_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "projects",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "project_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "guide_drafts",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `guide_id` TEXT NOT NULL, `base_revision_id` TEXT, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, `version` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`guide_id`) REFERENCES `guides`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`base_revision_id`) REFERENCES `definition_revisions`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "guideId",
+            "columnName": "guide_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "baseRevisionId",
+            "columnName": "base_revision_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "version",
+            "columnName": "version",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_guide_drafts_guide_id",
+            "unique": true,
+            "columnNames": [
+              "guide_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_guide_drafts_guide_id` ON `${TABLE_NAME}` (`guide_id`)"
+          },
+          {
+            "name": "index_guide_drafts_base_revision_id",
+            "unique": false,
+            "columnNames": [
+              "base_revision_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_guide_drafts_base_revision_id` ON `${TABLE_NAME}` (`base_revision_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "guides",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "guide_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "definition_revisions",
+            "onDelete": "SET NULL",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "base_revision_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "draft_nodes",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`draft_id` TEXT NOT NULL, `node_id` TEXT NOT NULL, `parent_node_id` TEXT, `child_order` INTEGER NOT NULL, `type` TEXT NOT NULL, `title` TEXT, `instruction_text` TEXT, `range_unit_label` TEXT, `range_start_inclusive` INTEGER, `range_end_inclusive` INTEGER, `repeat_count` INTEGER, `repeat_label` TEXT, PRIMARY KEY(`draft_id`, `node_id`), FOREIGN KEY(`draft_id`) REFERENCES `guide_drafts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`draft_id`, `parent_node_id`) REFERENCES `draft_nodes`(`draft_id`, `node_id`) ON UPDATE NO ACTION ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED)",
+        "fields": [
+          {
+            "fieldPath": "draftId",
+            "columnName": "draft_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nodeId",
+            "columnName": "node_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "parentNodeId",
+            "columnName": "parent_node_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "childOrder",
+            "columnName": "child_order",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "instructionText",
+            "columnName": "instruction_text",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "rangeUnitLabel",
+            "columnName": "range_unit_label",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "rangeStartInclusive",
+            "columnName": "range_start_inclusive",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "rangeEndInclusive",
+            "columnName": "range_end_inclusive",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "repeatCount",
+            "columnName": "repeat_count",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "repeatLabel",
+            "columnName": "repeat_label",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "draft_id",
+            "node_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_draft_nodes_draft_id_parent_node_id",
+            "unique": false,
+            "columnNames": [
+              "draft_id",
+              "parent_node_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_draft_nodes_draft_id_parent_node_id` ON `${TABLE_NAME}` (`draft_id`, `parent_node_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "guide_drafts",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "draft_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "draft_nodes",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "draft_id",
+              "parent_node_id"
+            ],
+            "referencedColumns": [
+              "draft_id",
+              "node_id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "definition_revisions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `guide_id` TEXT NOT NULL, `revision_number` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`guide_id`) REFERENCES `guides`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "guideId",
+            "columnName": "guide_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "revisionNumber",
+            "columnName": "revision_number",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_definition_revisions_guide_id",
+            "unique": false,
+            "columnNames": [
+              "guide_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_definition_revisions_guide_id` ON `${TABLE_NAME}` (`guide_id`)"
+          },
+          {
+            "name": "index_definition_revisions_guide_id_revision_number",
+            "unique": true,
+            "columnNames": [
+              "guide_id",
+              "revision_number"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_definition_revisions_guide_id_revision_number` ON `${TABLE_NAME}` (`guide_id`, `revision_number`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "guides",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "guide_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "revision_nodes",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`revision_id` TEXT NOT NULL, `node_id` TEXT NOT NULL, `parent_node_id` TEXT, `child_order` INTEGER NOT NULL, `type` TEXT NOT NULL, `title` TEXT, `instruction_text` TEXT, `range_unit_label` TEXT, `range_start_inclusive` INTEGER, `range_end_inclusive` INTEGER, `repeat_count` INTEGER, `repeat_label` TEXT, PRIMARY KEY(`revision_id`, `node_id`), FOREIGN KEY(`revision_id`) REFERENCES `definition_revisions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`revision_id`, `parent_node_id`) REFERENCES `revision_nodes`(`revision_id`, `node_id`) ON UPDATE NO ACTION ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED)",
+        "fields": [
+          {
+            "fieldPath": "revisionId",
+            "columnName": "revision_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nodeId",
+            "columnName": "node_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "parentNodeId",
+            "columnName": "parent_node_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "childOrder",
+            "columnName": "child_order",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "instructionText",
+            "columnName": "instruction_text",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "rangeUnitLabel",
+            "columnName": "range_unit_label",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "rangeStartInclusive",
+            "columnName": "range_start_inclusive",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "rangeEndInclusive",
+            "columnName": "range_end_inclusive",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "repeatCount",
+            "columnName": "repeat_count",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "repeatLabel",
+            "columnName": "repeat_label",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "revision_id",
+            "node_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_revision_nodes_revision_id_parent_node_id",
+            "unique": false,
+            "columnNames": [
+              "revision_id",
+              "parent_node_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_revision_nodes_revision_id_parent_node_id` ON `${TABLE_NAME}` (`revision_id`, `parent_node_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "definition_revisions",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "revision_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "revision_nodes",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "revision_id",
+              "parent_node_id"
+            ],
+            "referencedColumns": [
+              "revision_id",
+              "node_id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "executions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `guide_id` TEXT NOT NULL, `definition_revision_id` TEXT NOT NULL, `status` TEXT NOT NULL, `current_instruction_node_id` TEXT, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, `completed_at` INTEGER, `version` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`guide_id`) REFERENCES `guides`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`definition_revision_id`) REFERENCES `definition_revisions`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "guideId",
+            "columnName": "guide_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "definitionRevisionId",
+            "columnName": "definition_revision_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "currentInstructionNodeId",
+            "columnName": "current_instruction_node_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "completedAt",
+            "columnName": "completed_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "version",
+            "columnName": "version",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_executions_guide_id",
+            "unique": false,
+            "columnNames": [
+              "guide_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_executions_guide_id` ON `${TABLE_NAME}` (`guide_id`)"
+          },
+          {
+            "name": "index_executions_definition_revision_id",
+            "unique": false,
+            "columnNames": [
+              "definition_revision_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_executions_definition_revision_id` ON `${TABLE_NAME}` (`definition_revision_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "guides",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "guide_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "definition_revisions",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "definition_revision_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "execution_current_address_frames",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`execution_id` TEXT NOT NULL, `frame_order` INTEGER NOT NULL, `container_node_id` TEXT NOT NULL, `frame_type` TEXT NOT NULL, `frame_value` INTEGER NOT NULL, PRIMARY KEY(`execution_id`, `frame_order`), FOREIGN KEY(`execution_id`) REFERENCES `executions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "executionId",
+            "columnName": "execution_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "frameOrder",
+            "columnName": "frame_order",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "containerNodeId",
+            "columnName": "container_node_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "frameType",
+            "columnName": "frame_type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "frameValue",
+            "columnName": "frame_value",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "execution_id",
+            "frame_order"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "executions",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "execution_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "execution_completed_occurrences",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`execution_id` TEXT NOT NULL, `address_signature` TEXT NOT NULL, `instruction_node_id` TEXT NOT NULL, PRIMARY KEY(`execution_id`, `address_signature`), FOREIGN KEY(`execution_id`) REFERENCES `executions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "executionId",
+            "columnName": "execution_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "addressSignature",
+            "columnName": "address_signature",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "instructionNodeId",
+            "columnName": "instruction_node_id",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "execution_id",
+            "address_signature"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "executions",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "execution_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "execution_completed_occurrence_frames",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`execution_id` TEXT NOT NULL, `address_signature` TEXT NOT NULL, `frame_order` INTEGER NOT NULL, `container_node_id` TEXT NOT NULL, `frame_type` TEXT NOT NULL, `frame_value` INTEGER NOT NULL, PRIMARY KEY(`execution_id`, `address_signature`, `frame_order`), FOREIGN KEY(`execution_id`, `address_signature`) REFERENCES `execution_completed_occurrences`(`execution_id`, `address_signature`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "executionId",
+            "columnName": "execution_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "addressSignature",
+            "columnName": "address_signature",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "frameOrder",
+            "columnName": "frame_order",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "containerNodeId",
+            "columnName": "container_node_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "frameType",
+            "columnName": "frame_type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "frameValue",
+            "columnName": "frame_value",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "execution_id",
+            "address_signature",
+            "frame_order"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "execution_completed_occurrences",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "execution_id",
+              "address_signature"
+            ],
+            "referencedColumns": [
+              "execution_id",
+              "address_signature"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "active_executions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`guide_id` TEXT NOT NULL, `execution_id` TEXT NOT NULL, PRIMARY KEY(`guide_id`), FOREIGN KEY(`guide_id`) REFERENCES `guides`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`execution_id`) REFERENCES `executions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "guideId",
+            "columnName": "guide_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "executionId",
+            "columnName": "execution_id",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "guide_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_active_executions_execution_id",
+            "unique": true,
+            "columnNames": [
+              "execution_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_active_executions_execution_id` ON `${TABLE_NAME}` (`execution_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "guides",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "guide_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "executions",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "execution_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "library_items",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `craft` TEXT NOT NULL, `author` TEXT, `source_url` TEXT, `tags` TEXT NOT NULL, `notes` TEXT, `bookmarked` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, `pdf_uri` TEXT, `pdf_file_name` TEXT, `pdf_last_viewed_page` INTEGER, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "craft",
+            "columnName": "craft",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "author",
+            "columnName": "author",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "sourceUrl",
+            "columnName": "source_url",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "tags",
+            "columnName": "tags",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "bookmarked",
+            "columnName": "bookmarked",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pdfUri",
+            "columnName": "pdf_uri",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "pdfFileName",
+            "columnName": "pdf_file_name",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "pdfLastViewedPage",
+            "columnName": "pdf_last_viewed_page",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "stash_items",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `category` TEXT NOT NULL, `brand` TEXT, `colorway` TEXT, `dye_lot` TEXT, `weight_category` TEXT, `fiber_content` TEXT, `quantity` REAL NOT NULL, `unit_label` TEXT NOT NULL, `yardage_per_unit` REAL, `notes` TEXT, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "category",
+            "columnName": "category",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "brand",
+            "columnName": "brand",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "colorway",
+            "columnName": "colorway",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "dyeLot",
+            "columnName": "dye_lot",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "weightCategory",
+            "columnName": "weight_category",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "fiberContent",
+            "columnName": "fiber_content",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "quantity",
+            "columnName": "quantity",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "unitLabel",
+            "columnName": "unit_label",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "yardagePerUnit",
+            "columnName": "yardage_per_unit",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '9d39748c7fc6abb79089bf83f304c21b')"
+    ]
+  }
+}

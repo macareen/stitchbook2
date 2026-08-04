@@ -38,6 +38,7 @@ See [PRODUCT_SPEC.md](PRODUCT_SPEC.md) for structured requirements and [ROADMAP.
 - Publish: a Draft becomes an immutable, versioned Definition Revision through a real Publish action; the Draft remains editable afterward and a later edit publishes as a new Revision
 - Focus Mode: Start/Continue a published Guide's execution, with persisted Complete/Previous/Jump-to-incomplete transitions that survive app restarts -- reachable end to end through production UI with no debug tooling or database seeding required
 - A pattern library (title, author, source link, tags, notes, bookmarks) with search and craft/bookmark filtering
+- PDF pattern attachment: select a PDF via the Storage Access Framework with durable (persistable) read access, view it page-by-page in a built-in viewer (`android.graphics.pdf.PdfRenderer`, no bundled PDF library) or hand off to another app, and resume from the last-viewed page. The original file is never copied or modified -- only its `content://` URI and display name are stored
 - A yarn/tools stash (category, brand, colorway, dye lot, weight, fiber, quantity, yardage, notes) with search and category filtering
 - Portable JSON backup, restore, and full local reset via Settings, through the Storage Access Framework
 - Room schema versioned through v4 with real migrations backing Guides, Definition Revisions, Executions, Projects, Library items, and Stash items
@@ -96,7 +97,7 @@ The debug APK is normally produced under `app/build/outputs/apk/debug/`.
 
 ## Current limitations
 
-- No PDF attachment/viewing, photo, counter, or session tracking yet.
+- No photo, counter, or session tracking yet. PDF pattern attachment/viewing exists (see above), but many-to-many pattern-to-project linking and PDF text parsing do not.
 - Yarn stash and library entries have no CSV import/export yet; only whole-database JSON backup/restore exists.
 - Needle/hook/cable/interchangeable-set tool inventory (with bulk creation) is not implemented.
 - Guide authoring is manual only -- no PDF/OCR-based pattern parsing exists yet.

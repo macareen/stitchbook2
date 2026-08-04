@@ -19,6 +19,8 @@ import com.macareen.stitchbook2.feature.focus.GuideFocusViewModel
 import com.macareen.stitchbook2.feature.home.HomeRoute
 import com.macareen.stitchbook2.feature.home.HomeViewModel
 import com.macareen.stitchbook2.feature.library.LibraryRoute
+import com.macareen.stitchbook2.feature.library.PdfViewerRoute
+import com.macareen.stitchbook2.feature.library.PdfViewerViewModel
 import com.macareen.stitchbook2.feature.library.LibraryViewModel
 import com.macareen.stitchbook2.feature.projects.ProjectDetailRoute
 import com.macareen.stitchbook2.feature.projects.ProjectDetailViewModel
@@ -97,7 +99,32 @@ fun StitchbookNavHost(
             val viewModel: LibraryViewModel = viewModel(
                 factory = LibraryViewModel.factory(libraryRepository)
             )
-            LibraryRoute(viewModel = viewModel)
+            LibraryRoute(
+                viewModel = viewModel,
+                onOpenPdf = { libraryItemId ->
+                    navController.navigate(PdfViewerDestination.route(libraryItemId))
+                }
+            )
+        }
+        composable(
+            route = PdfViewerDestination.ROUTE,
+            arguments = listOf(
+                navArgument(PdfViewerDestination.LIBRARY_ITEM_ID_ARGUMENT) {
+                    type = NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val libraryItemId = backStackEntry.arguments?.getString(
+                PdfViewerDestination.LIBRARY_ITEM_ID_ARGUMENT
+            )
+                .orEmpty()
+            val viewModel: PdfViewerViewModel = viewModel(
+                factory = PdfViewerViewModel.factory(
+                    libraryItemId = libraryItemId,
+                    repository = libraryRepository
+                )
+            )
+            PdfViewerRoute(viewModel = viewModel)
         }
         composable(TopLevelDestination.Stash.route) {
             val viewModel: StashViewModel = viewModel(

@@ -177,6 +177,8 @@ Every phase that adds durable user records must also extend the current versione
 
 ## Phase 6 — Pattern library and portable PDF storage
 
+**Status: PDF attachment foundation implemented; many-to-many project links and portable pattern-metadata export remain open.** A Library item can attach one PDF selected through SAF with a persisted (`takePersistableUriPermission`) `content://` URI and captured display name -- never a blob, never a copy. A built-in viewer (`android.graphics.pdf.PdfRenderer`, a platform API, so no new dependency) renders pages on demand and remembers the last-viewed page per item; "open in another app" is offered alongside it via `ACTION_VIEW`. Revoked/missing access (file moved, deleted, or permission lost) surfaces a clear, recoverable message rather than crashing. Room migration 4→5 adds the three PDF columns non-destructively; existing rows are unaffected. Not yet built: many-to-many pattern-to-project links, tags/gauge/yardage/purchase metadata beyond what Library already tracks, and portable pattern-metadata export/relinking across devices.
+
 **Goal:** Catalog patterns while keeping original PDFs untouched and user-accessible.
 
 **Scope:**

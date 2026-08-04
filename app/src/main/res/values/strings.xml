@@ -64,6 +64,19 @@
     <string name="delete_library_item_confirmation">Delete \"%1$s\"? This removes it from your library.</string>
     <string name="library_load_error_title">Library could not be loaded</string>
     <string name="library_load_error_description">Close and reopen this screen to try again.</string>
+    <string name="library_attach_pdf_action">Attach PDF</string>
+    <string name="library_change_pdf_action">Change PDF</string>
+    <string name="library_remove_pdf_action">Remove PDF</string>
+    <string name="library_view_pdf_action">View PDF</string>
+    <string name="pdf_viewer_page_indicator">Page %1$d of %2$d</string>
+    <string name="pdf_viewer_previous_page">Previous page</string>
+    <string name="pdf_viewer_next_page">Next page</string>
+    <string name="pdf_viewer_open_externally_action">Open in another app</string>
+    <string name="pdf_viewer_no_activity">No app on this device can open PDF files.</string>
+    <string name="pdf_viewer_access_revoked_title">Can\'t open this PDF</string>
+    <string name="pdf_viewer_access_revoked_description">Access to this file was lost — it may have been moved, deleted, or its permission revoked. Remove and reattach it from this pattern\'s edit screen.</string>
+    <string name="pdf_viewer_not_found_title">Pattern not found</string>
+    <string name="pdf_viewer_not_found_description">This pattern may have been deleted or is no longer available.</string>
 
     <string name="stash_category_yarn">Yarn</string>
     <string name="stash_category_needles_hooks">Needles &amp; Hooks</string>

@@ -41,7 +41,10 @@ class LocalBackupServiceTest {
         notes = null,
         bookmarked = true,
         createdAt = 100,
-        updatedAt = 200
+        updatedAt = 200,
+        pdfUri = "content://com.example.provider/document/42",
+        pdfFileName = "Raglan Guide.pdf",
+        pdfLastViewedPage = 2
     )
 
     private val stashItem = StashItem(

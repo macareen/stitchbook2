@@ -23,7 +23,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         LibraryItemEntity::class,
         StashItemEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 abstract class StitchbookDatabase : RoomDatabase() {
@@ -46,7 +46,7 @@ abstract class StitchbookDatabase : RoomDatabase() {
                     context.applicationContext,
                     StitchbookDatabase::class.java,
                     DATABASE_NAME
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                     .also { instance = it }
             }
@@ -380,5 +380,20 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
             )
             """.trimIndent()
         )
+    }
+}
+
+/**
+ * Adds an optional PDF attachment to a Library item -- a persisted-permission
+ * `content://` URI plus its display name, never a blob and never a copy of
+ * the original file (see PRODUCT_SPEC.md 6.5). All three columns are
+ * nullable with no default-value backfill needed: every existing row simply
+ * has no PDF attached yet.
+ */
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `library_items` ADD COLUMN `pdf_uri` TEXT")
+        db.execSQL("ALTER TABLE `library_items` ADD COLUMN `pdf_file_name` TEXT")
+        db.execSQL("ALTER TABLE `library_items` ADD COLUMN `pdf_last_viewed_page` INTEGER")
     }
 }
