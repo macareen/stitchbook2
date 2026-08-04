@@ -29,11 +29,13 @@ import java.util.UUID
  * -> the real `AppContainer` repositories over the on-device Room database) --
  * not a preview, an isolated composable harness, or debug-only tooling.
  *
- * Guide/Revision content is seeded directly through the same repository
- * contracts a real guide editor would eventually use (there is no in-app
- * authoring UI yet -- item 3 in the execution-engine delivery sequence).
- * Everything from opening the Project screen onward exercises real
- * navigation and real persisted state.
+ * The "Executable guide" fixture used by the Complete/Previous/resume tests
+ * below is still seeded directly through the repository (a 2-row Range is
+ * more than the in-app Draft editor's own tests need to cover, and keeping
+ * one guide pre-published keeps those tests focused on execution, not
+ * authoring). The authoring path itself -- Add Guide, the Draft editor, and
+ * Publish -- is exercised directly through real navigation by the tests
+ * below that create their own Guide from scratch.
  */
 @RunWith(AndroidJUnit4::class)
 class ExecutionEntryResumeTest {
@@ -183,7 +185,7 @@ class ExecutionEntryResumeTest {
 
         composeTestRule.onNode(hasText("Add step") and hasClickAction()).performClick()
         composeTestRule.onNode(hasText("Instruction") and hasClickAction()).performClick()
-        composeTestRule.onNodeWithText("Instruction").performTextInput("Cast on 10 stitches")
+        composeTestRule.onNodeWithText("What to knit").performTextInput("Cast on 10 stitches")
         composeTestRule.onNode(hasText("Add") and hasClickAction()).performClick()
 
         composeTestRule.onNodeWithText("Cast on 10 stitches").assertIsDisplayed()
@@ -195,6 +197,32 @@ class ExecutionEntryResumeTest {
 
         composeTestRule.onNodeWithText("Sleeve").performClick()
         composeTestRule.onNodeWithText("Cast on 10 stitches").assertIsDisplayed()
+    }
+
+    @Test
+    fun publishingAGuideThroughRealNavigationReachesFocusMode() {
+        openProject()
+
+        composeTestRule.onNode(hasText("Add Guide") and hasClickAction()).performClick()
+        composeTestRule.onNodeWithText("Guide name").performTextInput("Hat")
+        composeTestRule.onNode(hasText("Create") and hasClickAction()).performClick()
+
+        composeTestRule.onNode(hasText("Add step") and hasClickAction()).performClick()
+        composeTestRule.onNode(hasText("Instruction") and hasClickAction()).performClick()
+        composeTestRule.onNodeWithText("What to knit").performTextInput("Cast on 60 stitches")
+        composeTestRule.onNode(hasText("Add") and hasClickAction()).performClick()
+
+        composeTestRule.onNode(hasText("Publish") and hasClickAction()).performClick()
+
+        composeTestRule.onNode(hasText("Start Knitting") and hasClickAction()).performClick()
+
+        // Landed on Focus Mode's own Ready-to-start screen -- the Draft
+        // editor only navigates here, it never creates the Execution
+        // itself; that remains Focus Mode's own Start action.
+        composeTestRule.onNodeWithText("Ready to start").assertIsDisplayed()
+        composeTestRule.onNode(hasText("Start") and hasClickAction()).performClick()
+
+        composeTestRule.onNodeWithText("Cast on 60 stitches").assertIsDisplayed()
     }
 
     @Test
@@ -212,7 +240,8 @@ class ExecutionEntryResumeTest {
 
         composeTestRule.onNodeWithText("Draft only guide").assertIsDisplayed()
         composeTestRule.onNodeWithText(
-            "This guide doesn't have any steps yet. Add one to get started."
+            "Let's write your pattern. Try a Section to name a part (like Body), " +
+                "or jump straight to an Instruction if it's simple."
         ).assertIsDisplayed()
     }
 

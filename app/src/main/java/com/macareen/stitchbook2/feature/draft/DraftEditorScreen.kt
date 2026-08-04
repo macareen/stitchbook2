@@ -51,7 +51,8 @@ import com.macareen.stitchbook2.ui.theme.StitchbookTheme
 @Composable
 fun DraftEditorRoute(
     viewModel: DraftEditorViewModel,
-    onDone: () -> Unit
+    onDone: () -> Unit,
+    onStartOrContinue: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -62,8 +63,10 @@ fun DraftEditorRoute(
         onDeleteNode = viewModel::deleteNode,
         onMoveUp = viewModel::moveUp,
         onMoveDown = viewModel::moveDown,
+        onPublish = viewModel::publish,
         onDismissError = viewModel::dismissError,
-        onDone = onDone
+        onDone = onDone,
+        onStartOrContinue = onStartOrContinue
     )
 }
 
@@ -94,8 +97,10 @@ fun DraftEditorScreen(
     onDeleteNode: (NodeId) -> Unit,
     onMoveUp: (NodeId) -> Unit,
     onMoveDown: (NodeId) -> Unit,
+    onPublish: () -> Unit,
     onDismissError: () -> Unit,
     onDone: () -> Unit,
+    onStartOrContinue: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     when (uiState) {
@@ -133,8 +138,10 @@ fun DraftEditorScreen(
                 onDeleteNode = onDeleteNode,
                 onMoveUp = onMoveUp,
                 onMoveDown = onMoveDown,
+                onPublish = onPublish,
                 onDismissError = onDismissError,
                 onDone = onDone,
+                onStartOrContinue = onStartOrContinue,
                 modifier = modifier
             )
         }
@@ -168,8 +175,10 @@ private fun DraftEditorContent(
     onDeleteNode: (NodeId) -> Unit,
     onMoveUp: (NodeId) -> Unit,
     onMoveDown: (NodeId) -> Unit,
+    onPublish: () -> Unit,
     onDismissError: () -> Unit,
     onDone: () -> Unit,
+    onStartOrContinue: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var dialogState by remember { mutableStateOf<EditorDialogState?>(null) }
@@ -221,6 +230,11 @@ private fun DraftEditorContent(
 
         Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
 
+        // Primary action hierarchy: before publication, Publish is the one
+        // obvious next step; once published, Start/Continue Knitting takes
+        // over as the standout call to action (Publish stays available,
+        // de-emphasized, since the Draft remains editable and a later
+        // correction needs a way to become a new Revision too).
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)
@@ -231,11 +245,39 @@ private fun DraftEditorContent(
                 enabled = !state.isSaving,
                 modifier = Modifier.weight(1f)
             )
+            if (state.isPublished) {
+                SecondaryActionButton(
+                    text = stringResource(R.string.draft_publish_action),
+                    onClick = onPublish,
+                    enabled = !state.isSaving,
+                    modifier = Modifier.weight(1f)
+                )
+            } else {
+                PrimaryActionButton(
+                    text = stringResource(R.string.draft_publish_action),
+                    onClick = onPublish,
+                    enabled = !state.isSaving,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+
+        if (state.isPublished) {
+            Spacer(modifier = Modifier.height(StitchbookSpacing.small))
             PrimaryActionButton(
-                text = stringResource(R.string.draft_editor_done_action),
-                onClick = onDone,
-                modifier = Modifier.weight(1f)
+                text = if (state.hasActiveExecution) {
+                    stringResource(R.string.draft_continue_knitting_action)
+                } else {
+                    stringResource(R.string.draft_start_knitting_action)
+                },
+                onClick = onStartOrContinue,
+                modifier = Modifier.fillMaxWidth()
             )
+        }
+
+        Spacer(modifier = Modifier.height(StitchbookSpacing.extraSmall))
+        TextButton(onClick = onDone, modifier = Modifier.fillMaxWidth()) {
+            Text(text = stringResource(R.string.draft_editor_done_action))
         }
     }
 
@@ -368,8 +410,21 @@ private fun ChooseTypeDialog(
         text = {
             Column {
                 DraftNodeType.entries.forEach { type ->
-                    TextButton(onClick = { onChoose(type) }, modifier = Modifier.fillMaxWidth()) {
-                        Text(text = type.label(), modifier = Modifier.weight(1f))
+                    // The hint is a sibling of the TextButton, not a child
+                    // inside it: Compose only merges a clickable node's own
+                    // descendants into its semantics, so this keeps the
+                    // button discoverable by its type name alone.
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        TextButton(onClick = { onChoose(type) }, modifier = Modifier.fillMaxWidth()) {
+                            Text(text = type.label(), modifier = Modifier.weight(1f))
+                        }
+                        QuietText(
+                            text = type.hint(),
+                            modifier = Modifier.padding(
+                                start = StitchbookSpacing.medium,
+                                bottom = StitchbookSpacing.small
+                            )
+                        )
                     }
                 }
             }
@@ -568,6 +623,14 @@ private fun DraftNodeType.label(): String = when (this) {
     DraftNodeType.INSTRUCTION -> stringResource(R.string.draft_node_type_instruction)
 }
 
+@Composable
+private fun DraftNodeType.hint(): String = when (this) {
+    DraftNodeType.SECTION -> stringResource(R.string.draft_node_type_section_hint)
+    DraftNodeType.RANGE -> stringResource(R.string.draft_node_type_range_hint)
+    DraftNodeType.REPEAT -> stringResource(R.string.draft_node_type_repeat_hint)
+    DraftNodeType.INSTRUCTION -> stringResource(R.string.draft_node_type_instruction_hint)
+}
+
 private fun DraftNode.summary(): String = when (type) {
     DraftNodeType.SECTION -> title.orEmpty()
     DraftNodeType.INSTRUCTION -> instructionText.orEmpty()
@@ -617,8 +680,10 @@ private fun DraftEditorPreview() {
             onDeleteNode = {},
             onMoveUp = {},
             onMoveDown = {},
+            onPublish = {},
             onDismissError = {},
-            onDone = {}
+            onDone = {},
+            onStartOrContinue = {}
         )
     }
 }

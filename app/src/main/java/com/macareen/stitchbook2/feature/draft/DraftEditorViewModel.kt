@@ -12,6 +12,7 @@ import com.macareen.stitchbook2.domain.guide.DraftNodeType
 import com.macareen.stitchbook2.domain.guide.GuideDraft
 import com.macareen.stitchbook2.domain.repository.DraftValidationException
 import com.macareen.stitchbook2.domain.repository.DraftVersionConflictException
+import com.macareen.stitchbook2.domain.repository.ExecutionRepository
 import com.macareen.stitchbook2.domain.repository.GuideRepository
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
@@ -41,7 +42,11 @@ sealed interface DraftEditorUiState {
         val guideName: String,
         val rows: List<DraftOutlineRow>,
         val isSaving: Boolean = false,
-        val errorMessage: String? = null
+        val errorMessage: String? = null,
+        /** Whether [GuideRepository.getLatestRevision] currently returns a Revision for this Guide. */
+        val isPublished: Boolean = false,
+        /** Whether [ExecutionRepository.getActiveExecution] currently returns an ACTIVE Execution. */
+        val hasActiveExecution: Boolean = false
     ) : DraftEditorUiState
 }
 
@@ -51,10 +56,16 @@ sealed interface DraftEditorUiState {
  * buffer that could diverge from what Room holds. [uiState] always reflects
  * either the last successfully persisted Draft or (while a save is in
  * flight) the previously persisted one, never an unconfirmed local copy.
+ *
+ * [isPublished]/[hasActiveExecution] are read-only reflections of persisted
+ * state used solely to decide whether to offer Start or Continue after a
+ * successful publish -- this ViewModel never creates or mutates an
+ * Execution itself; that remains Focus Mode's job.
  */
 class DraftEditorViewModel(
     private val guideId: GuideId,
     private val guideRepository: GuideRepository,
+    private val executionRepository: ExecutionRepository,
     externalScope: CoroutineScope? = null,
     private val newNodeId: () -> String = { UUID.randomUUID().toString() }
 ) : ViewModel() {
@@ -82,7 +93,13 @@ class DraftEditorViewModel(
                 }
                 guideName = guide.name
                 draft = loadedDraft
-                render()
+                val (isPublished, hasActiveExecution) = currentPublicationStatus()
+                _uiState.value = DraftEditorUiState.Content(
+                    guideName = guideName,
+                    rows = outlineRows(loadedDraft),
+                    isPublished = isPublished,
+                    hasActiveExecution = hasActiveExecution
+                )
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Exception) {
@@ -194,6 +211,33 @@ class DraftEditorViewModel(
     /** Swaps [nodeId] with its next sibling, whether a root node or a container's child. */
     fun moveDown(nodeId: NodeId) = move(nodeId, 1)
 
+    /**
+     * Publishes the current persisted Draft as a new immutable Revision via
+     * [GuideRepository.publishDraft]. This ViewModel never decides whether
+     * the Draft is valid -- publication either succeeds or throws, and the
+     * validity rule lives entirely in the domain/repository layers.
+     */
+    fun publish() {
+        val content = _uiState.value as? DraftEditorUiState.Content ?: return
+        if (content.isSaving) return
+        _uiState.value = content.copy(isSaving = true, errorMessage = null)
+
+        scope.launch {
+            try {
+                guideRepository.publishDraft(guideId)
+                refreshAfterPublish()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: DraftValidationException) {
+                showError(error.message ?: "This draft isn't ready to publish yet.")
+            } catch (error: DraftVersionConflictException) {
+                reloadAfterConflict()
+            } catch (_: Exception) {
+                showError("This guide could not be published. Try again.")
+            }
+        }
+    }
+
     fun dismissError() {
         val content = _uiState.value as? DraftEditorUiState.Content ?: return
         _uiState.value = content.copy(errorMessage = null)
@@ -266,13 +310,29 @@ class DraftEditorViewModel(
         }
     }
 
+    /** Cheap: preserves the previous publish/execution status, for the same reason as [showError]. */
+    private fun render() {
+        val current = draft ?: return
+        val previous = _uiState.value as? DraftEditorUiState.Content
+        _uiState.value = DraftEditorUiState.Content(
+            guideName = guideName,
+            rows = outlineRows(current),
+            isPublished = previous?.isPublished == true,
+            hasActiveExecution = previous?.hasActiveExecution == true
+        )
+    }
+
+    /** Cheap: preserves the previous publish/execution status rather than re-reading it, since an ordinary node edit cannot change either. */
     private fun showError(message: String) {
         val unchanged = draft ?: return
+        val previous = _uiState.value as? DraftEditorUiState.Content
         _uiState.value = DraftEditorUiState.Content(
             guideName = guideName,
             rows = outlineRows(unchanged),
             isSaving = false,
-            errorMessage = message
+            errorMessage = message,
+            isPublished = previous?.isPublished == true,
+            hasActiveExecution = previous?.hasActiveExecution == true
         )
     }
 
@@ -286,20 +346,43 @@ class DraftEditorViewModel(
             return
         }
         draft = reloaded
+        // Recomputed fresh, not preserved: a conflict specifically means
+        // something else changed, and that something could have been a
+        // publish or execution start racing with this one.
+        val (isPublished, hasActiveExecution) = currentPublicationStatus()
         _uiState.value = DraftEditorUiState.Content(
             guideName = guideName,
             rows = outlineRows(reloaded),
             isSaving = false,
-            errorMessage = "This changed elsewhere. Showing the current draft."
+            errorMessage = "This changed elsewhere. Showing the current draft.",
+            isPublished = isPublished,
+            hasActiveExecution = hasActiveExecution
         )
     }
 
-    private fun render() {
-        val current = draft ?: return
+    private suspend fun refreshAfterPublish() {
+        // The draft's own row (base_revision_id, version) changed as part of
+        // publishing, so it must be reloaded -- reusing the stale cached
+        // copy would make the very next saveDraft look like a conflict.
+        val reloaded = guideRepository.loadDraft(guideId)
+        if (reloaded == null) {
+            _uiState.value = DraftEditorUiState.NotFound
+            return
+        }
+        draft = reloaded
+        val hasActiveExecution = executionRepository.getActiveExecution(guideId) != null
         _uiState.value = DraftEditorUiState.Content(
             guideName = guideName,
-            rows = outlineRows(current)
+            rows = outlineRows(reloaded),
+            isPublished = true,
+            hasActiveExecution = hasActiveExecution
         )
+    }
+
+    private suspend fun currentPublicationStatus(): Pair<Boolean, Boolean> {
+        val isPublished = guideRepository.getLatestRevision(guideId) != null
+        val hasActiveExecution = executionRepository.getActiveExecution(guideId) != null
+        return isPublished to hasActiveExecution
     }
 
     private fun outlineRows(draft: GuideDraft): List<DraftOutlineRow> {
@@ -325,10 +408,11 @@ class DraftEditorViewModel(
     companion object {
         fun factory(
             guideId: GuideId,
-            guideRepository: GuideRepository
+            guideRepository: GuideRepository,
+            executionRepository: ExecutionRepository
         ): ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                DraftEditorViewModel(guideId, guideRepository)
+                DraftEditorViewModel(guideId, guideRepository, executionRepository)
             }
         }
     }

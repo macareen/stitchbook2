@@ -1,8 +1,14 @@
 package com.macareen.stitchbook2.feature.draft
 
 import com.macareen.stitchbook2.domain.execution.DefinitionRevisionId
+import com.macareen.stitchbook2.domain.execution.ExecutionAddress
+import com.macareen.stitchbook2.domain.execution.ExecutionId
+import com.macareen.stitchbook2.domain.execution.ExecutionState
+import com.macareen.stitchbook2.domain.execution.GuideDefinition
 import com.macareen.stitchbook2.domain.execution.GuideId
 import com.macareen.stitchbook2.domain.execution.NodeId
+import com.macareen.stitchbook2.domain.execution.PersistedExecution
+import com.macareen.stitchbook2.domain.execution.PersistedExecutionTransitionResult
 import com.macareen.stitchbook2.domain.guide.DefinitionRevision
 import com.macareen.stitchbook2.domain.guide.DraftId
 import com.macareen.stitchbook2.domain.guide.DraftNode
@@ -11,6 +17,7 @@ import com.macareen.stitchbook2.domain.guide.Guide
 import com.macareen.stitchbook2.domain.guide.GuideDraft
 import com.macareen.stitchbook2.domain.repository.DraftValidationException
 import com.macareen.stitchbook2.domain.repository.DraftVersionConflictException
+import com.macareen.stitchbook2.domain.repository.ExecutionRepository
 import com.macareen.stitchbook2.domain.repository.GuideRepository
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -19,6 +26,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -70,6 +78,8 @@ class DraftEditorViewModelTest {
         val content = contentState(viewModel)
         assertEquals("Everyday cardigan", content.guideName)
         assertTrue(content.rows.isEmpty())
+        assertFalse(content.isPublished)
+        assertFalse(content.hasActiveExecution)
     }
 
     @Test
@@ -252,6 +262,116 @@ class DraftEditorViewModelTest {
         assertFalse(contentState(viewModel).isSaving)
     }
 
+    @Test
+    fun validDraftPublishesSuccessfully() {
+        val repository = FakeGuideRepository(guide = guide, draft = draftWithOneInstruction())
+        val viewModel = viewModel(repository)
+
+        viewModel.publish()
+
+        assertEquals(1, repository.publishCallCount)
+        val content = contentState(viewModel)
+        assertTrue(content.isPublished)
+        assertFalse(content.isSaving)
+        assertNull(content.errorMessage)
+    }
+
+    @Test
+    fun invalidDraftShowsRecoverableValidationFeedbackOnPublish() {
+        val repository = FakeGuideRepository(guide = guide, draft = emptyDraft())
+        repository.nextPublishError = DraftValidationException("Draft has no steps yet.")
+        val viewModel = viewModel(repository)
+
+        viewModel.publish()
+
+        val content = contentState(viewModel)
+        assertEquals("Draft has no steps yet.", content.errorMessage)
+        assertFalse(content.isPublished)
+        assertFalse(content.isSaving)
+    }
+
+    @Test
+    fun publicationCreatesARevisionAndLeavesTheDraftEditable() {
+        val repository = FakeGuideRepository(guide = guide, draft = draftWithOneInstruction())
+        val viewModel = viewModel(repository)
+
+        viewModel.publish()
+        assertEquals(1, repository.publishCallCount)
+        assertTrue(contentState(viewModel).isPublished)
+
+        // The draft must remain editable: a further node edit must persist
+        // cleanly, not spuriously conflict against the version publishing
+        // just bumped on the draft row.
+        viewModel.addNode(type = DraftNodeType.INSTRUCTION, parentId = null, instructionText = "Purl one row")
+
+        val content = contentState(viewModel)
+        assertEquals(2, content.rows.size)
+        assertFalse(content.isSaving)
+        assertNull(content.errorMessage)
+    }
+
+    @Test
+    fun successfulPublishExposesStartWhenNoActiveExecutionExists() {
+        val repository = FakeGuideRepository(guide = guide, draft = draftWithOneInstruction())
+        val viewModel = viewModel(repository, FakeExecutionRepository())
+
+        viewModel.publish()
+
+        val content = contentState(viewModel)
+        assertTrue(content.isPublished)
+        assertFalse(content.hasActiveExecution)
+    }
+
+    @Test
+    fun existingActiveExecutionExposesContinueAfterPublish() {
+        val repository = FakeGuideRepository(guide = guide, draft = draftWithOneInstruction())
+        val executions = FakeExecutionRepository()
+        executions.setActiveExecution(guideId)
+        val viewModel = viewModel(repository, executions)
+
+        viewModel.publish()
+
+        val content = contentState(viewModel)
+        assertTrue(content.isPublished)
+        assertTrue(content.hasActiveExecution)
+    }
+
+    @Test
+    fun repeatedPublishCallsWhileFirstInFlightPublishOnlyOnce() {
+        val repository = FakeGuideRepository(guide = guide, draft = draftWithOneInstruction())
+        repository.publishGate = CompletableDeferred()
+        val viewModel = viewModel(repository)
+
+        viewModel.publish()
+        assertTrue(contentState(viewModel).isSaving)
+
+        viewModel.publish()
+        assertEquals(1, repository.publishCallCount)
+
+        repository.publishGate?.complete(Unit)
+
+        assertEquals(1, repository.publishCallCount)
+        assertTrue(contentState(viewModel).isPublished)
+        assertFalse(contentState(viewModel).isSaving)
+    }
+
+    @Test
+    fun publishConflictReloadsAuthoritativeDraftState() {
+        val repository = FakeGuideRepository(guide = guide, draft = emptyDraft())
+        val viewModel = viewModel(repository)
+
+        repository.nextPublishError = DraftVersionConflictException(guideId)
+        repository.persistedDraft = draftWithOneInstruction()
+
+        viewModel.publish()
+
+        val content = contentState(viewModel)
+        assertEquals("This changed elsewhere. Showing the current draft.", content.errorMessage)
+        assertEquals(1, content.rows.size)
+        assertEquals("Cast on 40 stitches", content.rows.single().node.instructionText)
+        assertFalse(content.isSaving)
+    }
+
     private fun contentState(viewModel: DraftEditorViewModel): DraftEditorUiState.Content {
         return viewModel.uiState.value as DraftEditorUiState.Content
     }
@@ -284,11 +404,15 @@ class DraftEditorViewModelTest {
         )
     )
 
-    private fun viewModel(repository: FakeGuideRepository): DraftEditorViewModel {
+    private fun viewModel(
+        repository: FakeGuideRepository,
+        executions: FakeExecutionRepository = FakeExecutionRepository()
+    ): DraftEditorViewModel {
         var counter = 0
         return DraftEditorViewModel(
             guideId = guideId,
             guideRepository = repository,
+            executionRepository = executions,
             externalScope = scope,
             newNodeId = { "generated-${counter++}" }
         )
@@ -306,6 +430,11 @@ private class FakeGuideRepository(
     var saveGate: CompletableDeferred<Unit>? = null
     var saveCallCount = 0
     val savedDrafts = mutableListOf<GuideDraft>()
+
+    var hasPublishedRevision = false
+    var publishCallCount = 0
+    var nextPublishError: Exception? = null
+    var publishGate: CompletableDeferred<Unit>? = null
 
     override fun observeGuides(projectId: String): Flow<List<Guide>> =
         flowOf(guide?.let { listOf(it) }.orEmpty())
@@ -351,9 +480,101 @@ private class FakeGuideRepository(
     override suspend fun loadRevision(revisionId: DefinitionRevisionId): DefinitionRevision? =
         throw UnsupportedOperationException("Not used by DraftEditorViewModel")
 
-    override suspend fun getLatestRevision(guideId: GuideId): DefinitionRevision? =
+    override suspend fun getLatestRevision(guideId: GuideId): DefinitionRevision? {
+        if (!hasPublishedRevision) return null
+        val revisionId = DefinitionRevisionId("revision-$publishCallCount")
+        return DefinitionRevision(
+            id = revisionId,
+            guideId = guideId,
+            revisionNumber = publishCallCount,
+            createdAt = 0,
+            definition = GuideDefinition(
+                guideId = guideId,
+                revisionId = revisionId,
+                rootNodeIds = emptyList(),
+                nodes = emptyList()
+            )
+        )
+    }
+
+    override suspend fun publishDraft(guideId: GuideId): DefinitionRevision {
+        publishCallCount++
+        publishGate?.await()
+        nextPublishError?.let {
+            nextPublishError = null
+            throw it
+        }
+        hasPublishedRevision = true
+        persistedDraft = persistedDraft?.let { it.copy(version = it.version + 1) }
+        val revisionId = DefinitionRevisionId("revision-$publishCallCount")
+        return DefinitionRevision(
+            id = revisionId,
+            guideId = guideId,
+            revisionNumber = publishCallCount,
+            createdAt = 0,
+            definition = GuideDefinition(
+                guideId = guideId,
+                revisionId = revisionId,
+                rootNodeIds = emptyList(),
+                nodes = emptyList()
+            )
+        )
+    }
+}
+
+private class FakeExecutionRepository(
+    private var activeExecution: PersistedExecution? = null
+) : ExecutionRepository {
+
+    fun setActiveExecution(guideId: GuideId) {
+        val address = ExecutionAddress(
+            definitionRevisionId = DefinitionRevisionId("revision"),
+            instructionNodeId = NodeId("instruction")
+        )
+        activeExecution = PersistedExecution(
+            state = ExecutionState(
+                executionId = ExecutionId("execution-${guideId.value}"),
+                guideId = guideId,
+                definitionRevisionId = address.definitionRevisionId,
+                currentAddress = address,
+                completedAddresses = emptySet()
+            ),
+            version = 0,
+            createdAt = 0,
+            updatedAt = 0,
+            completedAt = null
+        )
+    }
+
+    override suspend fun createExecution(
+        guideId: GuideId,
+        revisionId: DefinitionRevisionId
+    ): PersistedExecution = throw UnsupportedOperationException("Not used by DraftEditorViewModel")
+
+    override suspend fun loadExecution(executionId: ExecutionId): PersistedExecution? =
         throw UnsupportedOperationException("Not used by DraftEditorViewModel")
 
-    override suspend fun publishDraft(guideId: GuideId): DefinitionRevision =
+    override suspend fun getActiveExecution(guideId: GuideId): PersistedExecution? = activeExecution
+
+    override suspend fun listExecutions(guideId: GuideId): List<PersistedExecution> =
+        throw UnsupportedOperationException("Not used by DraftEditorViewModel")
+
+    override suspend fun applyComplete(
+        executionId: ExecutionId,
+        expectedVersion: Long
+    ): PersistedExecutionTransitionResult =
+        throw UnsupportedOperationException("Not used by DraftEditorViewModel")
+
+    override suspend fun applyPrevious(
+        executionId: ExecutionId,
+        expectedVersion: Long
+    ): PersistedExecutionTransitionResult =
+        throw UnsupportedOperationException("Not used by DraftEditorViewModel")
+
+    override suspend fun applyJump(
+        executionId: ExecutionId,
+        expectedVersion: Long,
+        targetAddress: ExecutionAddress
+    ): PersistedExecutionTransitionResult =
         throw UnsupportedOperationException("Not used by DraftEditorViewModel")
 }
