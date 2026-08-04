@@ -16,7 +16,8 @@ import com.macareen.stitchbook2.feature.draft.DraftEditorRoute
 import com.macareen.stitchbook2.feature.draft.DraftEditorViewModel
 import com.macareen.stitchbook2.feature.focus.GuideFocusRoute
 import com.macareen.stitchbook2.feature.focus.GuideFocusViewModel
-import com.macareen.stitchbook2.feature.home.HomeScreen
+import com.macareen.stitchbook2.feature.home.HomeRoute
+import com.macareen.stitchbook2.feature.home.HomeViewModel
 import com.macareen.stitchbook2.feature.library.LibraryScreen
 import com.macareen.stitchbook2.feature.projects.ProjectDetailRoute
 import com.macareen.stitchbook2.feature.projects.ProjectDetailViewModel
@@ -43,7 +44,34 @@ fun StitchbookNavHost(
         modifier = modifier
     ) {
         composable(TopLevelDestination.Home.route) {
-            HomeScreen()
+            val viewModel: HomeViewModel = viewModel(
+                factory = HomeViewModel.factory(
+                    projectRepository = projectRepository,
+                    guideRepository = guideRepository,
+                    executionRepository = executionRepository
+                )
+            )
+            HomeRoute(
+                viewModel = viewModel,
+                onNewProject = {
+                    navController.navigate(ProjectDestination.CREATE_ROUTE)
+                },
+                onOpenProject = { projectId ->
+                    navController.navigate(ProjectDestination.detailRoute(projectId))
+                },
+                onOpenProjects = {
+                    navController.navigateToTopLevelDestination(TopLevelDestination.Projects)
+                },
+                onOpenLibrary = {
+                    navController.navigateToTopLevelDestination(TopLevelDestination.Library)
+                },
+                onOpenStash = {
+                    navController.navigateToTopLevelDestination(TopLevelDestination.Stash)
+                },
+                onResumeGuide = { guideId ->
+                    navController.navigate(GuideFocusDestination.route(guideId))
+                }
+            )
         }
         composable(TopLevelDestination.Projects.route) {
             val viewModel: ProjectsViewModel = viewModel(
