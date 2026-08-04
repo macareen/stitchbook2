@@ -1,10 +1,14 @@
 package com.macareen.stitchbook2.feature.projects
 
 import androidx.annotation.StringRes
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import com.macareen.stitchbook2.R
 import com.macareen.stitchbook2.domain.model.Craft
 import com.macareen.stitchbook2.domain.model.ProjectStatus
 import com.macareen.stitchbook2.domain.model.ProjectType
+import com.macareen.stitchbook2.ui.theme.textSecondary
 
 @StringRes
 fun Craft.labelResource(): Int = when (this) {
@@ -39,4 +43,22 @@ fun ProjectType.labelResource(): Int = when (this) {
     ProjectType.HOMEWARE -> R.string.project_type_homeware
     ProjectType.ACCESSORY -> R.string.project_type_accessory
     ProjectType.OTHER -> R.string.value_other
+}
+
+/**
+ * Reuses the app's three accent-container roles rather than introducing new
+ * raw colors -- see [com.macareen.stitchbook2.ui.theme.SemanticColors] and
+ * DESIGN_SYSTEM.md section 3.2 ("add or reuse a role instead"). Paused and
+ * Abandoned stay neutral; the webapp itself only distinguishes three states.
+ */
+@Composable
+fun ProjectStatus.pillColors(): Pair<Color, Color> = when (this) {
+    ProjectStatus.ACTIVE ->
+        MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
+    ProjectStatus.COMPLETED ->
+        MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
+    ProjectStatus.PLANNED ->
+        MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
+    ProjectStatus.PAUSED, ProjectStatus.ABANDONED ->
+        MaterialTheme.colorScheme.surfaceContainerHigh to MaterialTheme.colorScheme.textSecondary
 }

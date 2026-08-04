@@ -179,6 +179,7 @@
     <string name="guides_empty_description">No guides yet. Add one to start writing a pattern.</string>
     <string name="guide_continue_action">Continue</string>
     <string name="guide_edit_draft_action">Edit draft</string>
+    <string name="guide_draft_status_label">Draft — not yet published</string>
 
     <string name="guide_not_found_title">Guide not found</string>
     <string name="guide_not_found_description">This guide may have been deleted or is no longer available.</string>

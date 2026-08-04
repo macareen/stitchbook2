@@ -9,19 +9,22 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -35,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.macareen.stitchbook2.R
 import com.macareen.stitchbook2.domain.execution.GuideId
@@ -43,10 +47,14 @@ import com.macareen.stitchbook2.domain.model.Craft
 import com.macareen.stitchbook2.domain.model.Project
 import com.macareen.stitchbook2.domain.model.ProjectStatus
 import com.macareen.stitchbook2.domain.model.ProjectType
+import com.macareen.stitchbook2.ui.components.LabelPill
 import com.macareen.stitchbook2.ui.components.PrimaryActionButton
 import com.macareen.stitchbook2.ui.components.QuietText
 import com.macareen.stitchbook2.ui.components.SecondaryActionButton
+import com.macareen.stitchbook2.ui.theme.StitchbookSpacing
 import com.macareen.stitchbook2.ui.theme.StitchbookTheme
+import com.macareen.stitchbook2.ui.theme.cardTitle
+import com.macareen.stitchbook2.ui.theme.textSecondary
 import java.text.DateFormat
 import java.util.Date
 
@@ -151,43 +159,63 @@ private fun ProjectDetailContent(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(24.dp)
+            .padding(StitchbookSpacing.large)
     ) {
-        Text(
-            text = project.name,
-            style = MaterialTheme.typography.headlineMedium
-        )
-        Spacer(modifier = Modifier.height(24.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
+        ) {
+            TextButton(
+                onClick = { onEditProject(project.id) },
+                enabled = !state.isDeleting
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Edit,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Text(
+                    text = stringResource(R.string.edit_project),
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.padding(start = StitchbookSpacing.extraSmall)
+                )
+            }
+            TextButton(
+                onClick = { showDeleteConfirmation = true },
+                enabled = !state.isDeleting,
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Delete,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Text(
+                    text = if (state.isDeleting) {
+                        stringResource(R.string.deleting_project)
+                    } else {
+                        stringResource(R.string.delete_project)
+                    },
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.padding(start = StitchbookSpacing.extraSmall)
+                )
+            }
+        }
 
-        DetailField(
-            label = stringResource(R.string.project_craft_label),
-            value = stringResource(project.craft.labelResource())
-        )
-        DetailField(
-            label = stringResource(R.string.project_type_label),
-            value = stringResource(project.projectType.labelResource())
-        )
-        DetailField(
-            label = stringResource(R.string.project_status_label),
-            value = stringResource(project.status.labelResource())
-        )
-        DetailField(
-            label = stringResource(R.string.project_created_label),
-            value = formatTimestamp(project.createdAt)
-        )
-        DetailField(
-            label = stringResource(R.string.project_updated_label),
-            value = formatTimestamp(project.updatedAt)
-        )
+        Spacer(modifier = Modifier.height(StitchbookSpacing.small))
 
-        if (!project.notes.isNullOrBlank()) {
-            DetailField(
-                label = stringResource(R.string.project_notes_label),
-                value = project.notes
+        ProjectHeaderCard(project = project)
+
+        if (state.deleteFailed) {
+            Text(
+                text = stringResource(R.string.project_delete_error),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(top = StitchbookSpacing.small)
             )
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(StitchbookSpacing.large))
         GuidesSection(
             guideEntries = state.guideEntries,
             isCreatingGuide = state.isCreatingGuide,
@@ -196,56 +224,6 @@ private fun ProjectDetailContent(
             onEditDraft = onEditDraft,
             onAddGuide = { showAddGuideDialog = true }
         )
-
-        if (state.deleteFailed) {
-            Text(
-                text = stringResource(R.string.project_delete_error),
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Button(
-                onClick = { onEditProject(project.id) },
-                enabled = !state.isDeleting,
-                modifier = Modifier.weight(1f)
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Edit,
-                    contentDescription = null
-                )
-                Text(
-                    text = stringResource(R.string.edit_project),
-                    modifier = Modifier.padding(start = 8.dp)
-                )
-            }
-
-            OutlinedButton(
-                onClick = { showDeleteConfirmation = true },
-                enabled = !state.isDeleting,
-                modifier = Modifier.weight(1f)
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Delete,
-                    contentDescription = null
-                )
-                Text(
-                    text = if (state.isDeleting) {
-                        stringResource(R.string.deleting_project)
-                    } else {
-                        stringResource(R.string.delete_project)
-                    },
-                    modifier = Modifier.padding(start = 8.dp)
-                )
-            }
-        }
     }
 
     if (showDeleteConfirmation) {
@@ -399,20 +377,27 @@ private fun GuideListItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(onClick = onClick),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(StitchbookSpacing.medium),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = entry.guide.name,
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.weight(1f)
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = entry.guide.name,
+                    style = MaterialTheme.typography.cardTitle
+                )
+                if (entry.action == GuideEntryAction.NOT_EXECUTABLE) {
+                    QuietText(text = stringResource(R.string.guide_draft_status_label))
+                }
+            }
+            Spacer(modifier = Modifier.width(StitchbookSpacing.small))
             when (entry.action) {
                 GuideEntryAction.CONTINUE -> PrimaryActionButton(
                     text = stringResource(R.string.guide_continue_action),
@@ -434,20 +419,91 @@ private fun GuideListItem(
 }
 
 @Composable
-private fun DetailField(
-    label: String,
-    value: String
-) {
-    Text(
-        text = label,
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.primary
-    )
-    Text(
-        text = value,
-        style = MaterialTheme.typography.bodyLarge,
-        modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
-    )
+private fun ProjectHeaderCard(project: Project) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
+    ) {
+        Column(modifier = Modifier.padding(StitchbookSpacing.large)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.extraSmall)) {
+                LabelPill(
+                    text = stringResource(project.craft.labelResource()),
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = MaterialTheme.colorScheme.textSecondary
+                )
+                val (statusContainer, statusContent) = project.status.pillColors()
+                LabelPill(
+                    text = stringResource(project.status.labelResource()),
+                    containerColor = statusContainer,
+                    contentColor = statusContent
+                )
+            }
+            Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+            Text(
+                text = project.name,
+                style = MaterialTheme.typography.headlineMedium
+            )
+            Text(
+                text = stringResource(project.projectType.labelResource()),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.textSecondary,
+                modifier = Modifier.padding(top = StitchbookSpacing.extraSmall)
+            )
+            Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                MetaLine(
+                    label = stringResource(R.string.project_created_label),
+                    value = formatTimestamp(project.createdAt)
+                )
+                MetaLine(
+                    label = stringResource(R.string.project_updated_label),
+                    value = formatTimestamp(project.updatedAt)
+                )
+            }
+
+            if (!project.notes.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surfaceContainer
+                ) {
+                    Column(modifier = Modifier.padding(StitchbookSpacing.medium)) {
+                        Text(
+                            text = stringResource(R.string.project_notes_label).uppercase(),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.textSecondary,
+                            letterSpacing = 0.8.sp
+                        )
+                        Spacer(modifier = Modifier.height(StitchbookSpacing.extraSmall))
+                        Text(
+                            text = project.notes,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MetaLine(label: String, value: String) {
+    Column {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.textSecondary
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.padding(top = 2.dp)
+        )
+    }
 }
 
 @Composable
