@@ -124,6 +124,8 @@ Every phase that adds durable user records must also extend the current versione
 
 ## Phase 4 — Yarn inventory
 
+**Status: basic Stash CRUD and CSV import/export implemented; the richer field set below is not yet.** The current Stash schema (name, category, brand, colorway, dye lot, weight category, fibre content, quantity, unit label, yardage/unit, notes) supports full CRUD with search/category filtering, plus a documented, versioned CSV format (`data/csv/StashCsv.kt`, schema v1): export, a downloadable one-row template, and import with a pre-commit validation report (missing name, unrecognized category, non-numeric/negative quantity or yardage are all reported by row number without discarding the file's other valid rows) and duplicate handling by matching the `id` column (a matched id updates in place and preserves its original `createdAt`; blank or unmatched ids create new items). Not yet implemented: full skein/partial-skein tracking, measured-vs-estimated remaining length, allocations/consumption against projects, storage location, purchase data, care instructions, and Ravelry ID -- the field set below remains the target.
+
 **Goal:** Track usable yarn quantities and their relationship to projects.
 
 **Scope:**
