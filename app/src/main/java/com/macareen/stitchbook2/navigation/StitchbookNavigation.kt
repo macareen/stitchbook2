@@ -26,7 +26,8 @@ import com.macareen.stitchbook2.feature.projects.ProjectFormRoute
 import com.macareen.stitchbook2.feature.projects.ProjectFormViewModel
 import com.macareen.stitchbook2.feature.projects.ProjectsRoute
 import com.macareen.stitchbook2.feature.projects.ProjectsViewModel
-import com.macareen.stitchbook2.feature.settings.SettingsScreen
+import com.macareen.stitchbook2.feature.settings.SettingsRoute
+import com.macareen.stitchbook2.feature.settings.SettingsViewModel
 import com.macareen.stitchbook2.feature.stash.StashRoute
 import com.macareen.stitchbook2.feature.stash.StashViewModel
 
@@ -41,6 +42,7 @@ fun StitchbookNavHost(
     val executionRepository = application.container.executionRepository
     val libraryRepository = application.container.libraryRepository
     val stashRepository = application.container.stashRepository
+    val backupService = application.container.backupService
 
     NavHost(
         navController = navController,
@@ -104,7 +106,10 @@ fun StitchbookNavHost(
             StashRoute(viewModel = viewModel)
         }
         composable(TopLevelDestination.Settings.route) {
-            SettingsScreen()
+            val viewModel: SettingsViewModel = viewModel(
+                factory = SettingsViewModel.factory(backupService)
+            )
+            SettingsRoute(viewModel = viewModel)
         }
         composable(ProjectDestination.CREATE_ROUTE) {
             val viewModel: ProjectFormViewModel = viewModel(

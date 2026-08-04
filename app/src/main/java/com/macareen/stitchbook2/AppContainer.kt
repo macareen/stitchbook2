@@ -1,12 +1,14 @@
 package com.macareen.stitchbook2
 
 import android.content.Context
+import com.macareen.stitchbook2.data.backup.LocalBackupService
 import com.macareen.stitchbook2.data.database.StitchbookDatabase
 import com.macareen.stitchbook2.data.repository.LocalExecutionRepository
 import com.macareen.stitchbook2.data.repository.LocalGuideRepository
 import com.macareen.stitchbook2.data.repository.LocalLibraryRepository
 import com.macareen.stitchbook2.data.repository.LocalProjectRepository
 import com.macareen.stitchbook2.data.repository.LocalStashRepository
+import com.macareen.stitchbook2.domain.backup.BackupService
 import com.macareen.stitchbook2.domain.repository.ExecutionRepository
 import com.macareen.stitchbook2.domain.repository.GuideRepository
 import com.macareen.stitchbook2.domain.repository.LibraryRepository
@@ -19,6 +21,7 @@ interface AppContainer {
     val executionRepository: ExecutionRepository
     val libraryRepository: LibraryRepository
     val stashRepository: StashRepository
+    val backupService: BackupService
 }
 
 class DefaultAppContainer(context: Context) : AppContainer {
@@ -38,4 +41,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
 
     override val stashRepository: StashRepository =
         LocalStashRepository(database.stashDao())
+
+    override val backupService: BackupService =
+        LocalBackupService(projectRepository, libraryRepository, stashRepository)
 }
