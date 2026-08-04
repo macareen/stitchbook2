@@ -8,16 +8,24 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Inventory2
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -29,11 +37,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.macareen.stitchbook2.R
 import com.macareen.stitchbook2.domain.model.Craft
@@ -43,9 +53,10 @@ import com.macareen.stitchbook2.domain.model.ProjectType
 import com.macareen.stitchbook2.feature.projects.labelResource
 import com.macareen.stitchbook2.ui.components.PrimaryActionButton
 import com.macareen.stitchbook2.ui.components.QuietText
-import com.macareen.stitchbook2.ui.components.SecondaryActionButton
 import com.macareen.stitchbook2.ui.theme.StitchbookSpacing
 import com.macareen.stitchbook2.ui.theme.StitchbookTheme
+import com.macareen.stitchbook2.ui.theme.buttonLabel
+import com.macareen.stitchbook2.ui.theme.textSecondary
 import java.text.DateFormat
 import java.util.Date
 
@@ -197,16 +208,13 @@ private fun HeroSection(
     onResumeGuide: (String) -> Unit
 ) {
     Surface(
-        shape = MaterialTheme.shapes.large,
+        shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.inverseSurface,
         contentColor = MaterialTheme.colorScheme.inverseOnSurface
     ) {
         Column(modifier = Modifier.padding(StitchbookSpacing.large)) {
-            Text(
-                text = stringResource(R.string.home_hero_badge),
-                style = MaterialTheme.typography.labelLarge
-            )
-            Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+            HeroBadge(text = stringResource(R.string.home_hero_badge))
+            Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
             Text(
                 text = stringResource(R.string.home_hero_title),
                 style = MaterialTheme.typography.headlineMedium,
@@ -225,15 +233,73 @@ private fun HeroSection(
                         resumeGuide.guideName
                     ),
                     onClick = { onResumeGuide(resumeGuide.guideId) },
+                    icon = Icons.Filled.PlayArrow,
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(StitchbookSpacing.small))
             }
-            SecondaryActionButton(
+            HeroSecondaryButton(
                 text = stringResource(R.string.home_new_project_action),
+                icon = Icons.Filled.Add,
                 onClick = onNewProject,
                 modifier = Modifier.fillMaxWidth()
             )
+        }
+    }
+}
+
+@Composable
+private fun HeroBadge(text: String) {
+    Surface(
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+        contentColor = MaterialTheme.colorScheme.inversePrimary
+    ) {
+        Row(
+            modifier = Modifier.padding(
+                horizontal = StitchbookSpacing.medium,
+                vertical = StitchbookSpacing.extraSmall
+            ),
+            horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.extraSmall),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Filled.AutoAwesome,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp)
+            )
+            Text(text = text, style = MaterialTheme.typography.labelMedium)
+        }
+    }
+}
+
+/**
+ * A filled, visually quiet secondary action for the hero's dark surface,
+ * where [com.macareen.stitchbook2.ui.components.SecondaryActionButton]'s
+ * outline-on-`onBackground` styling (designed for light surfaces) would be
+ * nearly invisible against [MaterialTheme.colorScheme.inverseSurface].
+ */
+@Composable
+private fun HeroSecondaryButton(
+    text: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 48.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.14f),
+            contentColor = MaterialTheme.colorScheme.inverseOnSurface
+        )
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(18.dp))
+            Text(text = text, style = MaterialTheme.typography.buttonLabel)
         }
     }
 }
@@ -274,15 +340,24 @@ private fun StatTile(
     value: String,
     modifier: Modifier = Modifier
 ) {
-    Card(modifier = modifier) {
+    Card(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
+    ) {
         Column(modifier = Modifier.padding(StitchbookSpacing.medium)) {
+            Text(
+                text = label.uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.textSecondary,
+                letterSpacing = 0.8.sp
+            )
+            Spacer(modifier = Modifier.height(StitchbookSpacing.extraSmall))
             Text(
                 text = value,
                 style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.Bold
             )
-            Spacer(modifier = Modifier.height(StitchbookSpacing.extraSmall))
-            QuietText(text = label)
         }
     }
 }
@@ -292,6 +367,8 @@ private data class QuickNavItem(
     val titleRes: Int,
     val descriptionRes: Int,
     val ctaRes: Int,
+    val containerColor: Color,
+    val onContainerColor: Color,
     val onClick: () -> Unit
 )
 
@@ -307,6 +384,8 @@ private fun QuickNavRow(
             titleRes = R.string.home_quick_nav_projects_title,
             descriptionRes = R.string.home_quick_nav_projects_description,
             ctaRes = R.string.home_quick_nav_projects_cta,
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            onContainerColor = MaterialTheme.colorScheme.onPrimaryContainer,
             onClick = onOpenProjects
         ),
         QuickNavItem(
@@ -314,6 +393,8 @@ private fun QuickNavRow(
             titleRes = R.string.home_quick_nav_stash_title,
             descriptionRes = R.string.home_quick_nav_stash_description,
             ctaRes = R.string.home_quick_nav_stash_cta,
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            onContainerColor = MaterialTheme.colorScheme.onSecondaryContainer,
             onClick = onOpenStash
         ),
         QuickNavItem(
@@ -321,6 +402,8 @@ private fun QuickNavRow(
             titleRes = R.string.home_quick_nav_library_title,
             descriptionRes = R.string.home_quick_nav_library_description,
             ctaRes = R.string.home_quick_nav_library_cta,
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+            onContainerColor = MaterialTheme.colorScheme.onTertiaryContainer,
             onClick = onOpenLibrary
         )
     )
@@ -329,29 +412,50 @@ private fun QuickNavRow(
         items(items) { item ->
             Card(
                 modifier = Modifier
-                    .width(220.dp)
-                    .clickable(onClick = item.onClick)
+                    .width(240.dp)
+                    .clickable(onClick = item.onClick),
+                shape = MaterialTheme.shapes.large,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
             ) {
                 Column(modifier = Modifier.padding(StitchbookSpacing.medium)) {
-                    Icon(
-                        imageVector = item.icon,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
+                    Surface(
+                        shape = MaterialTheme.shapes.medium,
+                        color = item.containerColor,
+                        contentColor = item.onContainerColor
+                    ) {
+                        Icon(
+                            imageVector = item.icon,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .padding(StitchbookSpacing.small)
+                                .size(20.dp)
+                        )
+                    }
                     Spacer(modifier = Modifier.height(StitchbookSpacing.small))
                     Text(
                         text = stringResource(item.titleRes),
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(StitchbookSpacing.extraSmall))
                     QuietText(text = stringResource(item.descriptionRes))
                     Spacer(modifier = Modifier.height(StitchbookSpacing.small))
-                    Text(
-                        text = stringResource(item.ctaRes),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.extraSmall),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(item.ctaRes),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
                 }
             }
         }
@@ -382,6 +486,7 @@ private fun ActiveProjectsHeader(count: Int, onViewAll: () -> Unit) {
 private fun EmptyActiveProjects(onNewProject: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer
         )
@@ -410,23 +515,52 @@ private fun HomeProjectCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(onClick = onClick),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
     ) {
-        Column(modifier = Modifier.padding(StitchbookSpacing.medium)) {
-            QuietText(text = stringResource(project.craft.labelResource()))
-            Spacer(modifier = Modifier.height(StitchbookSpacing.extraSmall))
-            Text(
-                text = project.name,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(modifier = Modifier.height(StitchbookSpacing.extraSmall))
-            QuietText(
-                text = stringResource(
-                    R.string.home_project_updated,
-                    formatTimestamp(project.updatedAt)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(StitchbookSpacing.medium),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(project.craft.labelResource()).uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    letterSpacing = 0.8.sp
                 )
-            )
+                Spacer(modifier = Modifier.height(StitchbookSpacing.extraSmall))
+                Text(
+                    text = project.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.height(StitchbookSpacing.extraSmall))
+                QuietText(
+                    text = stringResource(
+                        R.string.home_project_updated,
+                        formatTimestamp(project.updatedAt)
+                    )
+                )
+            }
+            Spacer(modifier = Modifier.width(StitchbookSpacing.small))
+            Surface(
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .padding(StitchbookSpacing.small)
+                        .size(18.dp)
+                )
+            }
         }
     }
 }

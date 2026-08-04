@@ -1,18 +1,25 @@
 package com.macareen.stitchbook2.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.macareen.stitchbook2.ui.theme.buttonLabel
 
 private val MinimumTouchTarget = 48.dp
+private val IconSize = 18.dp
 
 /**
  * The unmistakable primary action on a screen. Filled, full accent color —
@@ -29,7 +36,8 @@ fun PrimaryActionButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    icon: ImageVector? = null
 ) {
     Button(
         onClick = onClick,
@@ -40,7 +48,7 @@ fun PrimaryActionButton(
             contentColor = MaterialTheme.colorScheme.onPrimary
         )
     ) {
-        Text(text = text, style = MaterialTheme.typography.buttonLabel)
+        ButtonContent(text = text, icon = icon)
     }
 }
 
@@ -53,7 +61,8 @@ fun SecondaryActionButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    icon: ImageVector? = null
 ) {
     OutlinedButton(
         onClick = onClick,
@@ -64,6 +73,21 @@ fun SecondaryActionButton(
             contentColor = MaterialTheme.colorScheme.onBackground
         )
     ) {
+        ButtonContent(text = text, icon = icon)
+    }
+}
+
+@Composable
+private fun ButtonContent(text: String, icon: ImageVector?) {
+    if (icon == null) {
+        Text(text = text, style = MaterialTheme.typography.buttonLabel)
+        return
+    }
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(IconSize))
         Text(text = text, style = MaterialTheme.typography.buttonLabel)
     }
 }
