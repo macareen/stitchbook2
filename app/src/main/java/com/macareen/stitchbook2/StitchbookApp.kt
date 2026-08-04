@@ -1,16 +1,21 @@
 package com.macareen.stitchbook2
 
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavHostController
@@ -20,6 +25,16 @@ import com.macareen.stitchbook2.navigation.StitchbookNavHost
 import com.macareen.stitchbook2.navigation.TopLevelDestination
 import com.macareen.stitchbook2.navigation.navigateToTopLevelDestination
 
+/**
+ * Top-level destinations (Home/Projects/Library/Stash/Settings) each already
+ * render their own in-content headline, so a redundant static app-name bar
+ * above them would just duplicate that identity -- the webapp itself shows
+ * no header chrome above its own bottom nav on mobile. Every other
+ * (non-top-level) destination gets a minimal, title-less bar whose only job
+ * is a visible back affordance, since some of those screens (Project detail
+ * in particular) have no other way back besides the system back
+ * gesture/button.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StitchbookApp(
@@ -37,9 +52,22 @@ fun StitchbookApp(
     Scaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(
-                title = { Text(text = stringResource(R.string.app_name)) }
-            )
+            if (!isTopLevelDestination) {
+                TopAppBar(
+                    title = {},
+                    navigationIcon = {
+                        IconButton(onClick = navController::popBackStack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.navigate_back)
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent
+                    )
+                )
+            }
         },
         bottomBar = {
             if (isTopLevelDestination) {
