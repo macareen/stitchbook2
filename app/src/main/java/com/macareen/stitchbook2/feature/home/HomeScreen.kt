@@ -56,6 +56,7 @@ import com.macareen.stitchbook2.ui.components.QuietText
 import com.macareen.stitchbook2.ui.theme.StitchbookSpacing
 import com.macareen.stitchbook2.ui.theme.StitchbookTheme
 import com.macareen.stitchbook2.ui.theme.buttonLabel
+import com.macareen.stitchbook2.ui.theme.cardTitle
 import com.macareen.stitchbook2.ui.theme.textSecondary
 import java.text.DateFormat
 import java.util.Date
@@ -434,8 +435,8 @@ private fun QuickNavRow(
                     Spacer(modifier = Modifier.height(StitchbookSpacing.small))
                     Text(
                         text = stringResource(item.titleRes),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        style = MaterialTheme.typography.cardTitle,
+                        fontWeight = FontWeight.SemiBold
                     )
                     Spacer(modifier = Modifier.height(StitchbookSpacing.extraSmall))
                     QuietText(text = stringResource(item.descriptionRes))
@@ -536,7 +537,7 @@ private fun HomeProjectCard(
                 Spacer(modifier = Modifier.height(StitchbookSpacing.extraSmall))
                 Text(
                     text = project.name,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.cardTitle,
                     fontWeight = FontWeight.SemiBold
                 )
                 Spacer(modifier = Modifier.height(StitchbookSpacing.extraSmall))

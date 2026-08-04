@@ -124,3 +124,7 @@ val Typography.metadata: TextStyle
 
 val Typography.buttonLabel: TextStyle
     get() = labelLarge
+
+/** The editorial, serif title used at the top of a list/grid card (a project, guide, pattern, or stash item). */
+val Typography.cardTitle: TextStyle
+    get() = titleLarge
