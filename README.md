@@ -2,7 +2,7 @@
 
 Stitchbook is a planned private, local-first fibre-craft companion for Android. Knitting, crochet, Tunisian crochet, loom knitting, and other fibre crafts are intended to be first-class rather than variations of one knitting-centric model. The app is intended to help people manage projects, counters, patterns, yarn, tools, photos, work sessions, and statistics while retaining ownership and access to all of their data.
 
-The project is in **early development**. The repository currently contains a working Jetpack Compose application shell and basic local project CRUD. Most product capabilities described below are plans, not implemented features.
+The project is in **active development**. The repository contains a working Jetpack Compose application with real project management, a manual guide-authoring editor with Publish and Focus Mode execution, a pattern library, a yarn/tools stash, and JSON backup/restore -- see "Currently implemented" below for specifics. Counters, photos, sessions, PDF import, CSV import/export, and deterministic pattern parsing remain plans, not implemented features.
 
 ## Core principles
 
@@ -30,14 +30,19 @@ See [PRODUCT_SPEC.md](PRODUCT_SPEC.md) for structured requirements and [ROADMAP.
 
 ## Currently implemented
 
-- Warm Material 3 light and dark themes
-- Navigation Compose with Home, Projects, Library, Stash, and Settings destinations
-- A Room version-1 database for basic project records
-- Create, list, view, edit, and explicitly confirm deletion of local projects
-- Fixed craft, project-type, and project-status choices
-- Local project persistence across application restarts
+- A warm, editorial Material 3 light/dark theme (ivory/rose/serif-headline palette) ported from the approved webapp design reference -- see [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)
+- Navigation Compose with Home, Projects, Library, Stash, and Settings destinations, each with real content (not placeholders) and a header-less mobile shell matching the design reference
+- Home dashboard aggregating real project/execution state: a resume-in-progress hero, project/craft-type stats, quick navigation, and an active-projects list
+- Full project CRUD (create, list, view, edit, delete with confirmation) across a fixed craft/project-type/status taxonomy
+- A manual guide-authoring Draft editor supporting Section, Row range, Repeat, and Instruction nodes, with add/edit/delete/reorder, structural validation, and optimistic-concurrency conflict recovery
+- Publish: a Draft becomes an immutable, versioned Definition Revision through a real Publish action; the Draft remains editable afterward and a later edit publishes as a new Revision
+- Focus Mode: Start/Continue a published Guide's execution, with persisted Complete/Previous/Jump-to-incomplete transitions that survive app restarts -- reachable end to end through production UI with no debug tooling or database seeding required
+- A pattern library (title, author, source link, tags, notes, bookmarks) with search and craft/bookmark filtering
+- A yarn/tools stash (category, brand, colorway, dye lot, weight, fiber, quantity, yardage, notes) with search and category filtering
+- Portable JSON backup, restore, and full local reset via Settings, through the Storage Access Framework
+- Room schema versioned through v4 with real migrations backing Guides, Definition Revisions, Executions, Projects, Library items, and Stash items
 
-Project persistence currently covers only name, craft, project type, status, optional notes, UUID identity, and created/updated timestamps. Portable export and relationships to patterns, yarn, tools, photos, counters, and sessions are not implemented.
+See [ARCHITECTURE.md](ARCHITECTURE.md) and [docs/EXECUTION_ENGINE_SPEC.md](docs/EXECUTION_ENGINE_SPEC.md) for the execution engine's persistence and concurrency guarantees. PDF/photo attachments, counters, sessions, CSV import/export, tools bulk-creation, and deterministic pattern parsing are not implemented yet -- see [ROADMAP.md](ROADMAP.md).
 
 ## Technology
 
@@ -91,14 +96,16 @@ The debug APK is normally produced under `app/build/outputs/apk/debug/`.
 
 ## Current limitations
 
-- Home, Library, Stash, and Settings remain placeholders.
-- Project records contain only the basic fields listed above; custom “Other” project-type labels are deferred.
+- No PDF attachment/viewing, photo, counter, or session tracking yet.
+- Yarn stash and library entries have no CSV import/export yet; only whole-database JSON backup/restore exists.
+- Needle/hook/cable/interchangeable-set tool inventory (with bulk creation) is not implemented.
+- Guide authoring is manual only -- no PDF/OCR-based pattern parsing exists yet.
+- Project records contain only the basic fields listed in Currently implemented; custom "Other" project-type labels are deferred.
 - Unsaved project-form input survives recomposition and ordinary configuration changes, but not full process death.
-- Counters, inventories, pattern storage, settings behavior, portable export, backup, and integrations are not implemented.
-- Room is currently local operational storage; complete portability and restore remain roadmap work.
-- Automatic Android app backup is disabled for this private local milestone. Uninstalling the app or clearing its data removes project records until user-controlled export/backup is implemented.
+- Automatic Android app backup is disabled for this private local milestone; uninstalling the app or clearing its data removes records not covered by a user-initiated JSON export.
 - WorkManager is not a dependency.
-- No parser or Ravelry integration exists.
+- No Ravelry integration or AI assistance exists.
+- Compose instrumented tests are written and compile but do not execute successfully in this environment (a pre-existing Espresso/emulator `InputManager.getInstance` incompatibility, not specific to any one feature) -- see [ARCHITECTURE.md](ARCHITECTURE.md).
 - Data formats and UI designs are not yet stable.
 - Release signing and production distribution are not configured.
 

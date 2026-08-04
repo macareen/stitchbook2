@@ -2,7 +2,7 @@
 
 ## 1. Status
 
-This document covers only the visual-foundation decisions introduced alongside Focus Mode's visual refinement (PR 9.1). It is not a complete design system and does not document speculative components, screens, or interactions that do not exist yet. Extend it incrementally as future phases add UI, the same way `ARCHITECTURE.md` and `ROADMAP.md` are extended.
+This document covers the visual-foundation decisions introduced alongside Focus Mode's visual refinement (PR 9.1, §§2–9) and the subsequent webapp-to-Compose visual migration across Home/Projects/Library/Stash/Settings and the navigation shell (§§10–11). It is not a complete design system and does not document speculative components, screens, or interactions that do not exist yet. Extend it incrementally as future phases add UI, the same way `ARCHITECTURE.md` and `ROADMAP.md` are extended.
 
 ## 2. Design personality
 
@@ -115,3 +115,16 @@ This keeps the current instruction as the unmistakable visual center, keeps supp
 - Guide-name/breadcrumb context and range/repeat position lines are grouped with `Modifier.semantics(mergeDescendants = true)` so TalkBack traverses each group as one stop, in the same order they appear visually.
 - Every color pair used for text was checked against WCAG contrast thresholds (see §3.3).
 - Hierarchy between `Complete` and `Previous` is expressed through both fill/outline shape and color, never color alone.
+
+## 10. List/grid card language (Home, Projects, Guide list, Library, Stash)
+
+Extends §7's component set to cover the card-based screens ported from the approved webapp reference. Cards on these screens consistently use `shapes.large` or `shapes.extraLarge` (never the bare Material default) on `surfaceContainerLowest`, so they read as raised surfaces against the app's warm ivory background the same way the webapp's white-card-on-stone-50 relationship does.
+
+- **`Typography.cardTitle`** (`ui/theme/Type.kt`) — a semantic alias for `titleLarge` (already serif), applied consistently to every card's own title (a project, guide, pattern, or stash item) so list/grid card titles share one editorial treatment rather than each screen picking its own size/weight.
+- **`LabelPill`** (`ui/components/LabelPill.kt`) — the small rounded chip used for a card's craft/category/status tag. Colors are assigned by reusing the three existing accent-container roles rather than inventing new raw colors (per §3.2's "add or reuse a role instead" rule): Projects' Active status and Home's Projects quick-nav chip use `primaryContainer` (rose); Stash items and Home's Stash quick-nav chip use `secondaryContainer` (plum); Library items, Projects' Completed status, and Home's Library quick-nav chip use `tertiaryContainer` (teal). This gives each of the app's three main content categories one consistent accent color everywhere it appears, using colors `Color.kt` had already earmarked for "future categories" rather than adding a fourth/fifth raw hue.
+- Notes and other secondary detail blocks (a project's notes, a stash item's yarn details) render inside a `surfaceContainer`-tinted `Surface` callout rather than as plain colored body text, matching the webapp's `bg-stone-50` note boxes.
+- **Not ported**: the webapp's decorative radial-dot hero texture and any box-shadow/gradient — both are explicitly ruled out by §2's anti-patterns ("decorative gradients or textures").
+
+## 11. Navigation shell
+
+Top-level destinations (Home/Projects/Library/Stash/Settings) render with no `TopAppBar` at all — each already carries its own in-content headline, and a static app-name bar above it would be redundant administrative chrome the webapp itself doesn't show on mobile (`Navigation.tsx`'s header is desktop-only). Every other destination gets a minimal, title-less bar whose only job is a visible back arrow, since some screens (Project detail in particular) have no other in-UI way back besides the system back gesture/button.
