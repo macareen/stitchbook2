@@ -45,6 +45,27 @@ class LibraryItemEntityMappingTest {
     }
 
     @Test
+    fun libraryItemWithAttachedPdfRoundTripsThroughEntity() {
+        val item = LibraryItem(
+            id = "library-id",
+            title = "Raglan Sweater Construction Guide",
+            craft = Craft.KNITTING,
+            author = null,
+            sourceUrl = null,
+            tags = emptyList(),
+            notes = null,
+            bookmarked = false,
+            createdAt = 100,
+            updatedAt = 200,
+            pdfUri = "content://com.example.provider/document/42",
+            pdfFileName = "Raglan Construction.pdf",
+            pdfLastViewedPage = 3
+        )
+
+        assertEquals(item, item.toEntity().toDomain())
+    }
+
+    @Test
     fun entityUsesExplicitStableValues() {
         val entity = LibraryItem(
             id = "library-id",

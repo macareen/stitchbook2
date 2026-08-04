@@ -31,7 +31,7 @@ Database version 1 introduced the `projects` table:
 
 The DAO orders projects by Active, Planned, Paused, Completed, then Abandoned; records within a status are ordered by most recently updated first with deterministic name/ID tie-breakers.
 
-Database version 2 adds persisted guide definitions. Database version 3 adds persisted Execution state. Migrations `1 -> 2` and `2 -> 3` are both non-destructive and preserve existing rows. The schema is exported under `app/schemas`; every future schema version must provide and test an explicit migration from each supported prior version and update the exported schema. The production database builder deliberately does not use destructive migration fallback.
+Database version 2 adds persisted guide definitions. Database version 3 adds persisted Execution state. Database version 4 adds `library_items` (pattern references: title, craft, author, source link, comma-joined tags, notes, bookmarked) and `stash_items` (yarn/tool inventory records). Database version 5 adds three nullable columns to `library_items` -- `pdf_uri`, `pdf_file_name`, `pdf_last_viewed_page` -- for an optional PDF attachment selected through the Storage Access Framework; the original PDF is referenced by its persisted-permission `content://` URI only, never copied into the database or app-private storage (see PRODUCT_SPEC.md §6.5). All migrations `1 -> 2` through `4 -> 5` are non-destructive and preserve existing rows. The schema is exported under `app/schemas`; every future schema version must provide and test an explicit migration from each supported prior version and update the exported schema. The production database builder deliberately does not use destructive migration fallback.
 
 ### Current guide-definition persistence
 

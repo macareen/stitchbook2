@@ -95,7 +95,9 @@ class LibraryViewModel(
         author: String,
         sourceUrl: String,
         tags: List<String>,
-        notes: String
+        notes: String,
+        pdfUri: String?,
+        pdfFileName: String?
     ) {
         val normalizedTitle = normalizedLibraryItemTitle(title) ?: return
         scope.launch {
@@ -110,7 +112,13 @@ class LibraryViewModel(
                 notes = notes.trim().ifEmpty { null },
                 bookmarked = original?.bookmarked ?: false,
                 createdAt = original?.createdAt ?: now,
-                updatedAt = now
+                updatedAt = now,
+                pdfUri = pdfUri,
+                pdfFileName = pdfFileName,
+                // A newly attached/changed PDF has no remembered page yet;
+                // only carry the prior page forward when the attachment
+                // itself didn't change.
+                pdfLastViewedPage = if (pdfUri == original?.pdfUri) original?.pdfLastViewedPage else null
             )
             try {
                 repository.saveLibraryItem(item)
@@ -119,6 +127,20 @@ class LibraryViewModel(
             } catch (_: Exception) {
                 // The dialog already closed optimistically; a failed save
                 // simply leaves the previous persisted state in place.
+            }
+        }
+    }
+
+    fun updateLastViewedPage(item: LibraryItem, page: Int) {
+        if (item.pdfLastViewedPage == page) return
+        scope.launch {
+            try {
+                repository.saveLibraryItem(item.copy(pdfLastViewedPage = page))
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                // Best-effort: losing the remembered page on a transient
+                // write failure isn't worth surfacing to the reader.
             }
         }
     }

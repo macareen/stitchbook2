@@ -1,5 +1,9 @@
 package com.macareen.stitchbook2.feature.library
 
+import android.content.Intent
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,15 +16,19 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.AttachFile
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -48,6 +56,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -66,7 +75,10 @@ import com.macareen.stitchbook2.ui.theme.cardTitle
 import com.macareen.stitchbook2.ui.theme.textSecondary
 
 @Composable
-fun LibraryRoute(viewModel: LibraryViewModel) {
+fun LibraryRoute(
+    viewModel: LibraryViewModel,
+    onOpenPdf: (String) -> Unit
+) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     LibraryScreen(
@@ -76,7 +88,8 @@ fun LibraryRoute(viewModel: LibraryViewModel) {
         onBookmarksOnlyChanged = viewModel::updateBookmarksOnly,
         onToggleBookmark = viewModel::toggleBookmark,
         onSaveItem = viewModel::saveItem,
-        onDeleteItem = viewModel::deleteItem
+        onDeleteItem = viewModel::deleteItem,
+        onOpenPdf = onOpenPdf
     )
 }
 
@@ -87,8 +100,9 @@ fun LibraryScreen(
     onCraftFilterChanged: (Craft?) -> Unit,
     onBookmarksOnlyChanged: (Boolean) -> Unit,
     onToggleBookmark: (LibraryItem) -> Unit,
-    onSaveItem: (LibraryItem?, String, Craft, String, String, List<String>, String) -> Unit,
+    onSaveItem: (LibraryItem?, String, Craft, String, String, List<String>, String, String?, String?) -> Unit,
     onDeleteItem: (LibraryItem) -> Unit,
+    onOpenPdf: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var editingItem by remember { mutableStateOf<LibraryItem?>(null) }
@@ -119,7 +133,8 @@ fun LibraryScreen(
                     onBookmarksOnlyChanged = onBookmarksOnlyChanged,
                     onToggleBookmark = onToggleBookmark,
                     onEditItem = { editingItem = it },
-                    onDeleteRequested = { deletingItem = it }
+                    onDeleteRequested = { deletingItem = it },
+                    onOpenPdf = onOpenPdf
                 )
             }
         }
@@ -143,8 +158,8 @@ fun LibraryScreen(
         LibraryItemDialog(
             original = null,
             onDismiss = { isAddingItem = false },
-            onSave = { title, craft, author, sourceUrl, tags, notes ->
-                onSaveItem(null, title, craft, author, sourceUrl, tags, notes)
+            onSave = { title, craft, author, sourceUrl, tags, notes, pdfUri, pdfFileName ->
+                onSaveItem(null, title, craft, author, sourceUrl, tags, notes, pdfUri, pdfFileName)
                 isAddingItem = false
             }
         )
@@ -154,8 +169,8 @@ fun LibraryScreen(
         LibraryItemDialog(
             original = item,
             onDismiss = { editingItem = null },
-            onSave = { title, craft, author, sourceUrl, tags, notes ->
-                onSaveItem(item, title, craft, author, sourceUrl, tags, notes)
+            onSave = { title, craft, author, sourceUrl, tags, notes, pdfUri, pdfFileName ->
+                onSaveItem(item, title, craft, author, sourceUrl, tags, notes, pdfUri, pdfFileName)
                 editingItem = null
             }
         )
@@ -195,7 +210,8 @@ private fun LibraryContent(
     onBookmarksOnlyChanged: (Boolean) -> Unit,
     onToggleBookmark: (LibraryItem) -> Unit,
     onEditItem: (LibraryItem) -> Unit,
-    onDeleteRequested: (LibraryItem) -> Unit
+    onDeleteRequested: (LibraryItem) -> Unit,
+    onOpenPdf: (String) -> Unit
 ) {
     LazyColumn(
         contentPadding = PaddingValues(
@@ -259,7 +275,8 @@ private fun LibraryContent(
                     item = libraryItem,
                     onToggleBookmark = { onToggleBookmark(libraryItem) },
                     onEdit = { onEditItem(libraryItem) },
-                    onDelete = { onDeleteRequested(libraryItem) }
+                    onDelete = { onDeleteRequested(libraryItem) },
+                    onOpenPdf = { onOpenPdf(libraryItem.id) }
                 )
             }
         }
@@ -320,7 +337,8 @@ private fun LibraryItemCard(
     item: LibraryItem,
     onToggleBookmark: () -> Unit,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onOpenPdf: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -401,6 +419,48 @@ private fun LibraryItemCard(
                 }
             }
 
+            if (item.pdfUri != null) {
+                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    onClick = onOpenPdf
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(StitchbookSpacing.small),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.extraSmall),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.PictureAsPdf,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = item.pdfFileName ?: stringResource(R.string.library_view_pdf_action),
+                                style = MaterialTheme.typography.bodyMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                        }
+                        Text(
+                            text = stringResource(R.string.library_view_pdf_action),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(StitchbookSpacing.small))
 
             Row(
@@ -440,7 +500,7 @@ private fun LibraryItemCard(
 private fun LibraryItemDialog(
     original: LibraryItem?,
     onDismiss: () -> Unit,
-    onSave: (String, Craft, String, String, List<String>, String) -> Unit
+    onSave: (String, Craft, String, String, List<String>, String, String?, String?) -> Unit
 ) {
     var title by remember { mutableStateOf(original?.title.orEmpty()) }
     var craft by remember { mutableStateOf(original?.craft ?: Craft.KNITTING) }
@@ -449,6 +509,22 @@ private fun LibraryItemDialog(
     var tagsText by remember { mutableStateOf(original?.tags?.joinToString(", ").orEmpty()) }
     var notes by remember { mutableStateOf(original?.notes.orEmpty()) }
     var titleIsBlank by remember { mutableStateOf(false) }
+    var pdfUri by remember { mutableStateOf(original?.pdfUri) }
+    var pdfFileName by remember { mutableStateOf(original?.pdfFileName) }
+
+    val context = LocalContext.current
+    val pickPdfLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+            pdfUri = uri.toString()
+            pdfFileName = queryDisplayName(context, uri)
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -513,6 +589,63 @@ private fun LibraryItemDialog(
                     label = { Text(text = stringResource(R.string.library_field_notes)) },
                     modifier = Modifier.fillMaxWidth()
                 )
+                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+                if (pdfUri == null) {
+                    OutlinedButton(
+                        onClick = { pickPdfLauncher.launch(arrayOf("application/pdf")) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.AttachFile,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = stringResource(R.string.library_attach_pdf_action),
+                            modifier = Modifier.padding(start = StitchbookSpacing.small)
+                        )
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.extraSmall),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.PictureAsPdf,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = pdfFileName.orEmpty(),
+                                style = MaterialTheme.typography.bodyMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                        }
+                        TextButton(onClick = { pickPdfLauncher.launch(arrayOf("application/pdf")) }) {
+                            Text(text = stringResource(R.string.library_change_pdf_action))
+                        }
+                        IconButton(
+                            onClick = {
+                                pdfUri = null
+                                pdfFileName = null
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Close,
+                                contentDescription = stringResource(R.string.library_remove_pdf_action)
+                            )
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
@@ -527,7 +660,9 @@ private fun LibraryItemDialog(
                             author,
                             sourceUrl,
                             tagsText.split(","),
-                            notes
+                            notes,
+                            pdfUri,
+                            pdfFileName
                         )
                     }
                 }
@@ -639,8 +774,26 @@ private fun LibraryScreenPreview() {
             onCraftFilterChanged = {},
             onBookmarksOnlyChanged = {},
             onToggleBookmark = {},
-            onSaveItem = { _, _, _, _, _, _, _ -> },
-            onDeleteItem = {}
+            onSaveItem = { _, _, _, _, _, _, _, _, _ -> },
+            onDeleteItem = {},
+            onOpenPdf = {}
         )
+    }
+}
+
+/** Best-effort: falls back to null (the card/dialog then just shows the generic "View PDF" label) rather than failing the attach. */
+private fun queryDisplayName(context: android.content.Context, uri: android.net.Uri): String? {
+    return try {
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+            ?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (index >= 0) cursor.getString(index) else null
+                } else {
+                    null
+                }
+            }
+    } catch (_: Exception) {
+        null
     }
 }

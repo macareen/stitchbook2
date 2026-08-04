@@ -152,6 +152,9 @@ private fun LibraryItem.toJson(): JSONObject = JSONObject().apply {
     put("bookmarked", bookmarked)
     put("createdAt", createdAt)
     put("updatedAt", updatedAt)
+    put("pdfUri", pdfUri ?: JSONObject.NULL)
+    put("pdfFileName", pdfFileName ?: JSONObject.NULL)
+    put("pdfLastViewedPage", pdfLastViewedPage ?: JSONObject.NULL)
 }
 
 private fun JSONObject.toLibraryItem(): LibraryItem = LibraryItem(
@@ -165,7 +168,13 @@ private fun JSONObject.toLibraryItem(): LibraryItem = LibraryItem(
     notes = optNullableString("notes"),
     bookmarked = getBoolean("bookmarked"),
     createdAt = getLong("createdAt"),
-    updatedAt = getLong("updatedAt")
+    updatedAt = getLong("updatedAt"),
+    // Absent in backups written before this field existed -- isNull() treats
+    // a missing key the same as an explicit null, so older backups restore
+    // cleanly with no PDF attachment rather than failing to parse.
+    pdfUri = optNullableString("pdfUri"),
+    pdfFileName = optNullableString("pdfFileName"),
+    pdfLastViewedPage = if (isNull("pdfLastViewedPage")) null else getInt("pdfLastViewedPage")
 )
 
 private fun StashItem.toJson(): JSONObject = JSONObject().apply {

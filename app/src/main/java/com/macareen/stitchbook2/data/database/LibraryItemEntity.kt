@@ -17,7 +17,10 @@ data class LibraryItemEntity(
     val notes: String?,
     val bookmarked: Boolean,
     @ColumnInfo(name = "created_at") val createdAt: Long,
-    @ColumnInfo(name = "updated_at") val updatedAt: Long
+    @ColumnInfo(name = "updated_at") val updatedAt: Long,
+    @ColumnInfo(name = "pdf_uri") val pdfUri: String? = null,
+    @ColumnInfo(name = "pdf_file_name") val pdfFileName: String? = null,
+    @ColumnInfo(name = "pdf_last_viewed_page") val pdfLastViewedPage: Int? = null
 )
 
 // Tags are normalized on the way in (normalizedLibraryItemTags strips
@@ -41,7 +44,10 @@ fun LibraryItemEntity.toDomain(): LibraryItem {
         notes = notes,
         bookmarked = bookmarked,
         createdAt = createdAt,
-        updatedAt = updatedAt
+        updatedAt = updatedAt,
+        pdfUri = pdfUri,
+        pdfFileName = pdfFileName,
+        pdfLastViewedPage = pdfLastViewedPage
     )
 }
 
@@ -56,7 +62,10 @@ fun LibraryItem.toEntity(): LibraryItemEntity {
         notes = notes,
         bookmarked = bookmarked,
         createdAt = createdAt,
-        updatedAt = updatedAt
+        updatedAt = updatedAt,
+        pdfUri = pdfUri,
+        pdfFileName = pdfFileName,
+        pdfLastViewedPage = pdfLastViewedPage
     )
 }
 
