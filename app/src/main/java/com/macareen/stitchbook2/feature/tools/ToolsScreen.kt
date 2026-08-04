@@ -62,7 +62,7 @@ import com.macareen.stitchbook2.ui.theme.cardTitle
 import com.macareen.stitchbook2.ui.theme.textSecondary
 
 @Composable
-fun ToolsRoute(viewModel: ToolsViewModel) {
+fun ToolsRoute(viewModel: ToolsViewModel, onBulkCreate: () -> Unit) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     ToolsScreen(
@@ -70,7 +70,8 @@ fun ToolsRoute(viewModel: ToolsViewModel) {
         onSearchQueryChanged = viewModel::updateSearchQuery,
         onCategoryFilterChanged = viewModel::updateCategoryFilter,
         onSaveItem = viewModel::saveItem,
-        onDeleteItem = viewModel::deleteItem
+        onDeleteItem = viewModel::deleteItem,
+        onBulkCreate = onBulkCreate
     )
 }
 
@@ -81,6 +82,7 @@ fun ToolsScreen(
     onCategoryFilterChanged: (ToolCategory?) -> Unit,
     onSaveItem: (ToolItem?, ToolItemFormInput) -> Unit,
     onDeleteItem: (ToolItem) -> Unit,
+    onBulkCreate: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var editingItem by remember { mutableStateOf<ToolItem?>(null) }
@@ -109,7 +111,8 @@ fun ToolsScreen(
                     onSearchQueryChanged = onSearchQueryChanged,
                     onCategoryFilterChanged = onCategoryFilterChanged,
                     onEditItem = { editingItem = it },
-                    onDeleteRequested = { deletingItem = it }
+                    onDeleteRequested = { deletingItem = it },
+                    onBulkCreate = onBulkCreate
                 )
             }
         }
@@ -183,7 +186,8 @@ private fun ToolsContent(
     onSearchQueryChanged: (String) -> Unit,
     onCategoryFilterChanged: (ToolCategory?) -> Unit,
     onEditItem: (ToolItem) -> Unit,
-    onDeleteRequested: (ToolItem) -> Unit
+    onDeleteRequested: (ToolItem) -> Unit,
+    onBulkCreate: () -> Unit
 ) {
     LazyColumn(
         contentPadding = PaddingValues(
@@ -200,7 +204,11 @@ private fun ToolsContent(
                 style = MaterialTheme.typography.headlineMedium
             )
             QuietText(text = stringResource(R.string.tools_header_subtitle))
-            Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
+            Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+            TextButton(onClick = onBulkCreate) {
+                Text(text = stringResource(R.string.tools_bulk_create_link))
+            }
+            Spacer(modifier = Modifier.height(StitchbookSpacing.small))
         }
 
         item {
@@ -734,7 +742,8 @@ private fun ToolsScreenPreview() {
             onSearchQueryChanged = {},
             onCategoryFilterChanged = {},
             onSaveItem = { _, _ -> },
-            onDeleteItem = {}
+            onDeleteItem = {},
+            onBulkCreate = {}
         )
     }
 }

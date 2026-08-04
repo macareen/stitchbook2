@@ -32,6 +32,8 @@ import com.macareen.stitchbook2.feature.settings.SettingsRoute
 import com.macareen.stitchbook2.feature.settings.SettingsViewModel
 import com.macareen.stitchbook2.feature.stash.StashRoute
 import com.macareen.stitchbook2.feature.stash.StashViewModel
+import com.macareen.stitchbook2.feature.tools.BulkToolCreationRoute
+import com.macareen.stitchbook2.feature.tools.BulkToolCreationViewModel
 import com.macareen.stitchbook2.feature.tools.ToolsRoute
 import com.macareen.stitchbook2.feature.tools.ToolsViewModel
 
@@ -139,7 +141,21 @@ fun StitchbookNavHost(
             val viewModel: ToolsViewModel = viewModel(
                 factory = ToolsViewModel.factory(toolRepository)
             )
-            ToolsRoute(viewModel = viewModel)
+            ToolsRoute(
+                viewModel = viewModel,
+                onBulkCreate = {
+                    navController.navigate(BulkToolCreationDestination.ROUTE)
+                }
+            )
+        }
+        composable(BulkToolCreationDestination.ROUTE) {
+            val viewModel: BulkToolCreationViewModel = viewModel(
+                factory = BulkToolCreationViewModel.factory(toolRepository)
+            )
+            BulkToolCreationRoute(
+                viewModel = viewModel,
+                onDone = navController::popBackStack
+            )
         }
         composable(TopLevelDestination.Settings.route) {
             val viewModel: SettingsViewModel = viewModel(
