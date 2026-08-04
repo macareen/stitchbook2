@@ -1,6 +1,0 @@
-{
-  "name": "Stitchbook",
-  "description": "A private, local-first companion for knitting, crochet, Tunisian crochet, loom knitting, and other fibre crafts.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
