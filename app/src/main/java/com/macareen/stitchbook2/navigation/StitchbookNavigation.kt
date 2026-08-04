@@ -32,6 +32,8 @@ import com.macareen.stitchbook2.feature.settings.SettingsRoute
 import com.macareen.stitchbook2.feature.settings.SettingsViewModel
 import com.macareen.stitchbook2.feature.stash.StashRoute
 import com.macareen.stitchbook2.feature.stash.StashViewModel
+import com.macareen.stitchbook2.feature.tools.ToolsRoute
+import com.macareen.stitchbook2.feature.tools.ToolsViewModel
 
 @Composable
 fun StitchbookNavHost(
@@ -44,6 +46,7 @@ fun StitchbookNavHost(
     val executionRepository = application.container.executionRepository
     val libraryRepository = application.container.libraryRepository
     val stashRepository = application.container.stashRepository
+    val toolRepository = application.container.toolRepository
     val backupService = application.container.backupService
 
     NavHost(
@@ -131,6 +134,12 @@ fun StitchbookNavHost(
                 factory = StashViewModel.factory(stashRepository)
             )
             StashRoute(viewModel = viewModel)
+        }
+        composable(TopLevelDestination.Tools.route) {
+            val viewModel: ToolsViewModel = viewModel(
+                factory = ToolsViewModel.factory(toolRepository)
+            )
+            ToolsRoute(viewModel = viewModel)
         }
         composable(TopLevelDestination.Settings.route) {
             val viewModel: SettingsViewModel = viewModel(

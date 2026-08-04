@@ -31,7 +31,7 @@ See [PRODUCT_SPEC.md](PRODUCT_SPEC.md) for structured requirements and [ROADMAP.
 ## Currently implemented
 
 - A warm, editorial Material 3 light/dark theme (ivory/rose/serif-headline palette) ported from the approved webapp design reference -- see [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)
-- Navigation Compose with Home, Projects, Library, Stash, and Settings destinations, each with real content (not placeholders) and a header-less mobile shell matching the design reference
+- Navigation Compose with Home, Projects, Library, Stash, Tools, and Settings destinations, each with real content (not placeholders) and a header-less mobile shell matching the design reference
 - Home dashboard aggregating real project/execution state: a resume-in-progress hero, project/craft-type stats, quick navigation, and an active-projects list
 - Full project CRUD (create, list, view, edit, delete with confirmation) across a fixed craft/project-type/status taxonomy
 - A manual guide-authoring Draft editor supporting Section, Row range, Repeat, and Instruction nodes, with add/edit/delete/reorder, structural validation, and optimistic-concurrency conflict recovery
@@ -41,10 +41,10 @@ See [PRODUCT_SPEC.md](PRODUCT_SPEC.md) for structured requirements and [ROADMAP.
 - PDF pattern attachment: select a PDF via the Storage Access Framework with durable (persistable) read access, view it page-by-page in a built-in viewer (`android.graphics.pdf.PdfRenderer`, no bundled PDF library) or hand off to another app, and resume from the last-viewed page. The original file is never copied or modified -- only its `content://` URI and display name are stored
 - A yarn/tools stash (category, brand, colorway, dye lot, weight, fiber, quantity, yardage, notes) with search and category filtering, plus CSV export, a downloadable template, and CSV import with a pre-commit validation report (row-level errors never discard the file's other valid rows) and duplicate handling by matching a row's `id` column
 - Portable JSON backup, restore, and full local reset via Settings, through the Storage Access Framework
-- A Tools inventory domain model and repository (individual components plus optional grouped sets, covering needles, hooks, interchangeable tips/cables, looms, and notions) backed by Room, included in the JSON backup -- not yet reachable through any screen; see ROADMAP.md Phase 5
+- A Tools inventory destination (search, category filtering, and a category-adaptive add/edit form covering needles, hooks, interchangeable tips/cables, looms, and notions) backed by Room and included in the JSON backup; grouped-set creation/assignment, bulk creation, and CSV import/export are not yet built -- see ROADMAP.md Phase 5
 - Room schema versioned through v6 with real migrations backing Guides, Definition Revisions, Executions, Projects, Library items, Stash items, and Tool sets/items
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) and [docs/EXECUTION_ENGINE_SPEC.md](docs/EXECUTION_ENGINE_SPEC.md) for the execution engine's persistence and concurrency guarantees. PDF/photo attachments, counters, sessions, a Tools UI/bulk-creation/CSV import-export, and deterministic pattern parsing are not implemented yet -- see [ROADMAP.md](ROADMAP.md).
+See [ARCHITECTURE.md](ARCHITECTURE.md) and [docs/EXECUTION_ENGINE_SPEC.md](docs/EXECUTION_ENGINE_SPEC.md) for the execution engine's persistence and concurrency guarantees. Photo attachments, counters, sessions, Tools bulk-creation/grouped-set UI/CSV import-export, and deterministic pattern parsing are not implemented yet -- see [ROADMAP.md](ROADMAP.md).
 
 ## Technology
 
