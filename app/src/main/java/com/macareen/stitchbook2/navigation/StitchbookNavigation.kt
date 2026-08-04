@@ -18,7 +18,8 @@ import com.macareen.stitchbook2.feature.focus.GuideFocusRoute
 import com.macareen.stitchbook2.feature.focus.GuideFocusViewModel
 import com.macareen.stitchbook2.feature.home.HomeRoute
 import com.macareen.stitchbook2.feature.home.HomeViewModel
-import com.macareen.stitchbook2.feature.library.LibraryScreen
+import com.macareen.stitchbook2.feature.library.LibraryRoute
+import com.macareen.stitchbook2.feature.library.LibraryViewModel
 import com.macareen.stitchbook2.feature.projects.ProjectDetailRoute
 import com.macareen.stitchbook2.feature.projects.ProjectDetailViewModel
 import com.macareen.stitchbook2.feature.projects.ProjectFormRoute
@@ -37,6 +38,8 @@ fun StitchbookNavHost(
     val projectRepository = application.container.projectRepository
     val guideRepository = application.container.guideRepository
     val executionRepository = application.container.executionRepository
+    val libraryRepository = application.container.libraryRepository
+    val stashRepository = application.container.stashRepository
 
     NavHost(
         navController = navController,
@@ -88,7 +91,10 @@ fun StitchbookNavHost(
             )
         }
         composable(TopLevelDestination.Library.route) {
-            LibraryScreen()
+            val viewModel: LibraryViewModel = viewModel(
+                factory = LibraryViewModel.factory(libraryRepository)
+            )
+            LibraryRoute(viewModel = viewModel)
         }
         composable(TopLevelDestination.Stash.route) {
             StashScreen()
