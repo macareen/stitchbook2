@@ -24,6 +24,7 @@ import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -57,9 +58,12 @@ import com.macareen.stitchbook2.R
 import com.macareen.stitchbook2.domain.model.Craft
 import com.macareen.stitchbook2.domain.model.LibraryItem
 import com.macareen.stitchbook2.feature.projects.labelResource
+import com.macareen.stitchbook2.ui.components.LabelPill
 import com.macareen.stitchbook2.ui.components.QuietText
 import com.macareen.stitchbook2.ui.theme.StitchbookSpacing
 import com.macareen.stitchbook2.ui.theme.StitchbookTheme
+import com.macareen.stitchbook2.ui.theme.cardTitle
+import com.macareen.stitchbook2.ui.theme.textSecondary
 
 @Composable
 fun LibraryRoute(viewModel: LibraryViewModel) {
@@ -318,24 +322,22 @@ private fun LibraryItemCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
+    ) {
         Column(modifier = Modifier.padding(StitchbookSpacing.medium)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Surface(
-                    shape = MaterialTheme.shapes.small,
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                ) {
-                    Text(
-                        text = stringResource(item.craft.labelResource()),
-                        style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                    )
-                }
+                LabelPill(
+                    text = stringResource(item.craft.labelResource()),
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                )
                 IconButton(onClick = onToggleBookmark) {
                     Icon(
                         imageVector = if (item.bookmarked) {
@@ -353,9 +355,10 @@ private fun LibraryItemCard(
                 }
             }
 
+            Spacer(modifier = Modifier.height(StitchbookSpacing.extraSmall))
             Text(
                 text = item.title,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.cardTitle,
                 fontWeight = FontWeight.SemiBold
             )
 
@@ -364,7 +367,7 @@ private fun LibraryItemCard(
             }
 
             if (item.tags.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(StitchbookSpacing.extraSmall))
+                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.extraSmall)) {
                     item.tags.forEach { tag ->
                         Surface(
@@ -382,14 +385,20 @@ private fun LibraryItemCard(
             }
 
             item.notes?.let { notes ->
-                Spacer(modifier = Modifier.height(StitchbookSpacing.extraSmall))
-                Text(
-                    text = notes,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surfaceContainer
+                ) {
+                    Text(
+                        text = notes,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.textSecondary,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(StitchbookSpacing.small)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(StitchbookSpacing.small))

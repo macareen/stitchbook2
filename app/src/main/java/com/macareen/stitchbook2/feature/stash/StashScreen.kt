@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -54,9 +55,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.macareen.stitchbook2.R
 import com.macareen.stitchbook2.domain.model.StashCategory
 import com.macareen.stitchbook2.domain.model.StashItem
+import com.macareen.stitchbook2.ui.components.LabelPill
 import com.macareen.stitchbook2.ui.components.QuietText
 import com.macareen.stitchbook2.ui.theme.StitchbookSpacing
 import com.macareen.stitchbook2.ui.theme.StitchbookTheme
+import com.macareen.stitchbook2.ui.theme.cardTitle
+import com.macareen.stitchbook2.ui.theme.textSecondary
 
 @Composable
 fun StashRoute(viewModel: StashViewModel) {
@@ -297,40 +301,33 @@ private fun StashItemCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
+    ) {
         Column(modifier = Modifier.padding(StitchbookSpacing.medium)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Surface(
-                    shape = MaterialTheme.shapes.small,
-                    color = MaterialTheme.colorScheme.tertiaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                ) {
-                    Text(
-                        text = stringResource(item.category.labelResource()),
-                        style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                    )
-                }
-                Surface(
-                    shape = MaterialTheme.shapes.small,
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh
-                ) {
-                    Text(
-                        text = "${formatQuantity(item.quantity)} ${item.unitLabel}",
-                        style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                    )
-                }
+                LabelPill(
+                    text = stringResource(item.category.labelResource()),
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                LabelPill(
+                    text = "${formatQuantity(item.quantity)} ${item.unitLabel}",
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = MaterialTheme.colorScheme.textSecondary
+                )
             }
 
-            Spacer(modifier = Modifier.height(StitchbookSpacing.extraSmall))
+            Spacer(modifier = Modifier.height(StitchbookSpacing.small))
             Text(
                 text = item.name,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.cardTitle,
                 fontWeight = FontWeight.SemiBold
             )
             item.brand?.let { QuietText(text = it) }
@@ -346,18 +343,28 @@ private fun StashItemCard(
                 }
             )
             if (yarnDetails.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(StitchbookSpacing.extraSmall))
-                yarnDetails.forEach { detail ->
-                    QuietText(text = detail)
+                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surfaceContainer
+                ) {
+                    Column(
+                        modifier = Modifier.padding(StitchbookSpacing.small),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        yarnDetails.forEach { detail ->
+                            QuietText(text = detail)
+                        }
+                    }
                 }
             }
 
             item.notes?.let { notes ->
-                Spacer(modifier = Modifier.height(StitchbookSpacing.extraSmall))
+                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
                 Text(
                     text = notes,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.textSecondary,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
