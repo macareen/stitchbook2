@@ -71,3 +71,5 @@ data class ToolSet(
     val createdAt: Long,
     val updatedAt: Long
 )
+
+fun normalizedToolItemName(value: String): String? = value.trim().takeIf { it.isNotEmpty() }

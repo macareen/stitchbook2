@@ -185,6 +185,14 @@
     <string name="tools_bulk_preview_title">Preview (%1$d tool(s))</string>
     <string name="tools_bulk_preview_empty">Enter a size range or a list of sizes to see a preview.</string>
     <string name="tools_bulk_create_action">Create %1$d Tool(s)</string>
+    <string name="tools_export_csv_action">Export CSV</string>
+    <string name="tools_import_csv_action">Import CSV</string>
+    <string name="tools_download_csv_template_action">Download Template</string>
+    <string name="tools_csv_import_result_title">Import results</string>
+    <string name="tools_csv_import_result_summary">%1$d item(s) imported. %2$d row(s) could not be imported.</string>
+    <string name="tools_csv_import_row_error">Row %1$d: %2$s</string>
+    <string name="tools_csv_import_more_errors">…and %1$d more row(s) with errors.</string>
+    <string name="tools_csv_import_dismiss_action">OK</string>
 
     <string name="settings_header_title">Settings &amp; Data Ownership</string>
     <string name="settings_header_subtitle">Manage portable exports, local data backups, and application status.</string>
