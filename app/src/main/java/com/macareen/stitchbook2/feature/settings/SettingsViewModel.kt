@@ -19,7 +19,9 @@ sealed interface SettingsFeedback {
     data class ImportSucceeded(
         val projectCount: Int?,
         val libraryItemCount: Int?,
-        val stashItemCount: Int?
+        val stashItemCount: Int?,
+        val toolSetCount: Int?,
+        val toolItemCount: Int?
     ) : SettingsFeedback
     data object ImportFailed : SettingsFeedback
     data object ResetCompleted : SettingsFeedback
@@ -74,7 +76,9 @@ class SettingsViewModel(
                     is BackupImportResult.Success -> SettingsFeedback.ImportSucceeded(
                         result.projectCount,
                         result.libraryItemCount,
-                        result.stashItemCount
+                        result.stashItemCount,
+                        result.toolSetCount,
+                        result.toolItemCount
                     )
                     BackupImportResult.InvalidFormat -> SettingsFeedback.ImportFailed
                 }

@@ -87,16 +87,22 @@ class StitchbookMigrationTest {
     @Test
     fun migrationFromOneToTwoPreservesProjectsAndCreatesGuideSchema() =
         runBlocking {
-            // MIGRATION_3_4/MIGRATION_4_5 must be included even though this
-            // test is only about the 1->2 step: Room always migrates up to
-            // the version declared on @Database (now 5), so every migration
-            // chain built here has to reach that version or Room rejects it
-            // outright.
+            // MIGRATION_3_4/MIGRATION_4_5/MIGRATION_5_6 must be included even
+            // though this test is only about the 1->2 step: Room always
+            // migrates up to the version declared on @Database (now 6), so
+            // every migration chain built here has to reach that version or
+            // Room rejects it outright.
             database = Room.databaseBuilder(
                 context,
                 StitchbookDatabase::class.java,
                 DATABASE_NAME
-            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+            ).addMigrations(
+                MIGRATION_1_2,
+                MIGRATION_2_3,
+                MIGRATION_3_4,
+                MIGRATION_4_5,
+                MIGRATION_5_6
+            )
                 .build()
 
             val existing = database.projectDao()
@@ -136,7 +142,7 @@ class StitchbookMigrationTest {
                 setOf("guide_drafts", "draft_nodes"),
                 readForeignKeyParents("draft_nodes")
             )
-            assertEquals(5, database.openHelper.readableDatabase.version)
+            assertEquals(6, database.openHelper.readableDatabase.version)
         }
 
     @Test
@@ -180,16 +186,22 @@ class StitchbookMigrationTest {
             seedGuideRepository.publishDraft(GuideId("existing-guide"))
             seedDatabase.close()
 
-            // MIGRATION_3_4/MIGRATION_4_5 must be included even though this
-            // test is only about the 2->3 step: Room always migrates up to
-            // the version declared on @Database (now 5), so every migration
-            // chain built here has to reach that version or Room rejects it
-            // outright.
+            // MIGRATION_3_4/MIGRATION_4_5/MIGRATION_5_6 must be included even
+            // though this test is only about the 2->3 step: Room always
+            // migrates up to the version declared on @Database (now 6), so
+            // every migration chain built here has to reach that version or
+            // Room rejects it outright.
             database = Room.databaseBuilder(
                 context,
                 StitchbookDatabase::class.java,
                 DATABASE_NAME
-            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build()
+            ).addMigrations(
+                MIGRATION_1_2,
+                MIGRATION_2_3,
+                MIGRATION_3_4,
+                MIGRATION_4_5,
+                MIGRATION_5_6
+            ).build()
 
             val existingProject = database.projectDao()
                 .observeById("existing-project")
@@ -213,7 +225,7 @@ class StitchbookMigrationTest {
                 "executions", "execution_current_address_frames",
                 "execution_completed_occurrences",
                 "execution_completed_occurrence_frames", "active_executions",
-                "library_items", "stash_items"
+                "library_items", "stash_items", "tool_sets", "tool_items"
             )
             assertEquals(expectedTables, readTableNames())
 
@@ -241,7 +253,7 @@ class StitchbookMigrationTest {
                 readIndexNames("active_executions").isNotEmpty()
             )
 
-            assertEquals(5, database.openHelper.readableDatabase.version)
+            assertEquals(6, database.openHelper.readableDatabase.version)
         }
 
     @Test
@@ -258,7 +270,13 @@ class StitchbookMigrationTest {
                 context,
                 StitchbookDatabase::class.java,
                 DATABASE_NAME
-            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build()
+            ).addMigrations(
+                MIGRATION_1_2,
+                MIGRATION_2_3,
+                MIGRATION_3_4,
+                MIGRATION_4_5,
+                MIGRATION_5_6
+            ).build()
 
             val existingProject = database.projectDao()
                 .observeById("existing-project")
@@ -269,7 +287,7 @@ class StitchbookMigrationTest {
             assertEquals(emptyList<LibraryItemEntity>(), database.libraryDao().observeAll().first())
             assertEquals(emptyList<StashItemEntity>(), database.stashDao().observeAll().first())
 
-            assertEquals(5, database.openHelper.readableDatabase.version)
+            assertEquals(6, database.openHelper.readableDatabase.version)
         }
 
     @Test
@@ -284,7 +302,13 @@ class StitchbookMigrationTest {
                 context,
                 StitchbookDatabase::class.java,
                 DATABASE_NAME
-            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build()
+            ).addMigrations(
+                MIGRATION_1_2,
+                MIGRATION_2_3,
+                MIGRATION_3_4,
+                MIGRATION_4_5,
+                MIGRATION_5_6
+            ).build()
             seedDatabase.libraryDao().upsert(
                 LibraryItemEntity(
                     id = "existing-pattern",
@@ -305,7 +329,13 @@ class StitchbookMigrationTest {
                 context,
                 StitchbookDatabase::class.java,
                 DATABASE_NAME
-            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build()
+            ).addMigrations(
+                MIGRATION_1_2,
+                MIGRATION_2_3,
+                MIGRATION_3_4,
+                MIGRATION_4_5,
+                MIGRATION_5_6
+            ).build()
 
             val migrated = database.libraryDao().observeById("existing-pattern").first()
             assertEquals("Existing Pattern", migrated?.title)
@@ -313,7 +343,44 @@ class StitchbookMigrationTest {
             assertEquals(null, migrated?.pdfFileName)
             assertEquals(null, migrated?.pdfLastViewedPage)
 
-            assertEquals(5, database.openHelper.readableDatabase.version)
+            assertEquals(6, database.openHelper.readableDatabase.version)
+        }
+
+    @Test
+    fun migrationFromFiveToSixAddsToolSchemaWithoutTouchingExistingData() =
+        runBlocking {
+            val seedDatabase = Room.databaseBuilder(
+                context,
+                StitchbookDatabase::class.java,
+                DATABASE_NAME
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build()
+            seedDatabase.close()
+
+            database = Room.databaseBuilder(
+                context,
+                StitchbookDatabase::class.java,
+                DATABASE_NAME
+            ).addMigrations(
+                MIGRATION_1_2,
+                MIGRATION_2_3,
+                MIGRATION_3_4,
+                MIGRATION_4_5,
+                MIGRATION_5_6
+            ).build()
+
+            val existingProject = database.projectDao()
+                .observeById("existing-project")
+                .first()
+            assertEquals("Existing", existingProject?.name)
+
+            assertTrue(readTableNames().containsAll(setOf("tool_sets", "tool_items")))
+            assertEquals(emptyList<ToolSetEntity>(), database.toolDao().observeAllSets().first())
+            assertEquals(emptyList<ToolItemEntity>(), database.toolDao().observeAllItems().first())
+
+            assertEquals(setOf("tool_sets"), readForeignKeyParents("tool_items"))
+            assertTrue(readIndexNames("tool_items").contains("index_tool_items_set_id"))
+
+            assertEquals(6, database.openHelper.readableDatabase.version)
         }
 
     private fun readTableNames(): Set<String> {
