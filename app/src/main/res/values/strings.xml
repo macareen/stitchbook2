@@ -111,6 +111,14 @@
     <string name="delete_stash_item_confirmation">Delete \"%1$s\"? This removes it from your stash.</string>
     <string name="stash_load_error_title">Stash could not be loaded</string>
     <string name="stash_load_error_description">Close and reopen this screen to try again.</string>
+    <string name="stash_export_csv_action">Export CSV</string>
+    <string name="stash_import_csv_action">Import CSV</string>
+    <string name="stash_download_csv_template_action">Download Template</string>
+    <string name="stash_csv_import_result_title">Import results</string>
+    <string name="stash_csv_import_result_summary">%1$d item(s) imported. %2$d row(s) could not be imported.</string>
+    <string name="stash_csv_import_row_error">Row %1$d: %2$s</string>
+    <string name="stash_csv_import_more_errors">…and %1$d more row(s) with errors.</string>
+    <string name="stash_csv_import_dismiss_action">OK</string>
 
     <string name="settings_header_title">Settings &amp; Data Ownership</string>
     <string name="settings_header_subtitle">Manage portable exports, local data backups, and application status.</string>

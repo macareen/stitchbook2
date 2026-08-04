@@ -5,6 +5,10 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.macareen.stitchbook2.data.csv.StashCsvImportReport
+import com.macareen.stitchbook2.data.csv.StashCsvRowError
+import com.macareen.stitchbook2.data.csv.parseStashCsv
+import com.macareen.stitchbook2.data.csv.stashItemsToCsv
 import com.macareen.stitchbook2.domain.model.StashCategory
 import com.macareen.stitchbook2.domain.model.StashItem
 import com.macareen.stitchbook2.domain.model.normalizedStashItemName
@@ -16,6 +20,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -41,6 +47,9 @@ class StashViewModel(
 
     private val scope: CoroutineScope = externalScope ?: viewModelScope
     private val filterState = MutableStateFlow(StashFilterState())
+
+    private val _importReport = MutableStateFlow<StashCsvImportReport?>(null)
+    val importReport: StateFlow<StashCsvImportReport?> = _importReport
 
     val uiState = combine(
         repository.observeStashItems(),
@@ -117,6 +126,48 @@ class StashViewModel(
                 // simply leaves the previous persisted state in place.
             }
         }
+    }
+
+    /** Snapshots every persisted item (ignoring the current search/category filter -- export is always complete) as CSV text. */
+    fun exportCsv(onReady: suspend (String) -> Unit) {
+        scope.launch {
+            val csv = stashItemsToCsv(repository.observeStashItems().first())
+            onReady(csv)
+        }
+    }
+
+    /**
+     * Parses [csvText] against every currently persisted item (by id, so an
+     * id already in the stash is updated rather than duplicated) and
+     * persists every structurally valid row immediately -- row-level errors
+     * are reported via [importReport] but never block the valid rows in the
+     * same file from being saved.
+     */
+    fun importCsv(csvText: String) {
+        scope.launch {
+            try {
+                val existingById = repository.observeStashItems().first().associateBy { it.id }
+                val report = parseStashCsv(csvText, existingItemsById = existingById)
+                report.validItems.forEach { repository.saveStashItem(it) }
+                _importReport.value = report
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                _importReport.value = StashCsvImportReport(
+                    validItems = emptyList(),
+                    rowErrors = listOf(
+                        StashCsvRowError(
+                            rowNumber = 0,
+                            message = "This file could not be read as CSV."
+                        )
+                    )
+                )
+            }
+        }
+    }
+
+    fun dismissImportReport() {
+        _importReport.value = null
     }
 
     fun deleteItem(item: StashItem) {
