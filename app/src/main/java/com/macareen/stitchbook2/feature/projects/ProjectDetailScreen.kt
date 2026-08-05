@@ -1,5 +1,7 @@
 package com.macareen.stitchbook2.feature.projects
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -32,9 +34,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -57,6 +61,9 @@ import com.macareen.stitchbook2.ui.theme.cardTitle
 import com.macareen.stitchbook2.ui.theme.textSecondary
 import java.text.DateFormat
 import java.util.Date
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun ProjectDetailRoute(
@@ -86,7 +93,8 @@ fun ProjectDetailRoute(
         onDeleteProject = viewModel::deleteProject,
         onOpenGuide = onOpenGuide,
         onEditDraft = onEditDraft,
-        onCreateGuide = viewModel::createGuide
+        onCreateGuide = viewModel::createGuide,
+        onCreateGuideFromPdf = viewModel::createGuideFromPdf
     )
 }
 
@@ -98,6 +106,7 @@ fun ProjectDetailScreen(
     onOpenGuide: (String) -> Unit,
     onEditDraft: (String) -> Unit,
     onCreateGuide: (String) -> Unit,
+    onCreateGuideFromPdf: (String, ByteArray) -> Unit,
     modifier: Modifier = Modifier
 ) {
     when (uiState) {
@@ -135,6 +144,7 @@ fun ProjectDetailScreen(
                 onOpenGuide = onOpenGuide,
                 onEditDraft = onEditDraft,
                 onCreateGuide = onCreateGuide,
+                onCreateGuideFromPdf = onCreateGuideFromPdf,
                 modifier = modifier
             )
         }
@@ -149,11 +159,33 @@ private fun ProjectDetailContent(
     onOpenGuide: (String) -> Unit,
     onEditDraft: (String) -> Unit,
     onCreateGuide: (String) -> Unit,
+    onCreateGuideFromPdf: (String, ByteArray) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showDeleteConfirmation by remember { mutableStateOf(false) }
     var showAddGuideDialog by remember { mutableStateOf(false) }
+    var showCreateFromPdfDialog by remember { mutableStateOf(false) }
+    var pendingPdfGuideName by remember { mutableStateOf<String?>(null) }
     val project = state.project
+
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val pickPdfLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        val name = pendingPdfGuideName
+        pendingPdfGuideName = null
+        if (uri != null && name != null) {
+            coroutineScope.launch {
+                val bytes = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                }
+                if (bytes != null) {
+                    onCreateGuideFromPdf(name, bytes)
+                }
+            }
+        }
+    }
 
     Column(
         modifier = modifier
@@ -220,9 +252,12 @@ private fun ProjectDetailContent(
             guideEntries = state.guideEntries,
             isCreatingGuide = state.isCreatingGuide,
             createGuideFailed = state.createGuideFailed,
+            isImportingPdf = state.isImportingPdf,
+            pdfImportError = state.pdfImportError,
             onOpenGuide = onOpenGuide,
             onEditDraft = onEditDraft,
-            onAddGuide = { showAddGuideDialog = true }
+            onAddGuide = { showAddGuideDialog = true },
+            onCreateGuideFromPdf = { showCreateFromPdfDialog = true }
         )
     }
 
@@ -265,6 +300,17 @@ private fun ProjectDetailContent(
             onDismiss = { showAddGuideDialog = false }
         )
     }
+
+    if (showCreateFromPdfDialog) {
+        CreateGuideFromPdfDialog(
+            onConfirm = { name ->
+                showCreateFromPdfDialog = false
+                pendingPdfGuideName = name
+                pickPdfLauncher.launch(arrayOf("application/pdf"))
+            },
+            onDismiss = { showCreateFromPdfDialog = false }
+        )
+    }
 }
 
 @Composable
@@ -302,13 +348,57 @@ private fun AddGuideDialog(
 }
 
 @Composable
+private fun CreateGuideFromPdfDialog(
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = stringResource(R.string.create_guide_from_pdf_dialog_title)) },
+        text = {
+            Column {
+                Text(
+                    text = stringResource(R.string.create_guide_from_pdf_dialog_description),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(bottom = StitchbookSpacing.small)
+                )
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text(text = stringResource(R.string.add_guide_name_label)) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(name) },
+                enabled = name.isNotBlank()
+            ) {
+                Text(text = stringResource(R.string.create_guide_from_pdf_confirm_action))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = stringResource(R.string.cancel))
+            }
+        }
+    )
+}
+
+@Composable
 private fun GuidesSection(
     guideEntries: List<GuideListEntry>,
     isCreatingGuide: Boolean,
     createGuideFailed: Boolean,
+    isImportingPdf: Boolean,
+    pdfImportError: PdfImportError?,
     onOpenGuide: (String) -> Unit,
     onEditDraft: (String) -> Unit,
-    onAddGuide: () -> Unit
+    onAddGuide: () -> Unit,
+    onCreateGuideFromPdf: () -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -331,6 +421,37 @@ private fun GuidesSection(
     if (createGuideFailed) {
         Text(
             text = stringResource(R.string.add_guide_error),
+            color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+    }
+
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+        TextButton(
+            onClick = onCreateGuideFromPdf,
+            enabled = !isImportingPdf && !isCreatingGuide
+        ) {
+            Text(
+                text = if (isImportingPdf) {
+                    stringResource(R.string.create_guide_from_pdf_importing)
+                } else {
+                    stringResource(R.string.create_guide_from_pdf_action)
+                },
+                style = MaterialTheme.typography.labelLarge
+            )
+        }
+    }
+
+    if (pdfImportError != null) {
+        Text(
+            text = stringResource(
+                if (pdfImportError == PdfImportError.NO_EXTRACTABLE_TEXT) {
+                    R.string.create_guide_from_pdf_no_text_error
+                } else {
+                    R.string.create_guide_from_pdf_extraction_error
+                }
+            ),
             color = MaterialTheme.colorScheme.error,
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(bottom = 8.dp)
@@ -574,7 +695,8 @@ private fun ProjectDetailPreview() {
             onDeleteProject = {},
             onOpenGuide = {},
             onEditDraft = {},
-            onCreateGuide = {}
+            onCreateGuide = {},
+            onCreateGuideFromPdf = { _, _ -> }
         )
     }
 }

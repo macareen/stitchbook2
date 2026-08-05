@@ -16,9 +16,13 @@ import com.macareen.stitchbook2.domain.model.Craft
 import com.macareen.stitchbook2.domain.model.Project
 import com.macareen.stitchbook2.domain.model.ProjectStatus
 import com.macareen.stitchbook2.domain.model.ProjectType
+import com.macareen.stitchbook2.domain.parsing.ExtractedDocument
+import com.macareen.stitchbook2.domain.parsing.PdfTextExtractor
 import com.macareen.stitchbook2.domain.repository.ExecutionRepository
 import com.macareen.stitchbook2.domain.repository.GuideRepository
 import com.macareen.stitchbook2.domain.repository.ProjectRepository
+import com.macareen.stitchbook2.domain.usecase.CreateGuideFromPdfUseCase
+import java.io.InputStream
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -194,6 +198,11 @@ class ProjectDetailViewModelTest {
             repository = FakeProjectRepository(project),
             guideRepository = guides,
             executionRepository = executions,
+            createGuideFromPdfUseCase = CreateGuideFromPdfUseCase(
+                textExtractor = NeverCalledPdfTextExtractor,
+                guideRepository = guides,
+                newNodeId = { "unused" }
+            ),
             externalScope = scope
         )
         // uiState is built with SharingStarted.WhileSubscribed, so it only
@@ -204,6 +213,12 @@ class ProjectDetailViewModelTest {
         scope.launch { viewModel.uiState.collect {} }
         return viewModel
     }
+}
+
+/** This test suite never exercises PDF import; every call would be a test bug. */
+private object NeverCalledPdfTextExtractor : PdfTextExtractor {
+    override fun extract(input: InputStream): ExtractedDocument =
+        throw AssertionError("PDF import is not exercised by ProjectDetailViewModelTest")
 }
 
 private class FakeProjectRepository(private val project: Project) : ProjectRepository {

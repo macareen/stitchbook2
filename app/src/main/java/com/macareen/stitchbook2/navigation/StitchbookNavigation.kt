@@ -50,6 +50,7 @@ fun StitchbookNavHost(
     val stashRepository = application.container.stashRepository
     val toolRepository = application.container.toolRepository
     val backupService = application.container.backupService
+    val createGuideFromPdfUseCase = application.container.createGuideFromPdfUseCase
 
     NavHost(
         navController = navController,
@@ -193,7 +194,8 @@ fun StitchbookNavHost(
                     projectId = projectId,
                     repository = projectRepository,
                     guideRepository = guideRepository,
-                    executionRepository = executionRepository
+                    executionRepository = executionRepository,
+                    createGuideFromPdfUseCase = createGuideFromPdfUseCase
                 )
             )
             ProjectDetailRoute(
