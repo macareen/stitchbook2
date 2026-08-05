@@ -262,12 +262,14 @@ Repository implementations may coordinate DAOs and storage adapters. Cross-recor
 
 ## 7. Navigation
 
-The implemented shell uses Navigation Compose with a single activity, one navigation host, and five centralized top-level routes:
+The implemented shell uses Navigation Compose with a single activity, one navigation host, and seven centralized top-level routes:
 
 - Home
 - Projects
 - Library
 - Stash
+- Tools
+- Counters
 - Settings
 
 The phone layout exposes these routes through a Material 3 bottom navigation bar. `Home` is the start destination. Top-level navigation uses single-top behavior plus saved/restored destination state, while the system Back action retains standard `NavController` behavior. Future detail destinations should be added within this graph only when their features exist.

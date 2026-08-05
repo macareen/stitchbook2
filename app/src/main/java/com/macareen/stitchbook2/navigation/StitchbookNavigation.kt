@@ -12,6 +12,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.macareen.stitchbook2.StitchbookApplication
 import com.macareen.stitchbook2.domain.execution.GuideId
+import com.macareen.stitchbook2.feature.counters.CountersRoute
+import com.macareen.stitchbook2.feature.counters.CountersViewModel
 import com.macareen.stitchbook2.feature.draft.DraftEditorRoute
 import com.macareen.stitchbook2.feature.draft.DraftEditorViewModel
 import com.macareen.stitchbook2.feature.focus.GuideFocusRoute
@@ -49,6 +51,7 @@ fun StitchbookNavHost(
     val libraryRepository = application.container.libraryRepository
     val stashRepository = application.container.stashRepository
     val toolRepository = application.container.toolRepository
+    val counterRepository = application.container.counterRepository
     val backupService = application.container.backupService
     val createGuideFromPdfUseCase = application.container.createGuideFromPdfUseCase
 
@@ -157,6 +160,12 @@ fun StitchbookNavHost(
                 viewModel = viewModel,
                 onDone = navController::popBackStack
             )
+        }
+        composable(TopLevelDestination.Counters.route) {
+            val viewModel: CountersViewModel = viewModel(
+                factory = CountersViewModel.factory(counterRepository, projectRepository)
+            )
+            CountersRoute(viewModel = viewModel)
         }
         composable(TopLevelDestination.Settings.route) {
             val viewModel: SettingsViewModel = viewModel(
