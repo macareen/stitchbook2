@@ -175,7 +175,8 @@ private fun counterEntity(
     updatedAt: Long = 100,
     linkedCounterId: String? = null,
     linkIncrementInterval: Int? = null,
-    linkIncrementAmount: Int? = null
+    linkIncrementAmount: Int? = null,
+    autoResetOnGoal: Boolean = false
 ) = CounterEntity(
     id = id,
     projectId = projectId,
@@ -187,7 +188,8 @@ private fun counterEntity(
     updatedAt = updatedAt,
     linkedCounterId = linkedCounterId,
     linkIncrementInterval = linkIncrementInterval,
-    linkIncrementAmount = linkIncrementAmount
+    linkIncrementAmount = linkIncrementAmount,
+    autoResetOnGoal = autoResetOnGoal
 )
 
 private fun projectEntity(id: String) = ProjectEntity(

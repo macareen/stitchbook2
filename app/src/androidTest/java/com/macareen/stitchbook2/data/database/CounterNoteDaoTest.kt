@@ -142,5 +142,6 @@ private fun counterEntity(id: String) = CounterEntity(
     updatedAt = 100,
     linkedCounterId = null,
     linkIncrementInterval = null,
-    linkIncrementAmount = null
+    linkIncrementAmount = null,
+    autoResetOnGoal = false
 )

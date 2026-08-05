@@ -27,7 +27,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CounterEntity::class,
         CounterNoteEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = true
 )
 abstract class StitchbookDatabase : RoomDatabase() {
@@ -61,7 +61,8 @@ abstract class StitchbookDatabase : RoomDatabase() {
                     MIGRATION_5_6,
                     MIGRATION_6_7,
                     MIGRATION_7_8,
-                    MIGRATION_8_9
+                    MIGRATION_8_9,
+                    MIGRATION_9_10
                 )
                     .build()
                     .also { instance = it }
@@ -660,6 +661,24 @@ val MIGRATION_8_9 = object : Migration(8, 9) {
         db.execSQL(
             "CREATE INDEX IF NOT EXISTS `index_counter_notes_counter_id` " +
                 "ON `counter_notes` (`counter_id`)"
+        )
+    }
+}
+
+/**
+ * Adds automatic-reset-on-goal to Counters (PRODUCT_SPEC.md 6.3,
+ * "Automatic reset rules"): the common "row counter resets each repeat"
+ * pattern, where reaching a goal via increment resets a counter back to 0
+ * in the same step. Unlike the previous migration, this is a plain
+ * non-foreign-key column, so a simple `ALTER TABLE ADD COLUMN` suffices --
+ * no table recreation needed. `NOT NULL DEFAULT 0` backfills every
+ * existing row to "off", since auto-reset didn't exist before this
+ * migration.
+ */
+val MIGRATION_9_10 = object : Migration(9, 10) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "ALTER TABLE `counters` ADD COLUMN `auto_reset_on_goal` INTEGER NOT NULL DEFAULT 0"
         )
     }
 }

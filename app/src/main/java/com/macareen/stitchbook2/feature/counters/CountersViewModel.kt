@@ -55,7 +55,8 @@ data class CounterFormInput(
     val projectId: String?,
     val linkedCounterId: String? = null,
     val linkIntervalText: String = "",
-    val linkAmountText: String = ""
+    val linkAmountText: String = "",
+    val autoResetOnGoal: Boolean = false
 )
 
 /** State for the value-specific-notes dialog opened for one counter at a time; see [CountersViewModel.openNotes]. */
@@ -174,6 +175,7 @@ class CountersViewModel(
         val normalizedUnitLabel = form.unitLabel.trim().ifEmpty { return }
         val currentCounters = (uiState.value as? CountersUiState.Content)?.entries?.map { it.counter }.orEmpty()
         val link = validatedLink(original?.id, form, currentCounters)
+        val goal = form.goalText.toIntOrNull()?.takeIf { it > 0 }
         scope.launch {
             val now = System.currentTimeMillis()
             val counter = Counter(
@@ -182,12 +184,15 @@ class CountersViewModel(
                 name = normalizedName,
                 unitLabel = normalizedUnitLabel,
                 currentValue = original?.currentValue ?: 0,
-                goal = form.goalText.toIntOrNull()?.takeIf { it > 0 },
+                goal = goal,
                 createdAt = original?.createdAt ?: now,
                 updatedAt = now,
                 linkedCounterId = link?.targetId,
                 linkIncrementInterval = link?.interval,
-                linkIncrementAmount = link?.amount
+                linkIncrementAmount = link?.amount,
+                // Meaningless without a goal to reach, same defensive
+                // normalization as the goal field itself.
+                autoResetOnGoal = form.autoResetOnGoal && goal != null
             )
             persist(counter)
         }
@@ -217,8 +222,13 @@ class CountersViewModel(
 
     fun increment(counter: Counter) {
         val newValue = counter.currentValue + 1
-        persistValue(counter, newValue)
+        // The link's "every N increments" interval is evaluated against
+        // newValue itself, before any auto-reset below -- reaching the
+        // goal and resetting back to 0 must never interfere with that
+        // count, the two rules act independently on the same increment.
         triggerLinkIfDue(counter, newValue)
+        val goalReached = counter.autoResetOnGoal && counter.goal?.let { newValue >= it } == true
+        persistValue(counter, if (goalReached) 0 else newValue)
     }
 
     /**

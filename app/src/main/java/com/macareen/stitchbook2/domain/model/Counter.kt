@@ -39,7 +39,18 @@ data class Counter(
      */
     val linkedCounterId: String?,
     val linkIncrementInterval: Int?,
-    val linkIncrementAmount: Int?
+    val linkIncrementAmount: Int?,
+    /**
+     * If true and [goal] is set, reaching the goal via increment
+     * automatically resets [currentValue] back to 0 in the same step --
+     * the common "row counter resets each repeat" pattern (PRODUCT_SPEC.md
+     * 6.3, "Automatic reset rules"). Like the outgoing link above, this
+     * only ever fires on a forward increment, never on decrement or a
+     * manual reset. A counter's own auto-reset and its outgoing link are
+     * independent: both are evaluated against the same increment, so a
+     * counter can bump a linked target *and* auto-reset on the same tap.
+     */
+    val autoResetOnGoal: Boolean = false
 )
 
 fun normalizedCounterName(value: String): String? = value.trim().takeIf { it.isNotEmpty() }
