@@ -7,6 +7,8 @@ import com.macareen.stitchbook2.domain.parsing.PdfTextExtractionException
 import com.macareen.stitchbook2.domain.parsing.PdfTextExtractor
 import com.macareen.stitchbook2.domain.repository.GuideRepository
 import java.io.InputStream
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Ties together PDF text extraction, deterministic parsing, and Draft-node
@@ -27,14 +29,17 @@ class CreateGuideFromPdfUseCase(
 ) {
     sealed interface Result {
         data class Success(val guideId: GuideId, val issueCount: Int) : Result
-        /** The PDF has no digital text layer at all -- OCR fallback is future work (see ROADMAP.md). */
+        /** No text was found even after OCR fallback -- see [PdfTextExtractor]. */
         data object NoExtractableText : Result
         data class ExtractionFailed(val cause: Throwable) : Result
     }
 
     suspend operator fun invoke(projectId: String, guideName: String, pdf: InputStream): Result {
+        // Extraction (PDFBox parsing, and on-device OCR when a page has no
+        // text layer) is CPU/IO-bound work that must not run on the caller's
+        // dispatcher (a ViewModel's viewModelScope defaults to Main).
         val document = try {
-            textExtractor.extract(pdf)
+            withContext(Dispatchers.IO) { textExtractor.extract(pdf) }
         } catch (e: PdfTextExtractionException) {
             return Result.ExtractionFailed(e)
         }

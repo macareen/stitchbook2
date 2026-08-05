@@ -217,7 +217,7 @@ class ProjectDetailViewModelTest {
 
 /** This test suite never exercises PDF import; every call would be a test bug. */
 private object NeverCalledPdfTextExtractor : PdfTextExtractor {
-    override fun extract(input: InputStream): ExtractedDocument =
+    override suspend fun extract(input: InputStream): ExtractedDocument =
         throw AssertionError("PDF import is not exercised by ProjectDetailViewModelTest")
 }
 

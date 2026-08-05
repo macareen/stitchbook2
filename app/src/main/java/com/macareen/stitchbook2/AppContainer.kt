@@ -3,6 +3,7 @@ package com.macareen.stitchbook2
 import android.content.Context
 import com.macareen.stitchbook2.data.backup.LocalBackupService
 import com.macareen.stitchbook2.data.database.StitchbookDatabase
+import com.macareen.stitchbook2.data.parsing.MlKitPdfPageOcr
 import com.macareen.stitchbook2.data.parsing.PdfBoxTextExtractor
 import com.macareen.stitchbook2.data.repository.LocalExecutionRepository
 import com.macareen.stitchbook2.data.repository.LocalGuideRepository
@@ -57,7 +58,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
     override val backupService: BackupService =
         LocalBackupService(projectRepository, libraryRepository, stashRepository, toolRepository)
 
-    override val pdfTextExtractor: PdfTextExtractor = PdfBoxTextExtractor(context)
+    override val pdfTextExtractor: PdfTextExtractor = PdfBoxTextExtractor(context, MlKitPdfPageOcr())
 
     override val createGuideFromPdfUseCase: CreateGuideFromPdfUseCase =
         CreateGuideFromPdfUseCase(
