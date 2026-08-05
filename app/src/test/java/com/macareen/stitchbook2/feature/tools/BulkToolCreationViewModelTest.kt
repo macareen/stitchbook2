@@ -1,8 +1,10 @@
 package com.macareen.stitchbook2.feature.tools
 
+import com.macareen.stitchbook2.domain.model.BulkSizeInputMode
 import com.macareen.stitchbook2.domain.model.ToolCategory
 import com.macareen.stitchbook2.domain.model.ToolItem
 import com.macareen.stitchbook2.domain.model.ToolSet
+import com.macareen.stitchbook2.domain.model.ToolTemplate
 import com.macareen.stitchbook2.domain.repository.ToolRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -135,14 +137,103 @@ class BulkToolCreationViewModelTest {
         assertNotNull(viewModel.uiState.value.errorMessage)
     }
 
+    @Test
+    fun savingTheCurrentFormAsATemplatePersistsItsFieldsButCreatesNoToolItem() {
+        val repository = FakeBulkToolRepository()
+        val viewModel = viewModel(repository)
+        viewModel.updateCategory(ToolCategory.CROCHET_HOOK)
+        viewModel.updateBrand("Clover")
+        viewModel.updateRangeStart("4")
+        viewModel.updateRangeEnd("5")
+        viewModel.updateRangeIncrement("0.5")
+        viewModel.updateQuantityPerSize("2")
+
+        viewModel.saveCurrentAsTemplate("My Crochet Hooks")
+
+        val saved = repository.templates.value.single()
+        assertEquals("My Crochet Hooks", saved.name)
+        assertEquals(ToolCategory.CROCHET_HOOK, saved.category)
+        assertEquals("Clover", saved.brand)
+        assertEquals(4.0, saved.rangeStart)
+        assertEquals(5.0, saved.rangeEnd)
+        assertEquals(0.5, saved.rangeIncrement)
+        assertEquals(2, saved.quantityPerSize)
+        assertTrue(repository.items.value.isEmpty())
+    }
+
+    @Test
+    fun savingATemplateWithABlankNameIsANoOp() {
+        val repository = FakeBulkToolRepository()
+        val viewModel = viewModel(repository)
+
+        viewModel.saveCurrentAsTemplate("   ")
+
+        assertTrue(repository.templates.value.isEmpty())
+    }
+
+    @Test
+    fun applyingATemplateOverwritesTheFormAndUpdatesThePreview() {
+        val repository = FakeBulkToolRepository()
+        val viewModel = viewModel(repository)
+        val template = ToolTemplate(
+            id = "template-1",
+            name = "My Crochet Hooks",
+            category = ToolCategory.CROCHET_HOOK,
+            brand = "Clover",
+            material = "Bamboo",
+            sizeInputMode = BulkSizeInputMode.RANGE,
+            rangeStart = 4.0,
+            rangeEnd = 5.0,
+            rangeIncrement = 0.5,
+            customSizes = null,
+            quantityPerSize = 2,
+            storageLocation = "Drawer 1",
+            notes = "From a template",
+            createAsSet = false,
+            setName = null,
+            createdAt = 0,
+            updatedAt = 0
+        )
+
+        viewModel.applyTemplate(template)
+
+        val form = viewModel.uiState.value.form
+        assertEquals(ToolCategory.CROCHET_HOOK, form.category)
+        assertEquals("Clover", form.brand)
+        assertEquals("Bamboo", form.material)
+        assertEquals("4.0", form.rangeStartText)
+        assertEquals("5.0", form.rangeEndText)
+        assertEquals("2", form.quantityPerSizeText)
+        assertEquals(listOf(4.0, 4.5, 5.0), viewModel.uiState.value.preview.map { it.sizeMetricMm })
+    }
+
+    @Test
+    fun deletingATemplateRemovesItFromTheRepository() {
+        val repository = FakeBulkToolRepository()
+        val viewModel = viewModel(repository)
+        viewModel.saveCurrentAsTemplate("Doomed template")
+        val saved = repository.templates.value.single()
+
+        viewModel.deleteTemplate(saved)
+
+        assertTrue(repository.templates.value.isEmpty())
+    }
+
     private fun viewModel(repository: FakeBulkToolRepository): BulkToolCreationViewModel {
-        return BulkToolCreationViewModel(repository, externalScope = scope)
+        val viewModel = BulkToolCreationViewModel(repository, externalScope = scope)
+        // templates is a stateIn(WhileSubscribed) flow, same rationale as
+        // every other screen's uiState in this codebase: it only starts
+        // (and advances past its empty initial value) once it has an
+        // active collector.
+        scope.launch { viewModel.templates.collect {} }
+        return viewModel
     }
 }
 
 private class FakeBulkToolRepository : ToolRepository {
     val items = MutableStateFlow(emptyList<ToolItem>())
     val sets = MutableStateFlow(emptyList<ToolSet>())
+    val templates = MutableStateFlow(emptyList<ToolTemplate>())
 
     override fun observeToolItems(): Flow<List<ToolItem>> = items
 
@@ -171,5 +262,15 @@ private class FakeBulkToolRepository : ToolRepository {
 
     override suspend fun deleteToolSet(set: ToolSet) {
         sets.value = sets.value.filterNot { it.id == set.id }
+    }
+
+    override fun observeToolTemplates(): Flow<List<ToolTemplate>> = templates
+
+    override suspend fun saveToolTemplate(template: ToolTemplate) {
+        templates.value = templates.value.filterNot { it.id == template.id } + template
+    }
+
+    override suspend fun deleteToolTemplate(template: ToolTemplate) {
+        templates.value = templates.value.filterNot { it.id == template.id }
     }
 }

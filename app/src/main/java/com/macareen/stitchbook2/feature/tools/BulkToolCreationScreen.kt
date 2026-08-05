@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -17,23 +20,30 @@ import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.macareen.stitchbook2.R
+import com.macareen.stitchbook2.domain.model.BulkSizeInputMode
 import com.macareen.stitchbook2.domain.model.ToolCategory
+import com.macareen.stitchbook2.domain.model.ToolTemplate
 import com.macareen.stitchbook2.ui.components.QuietText
 import com.macareen.stitchbook2.ui.theme.StitchbookSpacing
 
@@ -43,9 +53,11 @@ fun BulkToolCreationRoute(
     onDone: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val templates by viewModel.templates.collectAsStateWithLifecycle()
 
     BulkToolCreationScreen(
         uiState = uiState,
+        templates = templates,
         onCategoryChanged = viewModel::updateCategory,
         onBrandChanged = viewModel::updateBrand,
         onMaterialChanged = viewModel::updateMaterial,
@@ -59,7 +71,10 @@ fun BulkToolCreationRoute(
         onNotesChanged = viewModel::updateNotes,
         onCreateAsSetChanged = viewModel::updateCreateAsSet,
         onSetNameChanged = viewModel::updateSetName,
-        onCreateAll = viewModel::createAll
+        onCreateAll = viewModel::createAll,
+        onApplyTemplate = viewModel::applyTemplate,
+        onSaveAsTemplate = viewModel::saveCurrentAsTemplate,
+        onDeleteTemplate = viewModel::deleteTemplate
     )
 
     LaunchedEffect(uiState.didCreate) {
@@ -72,6 +87,7 @@ fun BulkToolCreationRoute(
 @Composable
 fun BulkToolCreationScreen(
     uiState: BulkToolCreationUiState,
+    templates: List<ToolTemplate>,
     onCategoryChanged: (ToolCategory) -> Unit,
     onBrandChanged: (String) -> Unit,
     onMaterialChanged: (String) -> Unit,
@@ -86,9 +102,13 @@ fun BulkToolCreationScreen(
     onCreateAsSetChanged: (Boolean) -> Unit,
     onSetNameChanged: (String) -> Unit,
     onCreateAll: () -> Unit,
+    onApplyTemplate: (ToolTemplate) -> Unit,
+    onSaveAsTemplate: (String) -> Unit,
+    onDeleteTemplate: (ToolTemplate) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val form = uiState.form
+    var isSavingTemplate by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
@@ -102,6 +122,19 @@ fun BulkToolCreationScreen(
             )
             QuietText(text = stringResource(R.string.tools_bulk_header_subtitle))
             Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
+        }
+
+        item {
+            TemplatePicker(
+                templates = templates,
+                onApplyTemplate = onApplyTemplate,
+                onDeleteTemplate = onDeleteTemplate
+            )
+            Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+            TextButton(onClick = { isSavingTemplate = true }) {
+                Text(text = stringResource(R.string.tools_bulk_save_as_template_action))
+            }
+            Spacer(modifier = Modifier.height(StitchbookSpacing.small))
         }
 
         item {
@@ -297,6 +330,134 @@ fun BulkToolCreationScreen(
             }
         }
     }
+
+    if (isSavingTemplate) {
+        SaveTemplateDialog(
+            onDismiss = { isSavingTemplate = false },
+            onSave = { name ->
+                onSaveAsTemplate(name)
+                isSavingTemplate = false
+            }
+        )
+    }
+}
+
+/** Applying a template only pre-fills the form above -- it never creates a ToolItem on its own. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TemplatePicker(
+    templates: List<ToolTemplate>,
+    onApplyTemplate: (ToolTemplate) -> Unit,
+    onDeleteTemplate: (ToolTemplate) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    if (templates.isEmpty()) {
+        QuietText(text = stringResource(R.string.tools_bulk_no_templates))
+        return
+    }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded }
+    ) {
+        OutlinedTextField(
+            value = stringResource(R.string.tools_bulk_load_template_placeholder),
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(text = stringResource(R.string.tools_bulk_load_template_label)) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                .fillMaxWidth()
+        )
+
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            templates.forEach { template ->
+                DropdownMenuItem(
+                    text = {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(text = template.name)
+                            IconButton(
+                                onClick = {
+                                    onDeleteTemplate(template)
+                                    expanded = false
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Delete,
+                                    contentDescription = stringResource(
+                                        R.string.tools_bulk_delete_template_action
+                                    )
+                                )
+                            }
+                        }
+                    },
+                    onClick = {
+                        onApplyTemplate(template)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SaveTemplateDialog(
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var nameIsBlank by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = stringResource(R.string.tools_bulk_save_as_template_action)) },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = {
+                    name = it
+                    nameIsBlank = false
+                },
+                singleLine = true,
+                isError = nameIsBlank,
+                label = { Text(text = stringResource(R.string.tools_bulk_template_name)) },
+                supportingText = if (nameIsBlank) {
+                    { Text(text = stringResource(R.string.tools_bulk_template_name_required)) }
+                } else {
+                    null
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (name.isBlank()) {
+                        nameIsBlank = true
+                    } else {
+                        onSave(name)
+                    }
+                }
+            ) {
+                Text(text = stringResource(R.string.save_tool_set))
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) {
+                Text(text = stringResource(R.string.cancel))
+            }
+        }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

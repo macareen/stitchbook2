@@ -5,6 +5,7 @@ import com.macareen.stitchbook2.data.database.toDomain
 import com.macareen.stitchbook2.data.database.toEntity
 import com.macareen.stitchbook2.domain.model.ToolItem
 import com.macareen.stitchbook2.domain.model.ToolSet
+import com.macareen.stitchbook2.domain.model.ToolTemplate
 import com.macareen.stitchbook2.domain.repository.ToolRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -53,5 +54,19 @@ class LocalToolRepository(
 
     override suspend fun deleteToolSet(set: ToolSet) {
         toolDao.deleteSet(set.toEntity())
+    }
+
+    override fun observeToolTemplates(): Flow<List<ToolTemplate>> {
+        return toolDao.observeAllTemplates().map { templates ->
+            templates.map { it.toDomain() }
+        }
+    }
+
+    override suspend fun saveToolTemplate(template: ToolTemplate) {
+        toolDao.upsertTemplate(template.toEntity())
+    }
+
+    override suspend fun deleteToolTemplate(template: ToolTemplate) {
+        toolDao.deleteTemplate(template.toEntity())
     }
 }

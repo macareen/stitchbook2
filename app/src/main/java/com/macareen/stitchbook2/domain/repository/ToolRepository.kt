@@ -2,6 +2,7 @@ package com.macareen.stitchbook2.domain.repository
 
 import com.macareen.stitchbook2.domain.model.ToolItem
 import com.macareen.stitchbook2.domain.model.ToolSet
+import com.macareen.stitchbook2.domain.model.ToolTemplate
 import kotlinx.coroutines.flow.Flow
 
 interface ToolRepository {
@@ -22,4 +23,10 @@ interface ToolRepository {
     suspend fun saveToolSet(set: ToolSet)
 
     suspend fun deleteToolSet(set: ToolSet)
+
+    fun observeToolTemplates(): Flow<List<ToolTemplate>>
+
+    suspend fun saveToolTemplate(template: ToolTemplate)
+
+    suspend fun deleteToolTemplate(template: ToolTemplate)
 }

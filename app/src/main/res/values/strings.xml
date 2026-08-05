@@ -214,6 +214,13 @@
     <string name="tools_bulk_preview_title">Preview (%1$d tool(s))</string>
     <string name="tools_bulk_preview_empty">Enter a size range or a list of sizes to see a preview.</string>
     <string name="tools_bulk_create_action">Create %1$d Tool(s)</string>
+    <string name="tools_bulk_no_templates">No saved templates yet. Fill out this form and save it as a template to reuse later.</string>
+    <string name="tools_bulk_load_template_label">Load a saved template</string>
+    <string name="tools_bulk_load_template_placeholder">Choose a template…</string>
+    <string name="tools_bulk_delete_template_action">Delete template</string>
+    <string name="tools_bulk_save_as_template_action">Save as Template</string>
+    <string name="tools_bulk_template_name">Template Name</string>
+    <string name="tools_bulk_template_name_required">Enter a template name.</string>
     <string name="tools_export_csv_action">Export CSV</string>
     <string name="tools_import_csv_action">Import CSV</string>
     <string name="tools_download_csv_template_action">Download Template</string>

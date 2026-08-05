@@ -87,9 +87,9 @@ class StitchbookMigrationTest {
     @Test
     fun migrationFromOneToTwoPreservesProjectsAndCreatesGuideSchema() =
         runBlocking {
-            // MIGRATION_3_4/MIGRATION_4_5/MIGRATION_5_6/MIGRATION_6_7/MIGRATION_7_8/MIGRATION_8_9/MIGRATION_9_10/MIGRATION_10_11 must be included even
+            // MIGRATION_3_4/MIGRATION_4_5/MIGRATION_5_6/MIGRATION_6_7/MIGRATION_7_8/MIGRATION_8_9/MIGRATION_9_10/MIGRATION_10_11/MIGRATION_11_12 must be included even
             // though this test is only about the 1->2 step: Room always
-            // migrates up to the version declared on @Database (now 11), so
+            // migrates up to the version declared on @Database (now 12), so
             // every migration chain built here has to reach that version or
             // Room rejects it outright.
             database = Room.databaseBuilder(
@@ -106,7 +106,8 @@ class StitchbookMigrationTest {
                 MIGRATION_7_8,
                 MIGRATION_8_9,
                 MIGRATION_9_10,
-                MIGRATION_10_11
+                MIGRATION_10_11,
+                MIGRATION_11_12
             )
                 .build()
 
@@ -147,7 +148,7 @@ class StitchbookMigrationTest {
                 setOf("guide_drafts", "draft_nodes"),
                 readForeignKeyParents("draft_nodes")
             )
-            assertEquals(11, database.openHelper.readableDatabase.version)
+            assertEquals(12, database.openHelper.readableDatabase.version)
         }
 
     @Test
@@ -191,9 +192,9 @@ class StitchbookMigrationTest {
             seedGuideRepository.publishDraft(GuideId("existing-guide"))
             seedDatabase.close()
 
-            // MIGRATION_3_4/MIGRATION_4_5/MIGRATION_5_6/MIGRATION_6_7/MIGRATION_7_8/MIGRATION_8_9/MIGRATION_9_10/MIGRATION_10_11 must be included even
+            // MIGRATION_3_4/MIGRATION_4_5/MIGRATION_5_6/MIGRATION_6_7/MIGRATION_7_8/MIGRATION_8_9/MIGRATION_9_10/MIGRATION_10_11/MIGRATION_11_12 must be included even
             // though this test is only about the 2->3 step: Room always
-            // migrates up to the version declared on @Database (now 11), so
+            // migrates up to the version declared on @Database (now 12), so
             // every migration chain built here has to reach that version or
             // Room rejects it outright.
             database = Room.databaseBuilder(
@@ -210,7 +211,8 @@ class StitchbookMigrationTest {
                 MIGRATION_7_8,
                 MIGRATION_8_9,
                 MIGRATION_9_10,
-                MIGRATION_10_11
+                MIGRATION_10_11,
+                MIGRATION_11_12
             ).build()
 
             val existingProject = database.projectDao()
@@ -235,8 +237,8 @@ class StitchbookMigrationTest {
                 "executions", "execution_current_address_frames",
                 "execution_completed_occurrences",
                 "execution_completed_occurrence_frames", "active_executions",
-                "library_items", "stash_items", "tool_sets", "tool_items", "counters",
-                "counter_notes"
+                "library_items", "stash_items", "tool_sets", "tool_items", "tool_templates",
+                "counters", "counter_notes"
             )
             assertEquals(expectedTables, readTableNames())
 
@@ -264,7 +266,7 @@ class StitchbookMigrationTest {
                 readIndexNames("active_executions").isNotEmpty()
             )
 
-            assertEquals(11, database.openHelper.readableDatabase.version)
+            assertEquals(12, database.openHelper.readableDatabase.version)
         }
 
     @Test
@@ -291,7 +293,8 @@ class StitchbookMigrationTest {
                 MIGRATION_7_8,
                 MIGRATION_8_9,
                 MIGRATION_9_10,
-                MIGRATION_10_11
+                MIGRATION_10_11,
+                MIGRATION_11_12
             ).build()
 
             val existingProject = database.projectDao()
@@ -303,7 +306,7 @@ class StitchbookMigrationTest {
             assertEquals(emptyList<LibraryItemEntity>(), database.libraryDao().observeAll().first())
             assertEquals(emptyList<StashItemEntity>(), database.stashDao().observeAll().first())
 
-            assertEquals(11, database.openHelper.readableDatabase.version)
+            assertEquals(12, database.openHelper.readableDatabase.version)
         }
 
     @Test
@@ -328,7 +331,8 @@ class StitchbookMigrationTest {
                 MIGRATION_7_8,
                 MIGRATION_8_9,
                 MIGRATION_9_10,
-                MIGRATION_10_11
+                MIGRATION_10_11,
+                MIGRATION_11_12
             ).build()
             seedDatabase.libraryDao().upsert(
                 LibraryItemEntity(
@@ -360,7 +364,8 @@ class StitchbookMigrationTest {
                 MIGRATION_7_8,
                 MIGRATION_8_9,
                 MIGRATION_9_10,
-                MIGRATION_10_11
+                MIGRATION_10_11,
+                MIGRATION_11_12
             ).build()
 
             val migrated = database.libraryDao().observeById("existing-pattern").first()
@@ -369,7 +374,7 @@ class StitchbookMigrationTest {
             assertEquals(null, migrated?.pdfFileName)
             assertEquals(null, migrated?.pdfLastViewedPage)
 
-            assertEquals(11, database.openHelper.readableDatabase.version)
+            assertEquals(12, database.openHelper.readableDatabase.version)
         }
 
     @Test
@@ -396,7 +401,8 @@ class StitchbookMigrationTest {
                 MIGRATION_7_8,
                 MIGRATION_8_9,
                 MIGRATION_9_10,
-                MIGRATION_10_11
+                MIGRATION_10_11,
+                MIGRATION_11_12
             ).build()
 
             val existingProject = database.projectDao()
@@ -411,7 +417,7 @@ class StitchbookMigrationTest {
             assertEquals(setOf("tool_sets"), readForeignKeyParents("tool_items"))
             assertTrue(readIndexNames("tool_items").contains("index_tool_items_set_id"))
 
-            assertEquals(11, database.openHelper.readableDatabase.version)
+            assertEquals(12, database.openHelper.readableDatabase.version)
         }
 
     @Test
@@ -444,7 +450,8 @@ class StitchbookMigrationTest {
                 MIGRATION_7_8,
                 MIGRATION_8_9,
                 MIGRATION_9_10,
-                MIGRATION_10_11
+                MIGRATION_10_11,
+                MIGRATION_11_12
             ).build()
 
             val existingProject = database.projectDao()
@@ -458,7 +465,7 @@ class StitchbookMigrationTest {
             assertEquals(setOf("projects"), readForeignKeyParents("counters"))
             assertTrue(readIndexNames("counters").contains("index_counters_project_id"))
 
-            assertEquals(11, database.openHelper.readableDatabase.version)
+            assertEquals(12, database.openHelper.readableDatabase.version)
         }
 
     @Test
@@ -510,7 +517,8 @@ class StitchbookMigrationTest {
                 MIGRATION_7_8,
                 MIGRATION_8_9,
                 MIGRATION_9_10,
-                MIGRATION_10_11
+                MIGRATION_10_11,
+                MIGRATION_11_12
             ).build()
 
             val existingCounter = database.counterDao().observeById("existing-counter").first()
@@ -523,7 +531,7 @@ class StitchbookMigrationTest {
             assertEquals(setOf("counters"), readForeignKeyParents("counter_notes"))
             assertTrue(readIndexNames("counter_notes").contains("index_counter_notes_counter_id"))
 
-            assertEquals(11, database.openHelper.readableDatabase.version)
+            assertEquals(12, database.openHelper.readableDatabase.version)
         }
 
     @Test
@@ -590,7 +598,8 @@ class StitchbookMigrationTest {
                 MIGRATION_7_8,
                 MIGRATION_8_9,
                 MIGRATION_9_10,
-                MIGRATION_10_11
+                MIGRATION_10_11,
+                MIGRATION_11_12
             ).build()
 
             val existingCounter = database.counterDao().observeById("existing-counter").first()
@@ -609,7 +618,7 @@ class StitchbookMigrationTest {
             assertEquals(setOf("counters"), readForeignKeyParents("counter_notes"))
             assertTrue(readIndexNames("counter_notes").contains("index_counter_notes_counter_id"))
 
-            assertEquals(11, database.openHelper.readableDatabase.version)
+            assertEquals(12, database.openHelper.readableDatabase.version)
         }
 
     @Test
@@ -663,7 +672,8 @@ class StitchbookMigrationTest {
                 MIGRATION_7_8,
                 MIGRATION_8_9,
                 MIGRATION_9_10,
-                MIGRATION_10_11
+                MIGRATION_10_11,
+                MIGRATION_11_12
             ).build()
 
             val existingCounter = database.counterDao().observeById("existing-counter").first()
@@ -672,7 +682,7 @@ class StitchbookMigrationTest {
             assertEquals(60, existingCounter?.goal)
             assertEquals(false, existingCounter?.autoResetOnGoal)
 
-            assertEquals(11, database.openHelper.readableDatabase.version)
+            assertEquals(12, database.openHelper.readableDatabase.version)
         }
 
     @Test
@@ -727,7 +737,8 @@ class StitchbookMigrationTest {
                 MIGRATION_7_8,
                 MIGRATION_8_9,
                 MIGRATION_9_10,
-                MIGRATION_10_11
+                MIGRATION_10_11,
+                MIGRATION_11_12
             ).build()
 
             val existingCounter = database.counterDao().observeById("existing-counter").first()
@@ -736,7 +747,57 @@ class StitchbookMigrationTest {
             assertEquals(null, existingCounter?.repeatIntervalDays)
             assertEquals(null, existingCounter?.lastRepeatResetAt)
 
-            assertEquals(11, database.openHelper.readableDatabase.version)
+            assertEquals(12, database.openHelper.readableDatabase.version)
+        }
+
+    @Test
+    fun migrationFromElevenToTwelveAddsToolTemplateSchemaWithoutTouchingExistingData() =
+        runBlocking {
+            val seedDatabase = Room.databaseBuilder(
+                context,
+                StitchbookDatabase::class.java,
+                DATABASE_NAME
+            ).addMigrations(
+                MIGRATION_1_2,
+                MIGRATION_2_3,
+                MIGRATION_3_4,
+                MIGRATION_4_5,
+                MIGRATION_5_6,
+                MIGRATION_6_7,
+                MIGRATION_7_8,
+                MIGRATION_8_9,
+                MIGRATION_9_10,
+                MIGRATION_10_11
+            ).build()
+            seedDatabase.close()
+
+            database = Room.databaseBuilder(
+                context,
+                StitchbookDatabase::class.java,
+                DATABASE_NAME
+            ).addMigrations(
+                MIGRATION_1_2,
+                MIGRATION_2_3,
+                MIGRATION_3_4,
+                MIGRATION_4_5,
+                MIGRATION_5_6,
+                MIGRATION_6_7,
+                MIGRATION_7_8,
+                MIGRATION_8_9,
+                MIGRATION_9_10,
+                MIGRATION_10_11,
+                MIGRATION_11_12
+            ).build()
+
+            val existingProject = database.projectDao()
+                .observeById("existing-project")
+                .first()
+            assertEquals("Existing", existingProject?.name)
+
+            assertTrue(readTableNames().containsAll(setOf("tool_templates")))
+            assertEquals(emptyList<ToolTemplateEntity>(), database.toolDao().observeAllTemplates().first())
+
+            assertEquals(12, database.openHelper.readableDatabase.version)
         }
 
     private fun readTableNames(): Set<String> {
