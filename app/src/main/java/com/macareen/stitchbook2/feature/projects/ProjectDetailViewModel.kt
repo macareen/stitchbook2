@@ -7,9 +7,12 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.macareen.stitchbook2.domain.guide.Guide
 import com.macareen.stitchbook2.domain.model.Project
+import com.macareen.stitchbook2.domain.parsing.PdfTextExtractionException
 import com.macareen.stitchbook2.domain.repository.ExecutionRepository
 import com.macareen.stitchbook2.domain.repository.GuideRepository
 import com.macareen.stitchbook2.domain.repository.ProjectRepository
+import com.macareen.stitchbook2.domain.usecase.CreateGuideFromPdfUseCase
+import java.io.ByteArrayInputStream
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
@@ -38,6 +41,12 @@ enum class GuideEntryAction {
     NOT_EXECUTABLE
 }
 
+/** Why importing a PDF as a Guide didn't produce a reviewable Draft. */
+enum class PdfImportError {
+    NO_EXTRACTABLE_TEXT,
+    EXTRACTION_FAILED
+}
+
 data class GuideListEntry(
     val guide: Guide,
     val action: GuideEntryAction
@@ -53,7 +62,9 @@ sealed interface ProjectDetailUiState {
         val isDeleting: Boolean = false,
         val deleteFailed: Boolean = false,
         val isCreatingGuide: Boolean = false,
-        val createGuideFailed: Boolean = false
+        val createGuideFailed: Boolean = false,
+        val isImportingPdf: Boolean = false,
+        val pdfImportError: PdfImportError? = null
     ) : ProjectDetailUiState
 }
 
@@ -62,17 +73,24 @@ private data class CreateGuideState(
     val failed: Boolean = false
 )
 
+private data class PdfImportState(
+    val isImporting: Boolean = false,
+    val error: PdfImportError? = null
+)
+
 class ProjectDetailViewModel(
     private val projectId: String,
     private val repository: ProjectRepository,
     private val guideRepository: GuideRepository,
     private val executionRepository: ExecutionRepository,
+    private val createGuideFromPdfUseCase: CreateGuideFromPdfUseCase,
     externalScope: CoroutineScope? = null
 ) : ViewModel() {
 
     private val scope: CoroutineScope = externalScope ?: viewModelScope
     private val deleteState = MutableStateFlow(DeleteState())
     private val createGuideState = MutableStateFlow(CreateGuideState())
+    private val pdfImportState = MutableStateFlow(PdfImportState())
 
     val uiState: StateFlow<ProjectDetailUiState> = combine(
         repository.observeProject(projectId)
@@ -82,8 +100,9 @@ class ProjectDetailViewModel(
             .map { guides -> guides.map { guide -> GuideListEntry(guide, resolveEntryAction(guide)) } }
             .catch { emit(emptyList()) },
         deleteState,
-        createGuideState
-    ) { loadState, guideEntries, deletion, creation ->
+        createGuideState,
+        pdfImportState
+    ) { loadState, guideEntries, deletion, creation, pdfImport ->
         when (loadState) {
             ProjectLoadState.Failed -> ProjectDetailUiState.LoadError
             is ProjectLoadState.Loaded -> {
@@ -97,7 +116,9 @@ class ProjectDetailViewModel(
                         isDeleting = deletion.isDeleting,
                         deleteFailed = deletion.failed,
                         isCreatingGuide = creation.isCreating,
-                        createGuideFailed = creation.failed
+                        createGuideFailed = creation.failed,
+                        isImportingPdf = pdfImport.isImporting,
+                        pdfImportError = pdfImport.error
                     )
                 }
             }
@@ -164,6 +185,54 @@ class ProjectDetailViewModel(
         }
     }
 
+    /**
+     * Extracts, parses, and creates a Guide from [pdfBytes] the same way
+     * [createGuide] creates one manually -- the resulting Draft is
+     * unpublished and ordinary, reviewed in the same Draft editor, never
+     * auto-published (ROADMAP.md's "Parser foundation" item). [pdfBytes] is
+     * a plain in-memory copy rather than a live `content://` stream so this
+     * call's lifetime does not depend on the caller keeping a file
+     * descriptor open.
+     */
+    fun createGuideFromPdf(name: String, pdfBytes: ByteArray) {
+        val current = uiState.value as? ProjectDetailUiState.Content ?: return
+        if (current.isImportingPdf) return
+
+        val normalizedName = name.trim()
+        if (normalizedName.isEmpty()) return
+
+        pdfImportState.value = PdfImportState(isImporting = true)
+
+        scope.launch {
+            try {
+                when (
+                    val result = createGuideFromPdfUseCase(
+                        current.project.id,
+                        normalizedName,
+                        ByteArrayInputStream(pdfBytes)
+                    )
+                ) {
+                    is CreateGuideFromPdfUseCase.Result.Success -> {
+                        pdfImportState.value = PdfImportState()
+                        guideCreatedChannel.send(result.guideId.value)
+                    }
+
+                    CreateGuideFromPdfUseCase.Result.NoExtractableText -> {
+                        pdfImportState.value = PdfImportState(error = PdfImportError.NO_EXTRACTABLE_TEXT)
+                    }
+
+                    is CreateGuideFromPdfUseCase.Result.ExtractionFailed -> {
+                        pdfImportState.value = PdfImportState(error = PdfImportError.EXTRACTION_FAILED)
+                    }
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                pdfImportState.value = PdfImportState(error = PdfImportError.EXTRACTION_FAILED)
+            }
+        }
+    }
+
     fun deleteProject() {
         val current = uiState.value as? ProjectDetailUiState.Content ?: return
         if (current.isDeleting) return
@@ -187,10 +256,17 @@ class ProjectDetailViewModel(
             projectId: String,
             repository: ProjectRepository,
             guideRepository: GuideRepository,
-            executionRepository: ExecutionRepository
+            executionRepository: ExecutionRepository,
+            createGuideFromPdfUseCase: CreateGuideFromPdfUseCase
         ): ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                ProjectDetailViewModel(projectId, repository, guideRepository, executionRepository)
+                ProjectDetailViewModel(
+                    projectId,
+                    repository,
+                    guideRepository,
+                    executionRepository,
+                    createGuideFromPdfUseCase
+                )
             }
         }
     }
