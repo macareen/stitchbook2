@@ -135,6 +135,72 @@ class ToolDaoTest {
         assertEquals(null, survivingItem?.setId)
     }
 
+    @Test
+    fun observeItemsForProjectReturnsOnlyThatProjectsAssignments() = runBlocking {
+        database.projectDao().upsert(projectEntity(id = "project-1"))
+        database.projectDao().upsert(projectEntity(id = "project-2"))
+        val assigned = toolItemEntity(id = "assigned")
+        val unassigned = toolItemEntity(id = "unassigned")
+        dao.upsertItem(assigned)
+        dao.upsertItem(unassigned)
+        dao.replaceAssignmentsForItem(assigned.id, setOf("project-1"))
+
+        val itemsForProject1 = dao.observeItemsForProject("project-1").first()
+        val itemsForProject2 = dao.observeItemsForProject("project-2").first()
+
+        assertEquals(listOf(assigned), itemsForProject1)
+        assertEquals(emptyList<ToolItemEntity>(), itemsForProject2)
+    }
+
+    @Test
+    fun replaceAssignmentsForItemOverwritesThePreviousSetAtomically() = runBlocking {
+        database.projectDao().upsert(projectEntity(id = "project-1"))
+        database.projectDao().upsert(projectEntity(id = "project-2"))
+        val item = toolItemEntity(id = "item-1")
+        dao.upsertItem(item)
+        dao.replaceAssignmentsForItem(item.id, setOf("project-1"))
+
+        dao.replaceAssignmentsForItem(item.id, setOf("project-2"))
+
+        assertEquals(listOf("project-2"), dao.observeProjectIdsForItem(item.id).first())
+    }
+
+    @Test
+    fun deleteAssignmentRemovesOnlyThatOnePair() = runBlocking {
+        database.projectDao().upsert(projectEntity(id = "project-1"))
+        database.projectDao().upsert(projectEntity(id = "project-2"))
+        val item = toolItemEntity(id = "item-1")
+        dao.upsertItem(item)
+        dao.replaceAssignmentsForItem(item.id, setOf("project-1", "project-2"))
+
+        dao.deleteAssignment(item.id, "project-1")
+
+        assertEquals(listOf("project-2"), dao.observeProjectIdsForItem(item.id).first())
+    }
+
+    @Test
+    fun deletingAToolItemCascadesToItsProjectAssignments() = runBlocking {
+        database.projectDao().upsert(projectEntity(id = "project-1"))
+        val item = toolItemEntity(id = "item-1")
+        dao.upsertItem(item)
+        dao.replaceAssignmentsForItem(item.id, setOf("project-1"))
+
+        dao.deleteItem(item)
+
+        assertEquals(emptyList<ToolItemEntity>(), dao.observeItemsForProject("project-1").first())
+    }
+
+    private fun projectEntity(id: String) = ProjectEntity(
+        id = id,
+        name = id,
+        craft = "KNITTING",
+        projectType = "OTHER",
+        status = "ACTIVE",
+        notes = null,
+        createdAt = 0,
+        updatedAt = 0
+    )
+
     private fun toolItemEntity(
         id: String,
         name: String = "Item",

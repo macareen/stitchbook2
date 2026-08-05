@@ -7,10 +7,12 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.macareen.stitchbook2.domain.guide.Guide
 import com.macareen.stitchbook2.domain.model.Project
+import com.macareen.stitchbook2.domain.model.ToolItem
 import com.macareen.stitchbook2.domain.parsing.PdfTextExtractionException
 import com.macareen.stitchbook2.domain.repository.ExecutionRepository
 import com.macareen.stitchbook2.domain.repository.GuideRepository
 import com.macareen.stitchbook2.domain.repository.ProjectRepository
+import com.macareen.stitchbook2.domain.repository.ToolRepository
 import com.macareen.stitchbook2.domain.usecase.CreateGuideFromPdfUseCase
 import java.io.ByteArrayInputStream
 import kotlinx.coroutines.CancellationException
@@ -59,6 +61,8 @@ sealed interface ProjectDetailUiState {
     data class Content(
         val project: Project,
         val guideEntries: List<GuideListEntry> = emptyList(),
+        /** Tools assigned to this project via the many-to-many join (ARCHITECTURE.md §9) -- assigning happens from the Tools screen; this list is read-only-with-unassign here. */
+        val assignedTools: List<ToolItem> = emptyList(),
         val isDeleting: Boolean = false,
         val deleteFailed: Boolean = false,
         val isCreatingGuide: Boolean = false,
@@ -83,6 +87,7 @@ class ProjectDetailViewModel(
     private val repository: ProjectRepository,
     private val guideRepository: GuideRepository,
     private val executionRepository: ExecutionRepository,
+    private val toolRepository: ToolRepository,
     private val createGuideFromPdfUseCase: CreateGuideFromPdfUseCase,
     externalScope: CoroutineScope? = null
 ) : ViewModel() {
@@ -93,32 +98,38 @@ class ProjectDetailViewModel(
     private val pdfImportState = MutableStateFlow(PdfImportState())
 
     val uiState: StateFlow<ProjectDetailUiState> = combine(
-        repository.observeProject(projectId)
-            .map<Project?, ProjectLoadState> { ProjectLoadState.Loaded(it) }
-            .catch { emit(ProjectLoadState.Failed) },
-        guideRepository.observeGuides(projectId)
-            .map { guides -> guides.map { guide -> GuideListEntry(guide, resolveEntryAction(guide)) } }
-            .catch { emit(emptyList()) },
-        deleteState,
-        createGuideState,
-        pdfImportState
-    ) { loadState, guideEntries, deletion, creation, pdfImport ->
-        when (loadState) {
+        combine(
+            repository.observeProject(projectId)
+                .map<Project?, ProjectLoadState> { ProjectLoadState.Loaded(it) }
+                .catch { emit(ProjectLoadState.Failed) },
+            guideRepository.observeGuides(projectId)
+                .map { guides -> guides.map { guide -> GuideListEntry(guide, resolveEntryAction(guide)) } }
+                .catch { emit(emptyList()) },
+            deleteState,
+            createGuideState,
+            pdfImportState
+        ) { loadState, guideEntries, deletion, creation, pdfImport ->
+            BaseState(loadState, guideEntries, deletion, creation, pdfImport)
+        },
+        toolRepository.observeToolItemsForProject(projectId).catch { emit(emptyList()) }
+    ) { base, assignedTools ->
+        when (base.loadState) {
             ProjectLoadState.Failed -> ProjectDetailUiState.LoadError
             is ProjectLoadState.Loaded -> {
-                val project = loadState.project
+                val project = base.loadState.project
                 if (project == null) {
                     ProjectDetailUiState.NotFound
                 } else {
                     ProjectDetailUiState.Content(
                         project = project,
-                        guideEntries = guideEntries,
-                        isDeleting = deletion.isDeleting,
-                        deleteFailed = deletion.failed,
-                        isCreatingGuide = creation.isCreating,
-                        createGuideFailed = creation.failed,
-                        isImportingPdf = pdfImport.isImporting,
-                        pdfImportError = pdfImport.error
+                        guideEntries = base.guideEntries,
+                        assignedTools = assignedTools,
+                        isDeleting = base.deletion.isDeleting,
+                        deleteFailed = base.deletion.failed,
+                        isCreatingGuide = base.creation.isCreating,
+                        createGuideFailed = base.creation.failed,
+                        isImportingPdf = base.pdfImport.isImporting,
+                        pdfImportError = base.pdfImport.error
                     )
                 }
             }
@@ -233,6 +244,20 @@ class ProjectDetailViewModel(
         }
     }
 
+    /** Removes just this one project<->tool membership row -- never touches the ToolItem itself or its other project assignments. */
+    fun unassignTool(toolItem: ToolItem) {
+        scope.launch {
+            try {
+                toolRepository.unassignToolFromProject(toolItem.id, projectId)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                // Nothing to reconcile locally: the list reflects whatever is
+                // actually persisted on the next emission.
+            }
+        }
+    }
+
     fun deleteProject() {
         val current = uiState.value as? ProjectDetailUiState.Content ?: return
         if (current.isDeleting) return
@@ -257,6 +282,7 @@ class ProjectDetailViewModel(
             repository: ProjectRepository,
             guideRepository: GuideRepository,
             executionRepository: ExecutionRepository,
+            toolRepository: ToolRepository,
             createGuideFromPdfUseCase: CreateGuideFromPdfUseCase
         ): ViewModelProvider.Factory = viewModelFactory {
             initializer {
@@ -265,12 +291,21 @@ class ProjectDetailViewModel(
                     repository,
                     guideRepository,
                     executionRepository,
+                    toolRepository,
                     createGuideFromPdfUseCase
                 )
             }
         }
     }
 }
+
+private data class BaseState(
+    val loadState: ProjectLoadState,
+    val guideEntries: List<GuideListEntry>,
+    val deletion: DeleteState,
+    val creation: CreateGuideState,
+    val pdfImport: PdfImportState
+)
 
 private sealed interface ProjectLoadState {
     data class Loaded(val project: Project?) : ProjectLoadState

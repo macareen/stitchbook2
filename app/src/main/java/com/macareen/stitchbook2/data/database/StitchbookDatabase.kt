@@ -25,10 +25,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ToolSetEntity::class,
         ToolItemEntity::class,
         ToolTemplateEntity::class,
+        ProjectToolAssignmentEntity::class,
         CounterEntity::class,
         CounterNoteEntity::class
     ],
-    version = 12,
+    version = 13,
     exportSchema = true
 )
 abstract class StitchbookDatabase : RoomDatabase() {
@@ -65,7 +66,8 @@ abstract class StitchbookDatabase : RoomDatabase() {
                     MIGRATION_8_9,
                     MIGRATION_9_10,
                     MIGRATION_10_11,
-                    MIGRATION_11_12
+                    MIGRATION_11_12,
+                    MIGRATION_12_13
                 )
                     .build()
                     .also { instance = it }
@@ -729,6 +731,37 @@ val MIGRATION_11_12 = object : Migration(11, 12) {
                 `updated_at` INTEGER NOT NULL,
                 PRIMARY KEY(`id`)
             )
+            """.trimIndent()
+        )
+    }
+}
+
+/**
+ * The first genuine many-to-many junction table in this schema
+ * (ARCHITECTURE.md §9's "explicit join entities" for projects-tools): a
+ * pure membership record with a composite primary key, both FKs cascading
+ * since a join row means nothing once either side it links is gone --
+ * unlike `tool_items.set_id`'s SET_NULL (a set is a label over inventory,
+ * not ownership). No table recreation needed since both parent tables
+ * already exist unchanged; this is purely additive, like MIGRATION_11_12.
+ */
+val MIGRATION_12_13 = object : Migration(12, 13) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `project_tool_assignments` (
+                `project_id` TEXT NOT NULL,
+                `tool_item_id` TEXT NOT NULL,
+                PRIMARY KEY(`project_id`, `tool_item_id`),
+                FOREIGN KEY(`project_id`) REFERENCES `projects`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                FOREIGN KEY(`tool_item_id`) REFERENCES `tool_items`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            CREATE INDEX IF NOT EXISTS `index_project_tool_assignments_tool_item_id`
+            ON `project_tool_assignments` (`tool_item_id`)
             """.trimIndent()
         )
     }

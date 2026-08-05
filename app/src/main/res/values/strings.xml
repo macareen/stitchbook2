@@ -182,6 +182,9 @@
     <string name="tools_load_error_description">Close and reopen this screen to try again.</string>
     <string name="tools_field_set">Set</string>
     <string name="tools_set_none">No set</string>
+    <string name="tools_assign_to_projects_action">Assign to projects</string>
+    <string name="tools_assign_to_projects_title">Assign \"%1$s\" to projects</string>
+    <string name="tools_assign_to_projects_no_projects">No projects yet. Create a project first, then assign tools to it here.</string>
     <string name="tools_manage_sets_link">Manage Tool Sets</string>
     <string name="tool_sets_header_title">Tool Sets</string>
     <string name="tool_sets_header_subtitle">Rename or delete a set. Assign items to a set from each tool\'s own edit form.</string>
@@ -359,6 +362,10 @@
 
     <string name="guides_section_title">Guides</string>
     <string name="guides_empty_description">No guides yet. Add one to start writing a pattern.</string>
+
+    <string name="project_tools_section_title">Tools</string>
+    <string name="project_tools_empty_description">No tools assigned yet. Assign one from the Tools screen.</string>
+    <string name="project_unassign_tool_action">Unassign</string>
     <string name="guide_continue_action">Continue</string>
     <string name="guide_edit_draft_action">Edit draft</string>
     <string name="guide_draft_status_label">Draft — not yet published</string>

@@ -2,6 +2,7 @@ package com.macareen.stitchbook2.feature.tools
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,11 +12,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Assignment
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.Delete
@@ -24,6 +29,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -40,6 +46,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -58,6 +65,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.macareen.stitchbook2.R
 import com.macareen.stitchbook2.data.csv.ToolsCsvImportReport
 import com.macareen.stitchbook2.data.csv.toolsCsvTemplate
+import com.macareen.stitchbook2.domain.model.Project
 import com.macareen.stitchbook2.domain.model.ToolCategory
 import com.macareen.stitchbook2.domain.model.ToolItem
 import com.macareen.stitchbook2.domain.model.ToolSet
@@ -93,7 +101,9 @@ fun ToolsRoute(viewModel: ToolsViewModel, onBulkCreate: () -> Unit, onManageSets
         onExportCsv = viewModel::exportCsv,
         onImportCsv = viewModel::importCsv,
         importReport = importReport,
-        onDismissImportReport = viewModel::dismissImportReport
+        onDismissImportReport = viewModel::dismissImportReport,
+        onLoadAssignedProjectIds = viewModel::loadAssignedProjectIds,
+        onSaveProjectAssignments = viewModel::saveProjectAssignments
     )
 }
 
@@ -110,8 +120,11 @@ fun ToolsScreen(
     onImportCsv: (String) -> Unit,
     importReport: ToolsCsvImportReport?,
     onDismissImportReport: () -> Unit,
+    onLoadAssignedProjectIds: suspend (String) -> Set<String>,
+    onSaveProjectAssignments: (String, Set<String>) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var assigningItem by remember { mutableStateOf<ToolItem?>(null) }
     var editingItem by remember { mutableStateOf<ToolItem?>(null) }
     var isAddingItem by remember { mutableStateOf(false) }
     var deletingItem by remember { mutableStateOf<ToolItem?>(null) }
@@ -187,6 +200,7 @@ fun ToolsScreen(
                     onCategoryFilterChanged = onCategoryFilterChanged,
                     onEditItem = { editingItem = it },
                     onDeleteRequested = { deletingItem = it },
+                    onAssignRequested = { assigningItem = it },
                     onBulkCreate = onBulkCreate,
                     onManageSets = onManageSets,
                     onExportCsvClick = { exportCsvLauncher.launch(toolsCsvFileName()) },
@@ -265,6 +279,89 @@ fun ToolsScreen(
     }
 
     importReport?.let { report -> ToolsCsvImportReportDialog(report = report, onDismiss = onDismissImportReport) }
+
+    assigningItem?.let { item ->
+        val availableProjects = (uiState as? ToolsUiState.Content)?.projects.orEmpty()
+        AssignToProjectsDialog(
+            item = item,
+            availableProjects = availableProjects,
+            onLoadAssignedProjectIds = onLoadAssignedProjectIds,
+            onDismiss = { assigningItem = null },
+            onSave = { projectIds ->
+                onSaveProjectAssignments(item.id, projectIds)
+                assigningItem = null
+            }
+        )
+    }
+}
+
+/**
+ * A multi-select checklist of every project, initialized from persisted
+ * assignments via a one-shot [onLoadAssignedProjectIds] load rather than a
+ * live-observed flow -- this dialog's own local checkbox state is the
+ * source of truth until Save, exactly like [ToolItemDialog]'s form fields.
+ */
+@Composable
+private fun AssignToProjectsDialog(
+    item: ToolItem,
+    availableProjects: List<Project>,
+    onLoadAssignedProjectIds: suspend (String) -> Set<String>,
+    onDismiss: () -> Unit,
+    onSave: (Set<String>) -> Unit
+) {
+    var selectedIds by remember(item.id) { mutableStateOf<Set<String>?>(null) }
+
+    LaunchedEffect(item.id) {
+        selectedIds = onLoadAssignedProjectIds(item.id)
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = stringResource(R.string.tools_assign_to_projects_title, item.name)) },
+        text = {
+            val ids = selectedIds
+            when {
+                ids == null -> CircularProgressIndicator()
+                availableProjects.isEmpty() -> QuietText(text = stringResource(R.string.tools_assign_to_projects_no_projects))
+                else -> Column(
+                    modifier = Modifier
+                        .heightIn(max = 320.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    availableProjects.forEach { project ->
+                        val isChecked = project.id in ids
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { selectedIds = if (isChecked) ids - project.id else ids + project.id },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = isChecked,
+                                onCheckedChange = { checked ->
+                                    selectedIds = if (checked) ids + project.id else ids - project.id
+                                }
+                            )
+                            Text(text = project.name)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { selectedIds?.let(onSave) },
+                enabled = selectedIds != null
+            ) {
+                Text(text = stringResource(R.string.save_tool_set))
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) {
+                Text(text = stringResource(R.string.cancel))
+            }
+        }
+    )
 }
 
 @Composable
@@ -327,6 +424,7 @@ private fun ToolsContent(
     onCategoryFilterChanged: (ToolCategory?) -> Unit,
     onEditItem: (ToolItem) -> Unit,
     onDeleteRequested: (ToolItem) -> Unit,
+    onAssignRequested: (ToolItem) -> Unit,
     onBulkCreate: () -> Unit,
     onManageSets: () -> Unit,
     onExportCsvClick: () -> Unit,
@@ -403,7 +501,8 @@ private fun ToolsContent(
                 ToolItemCard(
                     item = toolItem,
                     onEdit = { onEditItem(toolItem) },
-                    onDelete = { onDeleteRequested(toolItem) }
+                    onDelete = { onDeleteRequested(toolItem) },
+                    onAssignToProjects = { onAssignRequested(toolItem) }
                 )
             }
         }
@@ -463,7 +562,8 @@ private fun CategoryFilterDropdown(
 private fun ToolItemCard(
     item: ToolItem,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onAssignToProjects: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -537,6 +637,12 @@ private fun ToolItemCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
+                IconButton(onClick = onAssignToProjects) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.Assignment,
+                        contentDescription = stringResource(R.string.tools_assign_to_projects_action)
+                    )
+                }
                 IconButton(onClick = onEdit) {
                     Icon(
                         imageVector = Icons.Outlined.Edit,
@@ -957,7 +1063,8 @@ private fun ToolsScreenPreview() {
                 ),
                 filter = ToolFilterState(),
                 hasAnyItems = true,
-                sets = emptyList()
+                sets = emptyList(),
+                projects = emptyList()
             ),
             onSearchQueryChanged = {},
             onCategoryFilterChanged = {},
@@ -968,7 +1075,9 @@ private fun ToolsScreenPreview() {
             onExportCsv = {},
             onImportCsv = {},
             importReport = null,
-            onDismissImportReport = {}
+            onDismissImportReport = {},
+            onLoadAssignedProjectIds = { emptySet() },
+            onSaveProjectAssignments = { _, _ -> }
         )
     }
 }

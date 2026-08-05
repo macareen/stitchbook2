@@ -2,7 +2,9 @@ package com.macareen.stitchbook2.data.database
 
 import androidx.room.Dao
 import androidx.room.Delete
+import androidx.room.Insert
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
@@ -64,4 +66,37 @@ interface ToolDao {
 
     @Delete
     suspend fun deleteTemplate(template: ToolTemplateEntity)
+
+    @Query(
+        """
+        SELECT tool_items.* FROM tool_items
+        INNER JOIN project_tool_assignments ON tool_items.id = project_tool_assignments.tool_item_id
+        WHERE project_tool_assignments.project_id = :projectId
+        ORDER BY tool_items.updated_at DESC, tool_items.name COLLATE NOCASE ASC, tool_items.id ASC
+        """
+    )
+    fun observeItemsForProject(projectId: String): Flow<List<ToolItemEntity>>
+
+    @Query("SELECT project_id FROM project_tool_assignments WHERE tool_item_id = :toolItemId")
+    fun observeProjectIdsForItem(toolItemId: String): Flow<List<String>>
+
+    @Query("DELETE FROM project_tool_assignments WHERE tool_item_id = :toolItemId")
+    suspend fun clearAssignmentsForItem(toolItemId: String)
+
+    @Insert
+    suspend fun insertAssignments(assignments: List<ProjectToolAssignmentEntity>)
+
+    /** Replaces every project this item is assigned to with exactly [projectIds] in one atomic step. */
+    @Transaction
+    suspend fun replaceAssignmentsForItem(toolItemId: String, projectIds: Set<String>) {
+        clearAssignmentsForItem(toolItemId)
+        if (projectIds.isNotEmpty()) {
+            insertAssignments(projectIds.map { ProjectToolAssignmentEntity(projectId = it, toolItemId = toolItemId) })
+        }
+    }
+
+    @Query(
+        "DELETE FROM project_tool_assignments WHERE tool_item_id = :toolItemId AND project_id = :projectId"
+    )
+    suspend fun deleteAssignment(toolItemId: String, projectId: String)
 }

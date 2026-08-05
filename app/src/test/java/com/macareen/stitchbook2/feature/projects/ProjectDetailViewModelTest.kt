@@ -16,11 +16,16 @@ import com.macareen.stitchbook2.domain.model.Craft
 import com.macareen.stitchbook2.domain.model.Project
 import com.macareen.stitchbook2.domain.model.ProjectStatus
 import com.macareen.stitchbook2.domain.model.ProjectType
+import com.macareen.stitchbook2.domain.model.ToolCategory
+import com.macareen.stitchbook2.domain.model.ToolItem
+import com.macareen.stitchbook2.domain.model.ToolSet
+import com.macareen.stitchbook2.domain.model.ToolTemplate
 import com.macareen.stitchbook2.domain.parsing.ExtractedDocument
 import com.macareen.stitchbook2.domain.parsing.PdfTextExtractor
 import com.macareen.stitchbook2.domain.repository.ExecutionRepository
 import com.macareen.stitchbook2.domain.repository.GuideRepository
 import com.macareen.stitchbook2.domain.repository.ProjectRepository
+import com.macareen.stitchbook2.domain.repository.ToolRepository
 import com.macareen.stitchbook2.domain.usecase.CreateGuideFromPdfUseCase
 import java.io.InputStream
 import kotlinx.coroutines.CompletableDeferred
@@ -174,6 +179,32 @@ class ProjectDetailViewModelTest {
         assertFalse(contentState(viewModel).isCreatingGuide)
     }
 
+    @Test
+    fun assignedToolsAreShownFromTheProjectToolRepository() {
+        val tools = FakeToolRepository(listOf(toolItem("hook-1"), toolItem("hook-2")))
+        val viewModel = viewModel(
+            guides = FakeGuideRepository(guides = emptyList()),
+            executions = FakeExecutionRepository(),
+            tools = tools
+        )
+
+        assertEquals(listOf("hook-1", "hook-2"), contentState(viewModel).assignedTools.map { it.id })
+    }
+
+    @Test
+    fun unassigningAToolRemovesItFromTheProjectsAssignedList() {
+        val tools = FakeToolRepository(listOf(toolItem("hook-1")))
+        val viewModel = viewModel(
+            guides = FakeGuideRepository(guides = emptyList()),
+            executions = FakeExecutionRepository(),
+            tools = tools
+        )
+
+        viewModel.unassignTool(tools.assignedTools.value.single())
+
+        assertTrue(contentState(viewModel).assignedTools.isEmpty())
+    }
+
     private fun contentState(viewModel: ProjectDetailViewModel): ProjectDetailUiState.Content {
         return viewModel.uiState.value as ProjectDetailUiState.Content
     }
@@ -191,13 +222,15 @@ class ProjectDetailViewModelTest {
 
     private fun viewModel(
         guides: FakeGuideRepository,
-        executions: FakeExecutionRepository
+        executions: FakeExecutionRepository,
+        tools: FakeToolRepository = FakeToolRepository(emptyList())
     ): ProjectDetailViewModel {
         val viewModel = ProjectDetailViewModel(
             projectId = project.id,
             repository = FakeProjectRepository(project),
             guideRepository = guides,
             executionRepository = executions,
+            toolRepository = tools,
             createGuideFromPdfUseCase = CreateGuideFromPdfUseCase(
                 textExtractor = NeverCalledPdfTextExtractor,
                 guideRepository = guides,
@@ -227,6 +260,69 @@ private class FakeProjectRepository(private val project: Project) : ProjectRepos
     override suspend fun saveProject(project: Project) = Unit
     override suspend fun deleteProject(project: Project) = Unit
 }
+
+private class FakeToolRepository(initialAssignedTools: List<ToolItem>) : ToolRepository {
+    val assignedTools = MutableStateFlow(initialAssignedTools)
+
+    override fun observeToolItems(): Flow<List<ToolItem>> =
+        throw UnsupportedOperationException("Not used by ProjectDetailViewModel")
+    override fun observeToolItem(id: String): Flow<ToolItem?> =
+        throw UnsupportedOperationException("Not used by ProjectDetailViewModel")
+    override fun observeToolItemsBySet(setId: String): Flow<List<ToolItem>> =
+        throw UnsupportedOperationException("Not used by ProjectDetailViewModel")
+    override suspend fun saveToolItem(item: ToolItem) =
+        throw UnsupportedOperationException("Not used by ProjectDetailViewModel")
+    override suspend fun deleteToolItem(item: ToolItem) =
+        throw UnsupportedOperationException("Not used by ProjectDetailViewModel")
+    override fun observeToolSets(): Flow<List<ToolSet>> =
+        throw UnsupportedOperationException("Not used by ProjectDetailViewModel")
+    override fun observeToolSet(id: String): Flow<ToolSet?> =
+        throw UnsupportedOperationException("Not used by ProjectDetailViewModel")
+    override suspend fun saveToolSet(set: ToolSet) =
+        throw UnsupportedOperationException("Not used by ProjectDetailViewModel")
+    override suspend fun deleteToolSet(set: ToolSet) =
+        throw UnsupportedOperationException("Not used by ProjectDetailViewModel")
+    override fun observeToolTemplates(): Flow<List<ToolTemplate>> =
+        throw UnsupportedOperationException("Not used by ProjectDetailViewModel")
+    override suspend fun saveToolTemplate(template: ToolTemplate) =
+        throw UnsupportedOperationException("Not used by ProjectDetailViewModel")
+    override suspend fun deleteToolTemplate(template: ToolTemplate) =
+        throw UnsupportedOperationException("Not used by ProjectDetailViewModel")
+
+    override fun observeToolItemsForProject(projectId: String): Flow<List<ToolItem>> = assignedTools
+
+    override fun observeProjectIdsForToolItem(toolItemId: String): Flow<List<String>> =
+        throw UnsupportedOperationException("Not used by ProjectDetailViewModel")
+
+    override suspend fun setProjectAssignments(toolItemId: String, projectIds: Set<String>) =
+        throw UnsupportedOperationException("Not used by ProjectDetailViewModel")
+
+    override suspend fun unassignToolFromProject(toolItemId: String, projectId: String) {
+        assignedTools.value = assignedTools.value.filterNot { it.id == toolItemId }
+    }
+}
+
+private fun toolItem(id: String, name: String = id) = ToolItem(
+    id = id,
+    name = name,
+    category = ToolCategory.CROCHET_HOOK,
+    brand = null,
+    material = null,
+    sizeMetricMm = null,
+    sizeLabel = null,
+    lengthMm = null,
+    statedCableLengthMm = null,
+    cableLengthDefinition = null,
+    approximateAssembledLengthMm = null,
+    connectorFamily = null,
+    compatibilityNotes = null,
+    quantity = 1,
+    storageLocation = null,
+    notes = null,
+    setId = null,
+    createdAt = 0,
+    updatedAt = 0
+)
 
 private class FakeGuideRepository(guides: List<Guide>) : GuideRepository {
     private val guidesFlow = MutableStateFlow(guides)

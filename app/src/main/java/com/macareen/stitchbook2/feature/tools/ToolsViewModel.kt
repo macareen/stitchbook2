@@ -9,10 +9,12 @@ import com.macareen.stitchbook2.data.csv.ToolsCsvImportReport
 import com.macareen.stitchbook2.data.csv.ToolsCsvRowError
 import com.macareen.stitchbook2.data.csv.parseToolsCsv
 import com.macareen.stitchbook2.data.csv.toolItemsToCsv
+import com.macareen.stitchbook2.domain.model.Project
 import com.macareen.stitchbook2.domain.model.ToolCategory
 import com.macareen.stitchbook2.domain.model.ToolItem
 import com.macareen.stitchbook2.domain.model.ToolSet
 import com.macareen.stitchbook2.domain.model.normalizedToolItemName
+import com.macareen.stitchbook2.domain.repository.ProjectRepository
 import com.macareen.stitchbook2.domain.repository.ToolRepository
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
@@ -39,7 +41,9 @@ sealed interface ToolsUiState {
         val filter: ToolFilterState,
         val hasAnyItems: Boolean,
         /** Every persisted set, for the add/edit dialog's set picker -- ignores the current search/category filter. */
-        val sets: List<ToolSet>
+        val sets: List<ToolSet>,
+        /** Every persisted project, for the "Assign to Projects" dialog's picker. */
+        val projects: List<Project>
     ) : ToolsUiState
 }
 
@@ -70,6 +74,7 @@ data class ToolItemFormInput(
 
 class ToolsViewModel(
     private val repository: ToolRepository,
+    private val projectRepository: ProjectRepository,
     externalScope: CoroutineScope? = null
 ) : ViewModel() {
 
@@ -82,13 +87,15 @@ class ToolsViewModel(
     val uiState = combine(
         repository.observeToolItems(),
         filterState,
-        repository.observeToolSets()
-    ) { items, filter, sets ->
+        repository.observeToolSets(),
+        projectRepository.observeProjects()
+    ) { items, filter, sets, projects ->
         ToolsUiState.Content(
             items = items.filter { matchesFilter(it, filter) },
             filter = filter,
             hasAnyItems = items.isNotEmpty(),
-            sets = sets
+            sets = sets,
+            projects = projects
         ) as ToolsUiState
     }
         .catch { emit(ToolsUiState.Error) }
@@ -176,6 +183,23 @@ class ToolsViewModel(
         }
     }
 
+    /** A one-shot read for the "Assign to Projects" dialog's initial checkbox state -- not observed live, since the dialog is transient Compose state, not part of [uiState]. */
+    suspend fun loadAssignedProjectIds(toolItemId: String): Set<String> {
+        return repository.observeProjectIdsForToolItem(toolItemId).first().toSet()
+    }
+
+    fun saveProjectAssignments(toolItemId: String, projectIds: Set<String>) {
+        scope.launch {
+            try {
+                repository.setProjectAssignments(toolItemId, projectIds)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                // Best-effort, same rationale as saveItem above.
+            }
+        }
+    }
+
     /** Snapshots every persisted item and set (ignoring the current search/category filter -- export is always complete) as CSV text. */
     fun exportCsv(onReady: suspend (String) -> Unit) {
         scope.launch {
@@ -238,9 +262,12 @@ class ToolsViewModel(
     }
 
     companion object {
-        fun factory(repository: ToolRepository): ViewModelProvider.Factory = viewModelFactory {
+        fun factory(
+            repository: ToolRepository,
+            projectRepository: ProjectRepository
+        ): ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                ToolsViewModel(repository)
+                ToolsViewModel(repository, projectRepository)
             }
         }
     }

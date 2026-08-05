@@ -159,4 +159,13 @@ private class FakeToolSetsRepository(
         throw UnsupportedOperationException("Not used by ToolSetsViewModel")
     override suspend fun deleteToolTemplate(template: ToolTemplate) =
         throw UnsupportedOperationException("Not used by ToolSetsViewModel")
+
+    override fun observeToolItemsForProject(projectId: String): Flow<List<ToolItem>> =
+        throw UnsupportedOperationException("Not used by ToolSetsViewModel")
+    override fun observeProjectIdsForToolItem(toolItemId: String): Flow<List<String>> =
+        throw UnsupportedOperationException("Not used by ToolSetsViewModel")
+    override suspend fun setProjectAssignments(toolItemId: String, projectIds: Set<String>) =
+        throw UnsupportedOperationException("Not used by ToolSetsViewModel")
+    override suspend fun unassignToolFromProject(toolItemId: String, projectId: String) =
+        throw UnsupportedOperationException("Not used by ToolSetsViewModel")
 }
