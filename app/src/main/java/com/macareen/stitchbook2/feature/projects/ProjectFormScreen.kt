@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -20,7 +19,6 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -34,13 +32,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.macareen.stitchbook2.R
 import com.macareen.stitchbook2.domain.model.Craft
 import com.macareen.stitchbook2.domain.model.ProjectStatus
 import com.macareen.stitchbook2.domain.model.ProjectType
+import com.macareen.stitchbook2.ui.components.PrimaryActionButton
+import com.macareen.stitchbook2.ui.components.SecondaryActionButton
+import com.macareen.stitchbook2.ui.theme.StitchbookSpacing
 import com.macareen.stitchbook2.ui.theme.StitchbookTheme
+import com.macareen.stitchbook2.ui.theme.textSecondary
 
 @Composable
 fun ProjectFormRoute(
@@ -181,7 +182,7 @@ private fun ProjectFormContent(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(24.dp)
+            .padding(StitchbookSpacing.large)
     ) {
         Text(
             text = if (isEditing) {
@@ -192,7 +193,7 @@ private fun ProjectFormContent(
             style = MaterialTheme.typography.headlineMedium
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(StitchbookSpacing.large))
 
         OutlinedTextField(
             value = uiState.name,
@@ -211,7 +212,7 @@ private fun ProjectFormContent(
             modifier = Modifier.fillMaxWidth()
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
 
         EnumSelector(
             label = stringResource(R.string.project_craft_label),
@@ -222,7 +223,7 @@ private fun ProjectFormContent(
             enabled = !uiState.isSaving
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
 
         EnumSelector(
             label = stringResource(R.string.project_type_label),
@@ -233,7 +234,7 @@ private fun ProjectFormContent(
             enabled = !uiState.isSaving
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
 
         EnumSelector(
             label = stringResource(R.string.project_status_label),
@@ -244,7 +245,7 @@ private fun ProjectFormContent(
             enabled = !uiState.isSaving
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
 
         OutlinedTextField(
             value = uiState.notes,
@@ -260,36 +261,32 @@ private fun ProjectFormContent(
                 text = stringResource(R.string.project_save_error),
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(top = 12.dp)
+                modifier = Modifier.padding(top = StitchbookSpacing.small)
             )
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(StitchbookSpacing.large))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)
         ) {
-            OutlinedButton(
+            SecondaryActionButton(
+                text = stringResource(R.string.cancel),
                 onClick = onCancel,
                 enabled = !uiState.isSaving,
                 modifier = Modifier.weight(1f)
-            ) {
-                Text(text = stringResource(R.string.cancel))
-            }
-            Button(
+            )
+            PrimaryActionButton(
+                text = if (uiState.isSaving) {
+                    stringResource(R.string.saving_project)
+                } else {
+                    stringResource(R.string.save_project)
+                },
                 onClick = onSave,
                 enabled = !uiState.isSaving,
                 modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = if (uiState.isSaving) {
-                        stringResource(R.string.saving_project)
-                    } else {
-                        stringResource(R.string.save_project)
-                    }
-                )
-            }
+            )
         }
     }
 }
@@ -352,7 +349,7 @@ private fun FormMessage(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(32.dp),
+            .padding(StitchbookSpacing.extraLarge),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -360,11 +357,11 @@ private fun FormMessage(
             text = title,
             style = MaterialTheme.typography.headlineSmall
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(StitchbookSpacing.small))
         Text(
             text = description,
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.textSecondary
         )
     }
 }
