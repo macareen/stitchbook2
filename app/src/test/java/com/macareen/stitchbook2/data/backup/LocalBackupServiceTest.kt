@@ -111,7 +111,10 @@ class LocalBackupServiceTest {
         currentValue = 12,
         goal = 60,
         createdAt = 100,
-        updatedAt = 200
+        updatedAt = 200,
+        linkedCounterId = null,
+        linkIncrementInterval = null,
+        linkIncrementAmount = null
     )
 
     private val counterNote = CounterNote(
@@ -172,6 +175,118 @@ class LocalBackupServiceTest {
         assertEquals(toolItem, destinationTools.items.value.single())
         assertEquals(counter, destinationCounters.counters.value.single())
         assertEquals(counterNote, destinationCounterNotes.notes.value.single())
+    }
+
+    @Test
+    fun exportedJsonRoundTripsALinkedCounterPairRegardlessOfListOrder() = runBlocking {
+        val target = counter
+        // The linking counter is listed BEFORE its target here on purpose:
+        // a real (non-fake) repository enforces the self-referencing FK, so
+        // inserting this row's real link before `target` exists would fail
+        // without the two-pass strip-then-relink import handles.
+        val linking = Counter(
+            id = "counter-2",
+            projectId = null,
+            name = "Round",
+            unitLabel = "rounds",
+            currentValue = 3,
+            goal = null,
+            createdAt = 100,
+            updatedAt = 200,
+            linkedCounterId = target.id,
+            linkIncrementInterval = 4,
+            linkIncrementAmount = 1
+        )
+        val sourceCounters = FakeCounterRepository(listOf(linking, target))
+        val exportingService = LocalBackupService(
+            FakeProjectRepository(emptyList()),
+            FakeLibraryRepository(emptyList()),
+            FakeStashRepository(emptyList()),
+            FakeToolRepository(emptyList(), emptyList()),
+            sourceCounters,
+            FakeCounterNoteRepository(emptyList())
+        )
+
+        val json = exportingService.exportJson()
+
+        val destinationCounters = FakeCounterRepository(emptyList())
+        val importingService = LocalBackupService(
+            FakeProjectRepository(emptyList()),
+            FakeLibraryRepository(emptyList()),
+            FakeStashRepository(emptyList()),
+            FakeToolRepository(emptyList(), emptyList()),
+            destinationCounters,
+            FakeCounterNoteRepository(emptyList())
+        )
+
+        importingService.importJson(json)
+
+        val restored = destinationCounters.counters.value.associateBy { it.id }
+        assertEquals(target, restored.getValue(target.id))
+        assertEquals(linking, restored.getValue(linking.id))
+    }
+
+    @Test
+    fun importingABackupWithACyclicCounterLinkPairDropsBothLinks() = runBlocking {
+        // A backup is untrusted input -- this pair could never be produced
+        // by CountersScreen's own cycle validation, but a hand-edited or
+        // buggy-exporter file could still contain one.
+        val a = Counter(
+            id = "a", projectId = null, name = "A", unitLabel = "rows",
+            currentValue = 0, goal = null, createdAt = 0, updatedAt = 0,
+            linkedCounterId = "b", linkIncrementInterval = 1, linkIncrementAmount = 1
+        )
+        val b = Counter(
+            id = "b", projectId = null, name = "B", unitLabel = "rows",
+            currentValue = 0, goal = null, createdAt = 0, updatedAt = 0,
+            linkedCounterId = "a", linkIncrementInterval = 1, linkIncrementAmount = 1
+        )
+        val json = LocalBackupService(
+            FakeProjectRepository(emptyList()),
+            FakeLibraryRepository(emptyList()),
+            FakeStashRepository(emptyList()),
+            FakeToolRepository(emptyList(), emptyList()),
+            FakeCounterRepository(listOf(a, b)),
+            FakeCounterNoteRepository(emptyList())
+        ).exportJson()
+
+        val destinationCounters = FakeCounterRepository(emptyList())
+        LocalBackupService(
+            FakeProjectRepository(emptyList()),
+            FakeLibraryRepository(emptyList()),
+            FakeStashRepository(emptyList()),
+            FakeToolRepository(emptyList(), emptyList()),
+            destinationCounters,
+            FakeCounterNoteRepository(emptyList())
+        ).importJson(json)
+
+        assertTrue(destinationCounters.counters.value.all { it.linkedCounterId == null })
+    }
+
+    @Test
+    fun importingABackupWithADanglingCounterLinkDropsIt() = runBlocking {
+        val json = """
+            {"version":1,"exportedAt":0,"counters":[
+                {"id":"a","projectId":null,"name":"A","unitLabel":"rows","currentValue":0,
+                 "goal":null,"createdAt":0,"updatedAt":0,"linkedCounterId":"does-not-exist",
+                 "linkIncrementInterval":1,"linkIncrementAmount":1}
+            ]}
+        """.trimIndent()
+        val destinationCounters = FakeCounterRepository(emptyList())
+        val service = LocalBackupService(
+            FakeProjectRepository(emptyList()),
+            FakeLibraryRepository(emptyList()),
+            FakeStashRepository(emptyList()),
+            FakeToolRepository(emptyList(), emptyList()),
+            destinationCounters,
+            FakeCounterNoteRepository(emptyList())
+        )
+
+        val result = service.importJson(json) as BackupImportResult.Success
+
+        assertEquals(1, result.counterCount)
+        val imported = destinationCounters.counters.value.single()
+        assertEquals(null, imported.linkedCounterId)
     }
 
     @Test
@@ -354,6 +469,8 @@ private class FakeCounterRepository(initial: List<Counter>) : CounterRepository 
     override suspend fun saveCounter(counter: Counter) {
         counters.value = counters.value.filterNot { it.id == counter.id } + counter
     }
+    override suspend fun incrementCounterValue(id: String, amount: Int, updatedAt: Long): Unit =
+        throw UnsupportedOperationException("Not used by LocalBackupService")
     override suspend fun deleteCounter(counter: Counter) {
         counters.value = counters.value.filterNot { it.id == counter.id }
     }

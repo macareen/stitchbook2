@@ -123,6 +123,46 @@ class CounterDaoTest {
 
         assertEquals(listOf(standalone), dao.observeAll().first())
     }
+
+    @Test
+    fun incrementValueAddsToTheCurrentValueWithoutARead() = runBlocking {
+        val counter = counterEntity(id = "target", currentValue = 10)
+        dao.upsert(counter)
+
+        dao.incrementValue(id = "target", amount = 3, updatedAt = 999)
+
+        val updated = dao.observeById("target").first()
+        assertEquals(13, updated?.currentValue)
+        assertEquals(999L, updated?.updatedAt)
+    }
+
+    @Test
+    fun incrementValueOnAMissingCounterIsANoOp() = runBlocking {
+        dao.incrementValue(id = "does-not-exist", amount = 5, updatedAt = 100)
+
+        assertEquals(emptyList<CounterEntity>(), dao.observeAll().first())
+    }
+
+    @Test
+    fun deletingTheLinkedCounterClearsTheLinkButNotTheLinkingCounter() = runBlocking {
+        val target = counterEntity(id = "target")
+        val source = counterEntity(
+            id = "source",
+            linkedCounterId = "target",
+            linkIncrementInterval = 4,
+            linkIncrementAmount = 1
+        )
+        dao.upsert(target)
+        dao.upsert(source)
+
+        dao.delete(target)
+
+        val survivingSource = dao.observeById("source").first()
+        assertEquals("source", survivingSource?.id)
+        assertNull(survivingSource?.linkedCounterId)
+        assertNull(survivingSource?.linkIncrementInterval)
+        assertNull(survivingSource?.linkIncrementAmount)
+    }
 }
 
 private fun counterEntity(
@@ -132,7 +172,10 @@ private fun counterEntity(
     unitLabel: String = "rows",
     currentValue: Int = 0,
     goal: Int? = null,
-    updatedAt: Long = 100
+    updatedAt: Long = 100,
+    linkedCounterId: String? = null,
+    linkIncrementInterval: Int? = null,
+    linkIncrementAmount: Int? = null
 ) = CounterEntity(
     id = id,
     projectId = projectId,
@@ -141,7 +184,10 @@ private fun counterEntity(
     currentValue = currentValue,
     goal = goal,
     createdAt = 50,
-    updatedAt = updatedAt
+    updatedAt = updatedAt,
+    linkedCounterId = linkedCounterId,
+    linkIncrementInterval = linkIncrementInterval,
+    linkIncrementAmount = linkIncrementAmount
 )
 
 private fun projectEntity(id: String) = ProjectEntity(

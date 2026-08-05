@@ -180,6 +180,141 @@ class CountersViewModelTest {
     }
 
     @Test
+    fun savingAValidLinkPersistsItsIntervalAndAmount() {
+        val target = counter("target")
+        val repository = FakeCounterRepository(listOf(target))
+        val viewModel = viewModel(repository)
+
+        viewModel.saveCounter(
+            null,
+            CounterFormInput(
+                name = "Source",
+                unitLabel = "rows",
+                goalText = "",
+                projectId = null,
+                linkedCounterId = "target",
+                linkIntervalText = "4",
+                linkAmountText = "1"
+            )
+        )
+
+        val saved = repository.counters.value.single { it.name == "Source" }
+        assertEquals("target", saved.linkedCounterId)
+        assertEquals(4, saved.linkIncrementInterval)
+        assertEquals(1, saved.linkIncrementAmount)
+    }
+
+    @Test
+    fun savingWithANonPositiveIntervalOrAmountDropsTheLink() {
+        val target = counter("target")
+        val repository = FakeCounterRepository(listOf(target))
+        val viewModel = viewModel(repository)
+
+        viewModel.saveCounter(
+            null,
+            CounterFormInput(
+                name = "Bad interval",
+                unitLabel = "rows",
+                goalText = "",
+                projectId = null,
+                linkedCounterId = "target",
+                linkIntervalText = "0",
+                linkAmountText = "1"
+            )
+        )
+        viewModel.saveCounter(
+            null,
+            CounterFormInput(
+                name = "Bad amount",
+                unitLabel = "rows",
+                goalText = "",
+                projectId = null,
+                linkedCounterId = "target",
+                linkIntervalText = "4",
+                linkAmountText = "not a number"
+            )
+        )
+
+        val saved = repository.counters.value.filter { it.name != "target" }
+        assertTrue(saved.all { it.linkedCounterId == null })
+    }
+
+    @Test
+    fun savingALinkThatWouldCreateACycleDropsTheLink() {
+        // b already links to a; saving a with a link to b would complete a cycle.
+        val a = counter("a")
+        val b = counter("b", linkedCounterId = "a", linkIncrementInterval = 1, linkIncrementAmount = 1)
+        val repository = FakeCounterRepository(listOf(a, b))
+        val viewModel = viewModel(repository)
+
+        viewModel.saveCounter(
+            a,
+            CounterFormInput(
+                name = "a",
+                unitLabel = "rows",
+                goalText = "",
+                projectId = null,
+                linkedCounterId = "b",
+                linkIntervalText = "1",
+                linkAmountText = "1"
+            )
+        )
+
+        val savedA = repository.counters.value.first { it.id == "a" }
+        assertEquals(null, savedA.linkedCounterId)
+    }
+
+    @Test
+    fun incrementDoesNotTriggerTheLinkedActionBeforeTheIntervalIsReached() {
+        val source = counter("source", currentValue = 2, linkedCounterId = "target", linkIncrementInterval = 4, linkIncrementAmount = 1)
+        val target = counter("target", currentValue = 0)
+        val repository = FakeCounterRepository(listOf(source, target))
+        val viewModel = viewModel(repository)
+
+        viewModel.increment(source)
+
+        assertEquals(3, repository.counters.value.first { it.id == "source" }.currentValue)
+        assertEquals(0, repository.counters.value.first { it.id == "target" }.currentValue)
+    }
+
+    @Test
+    fun incrementTriggersTheLinkedActionOnceTheIntervalIsReached() {
+        val source = counter("source", currentValue = 3, linkedCounterId = "target", linkIncrementInterval = 4, linkIncrementAmount = 2)
+        val target = counter("target", currentValue = 10)
+        val repository = FakeCounterRepository(listOf(source, target))
+        val viewModel = viewModel(repository)
+
+        viewModel.increment(source)
+
+        assertEquals(4, repository.counters.value.first { it.id == "source" }.currentValue)
+        assertEquals(12, repository.counters.value.first { it.id == "target" }.currentValue)
+    }
+
+    @Test
+    fun decrementNeverTriggersTheLinkedAction() {
+        val source = counter("source", currentValue = 4, linkedCounterId = "target", linkIncrementInterval = 4, linkIncrementAmount = 1)
+        val target = counter("target", currentValue = 0)
+        val repository = FakeCounterRepository(listOf(source, target))
+        val viewModel = viewModel(repository)
+
+        viewModel.decrement(source)
+
+        assertEquals(0, repository.counters.value.first { it.id == "target" }.currentValue)
+    }
+
+    @Test
+    fun resetNeverTriggersTheLinkedAction() {
+        val source = counter("source", currentValue = 8, linkedCounterId = "target", linkIncrementInterval = 4, linkIncrementAmount = 1)
+        val target = counter("target", currentValue = 0)
+        val repository = FakeCounterRepository(listOf(source, target))
+        val viewModel = viewModel(repository)
+
+        viewModel.reset(source)
+
+        assertEquals(0, repository.counters.value.first { it.id == "target" }.currentValue)
+    }
+
+    @Test
     fun notesUiStateStartsClosed() {
         val viewModel = viewModel(FakeCounterRepository(emptyList()))
 
@@ -270,7 +405,10 @@ class CountersViewModelTest {
         projectId: String? = null,
         currentValue: Int = 0,
         goal: Int? = null,
-        createdAt: Long = 0
+        createdAt: Long = 0,
+        linkedCounterId: String? = null,
+        linkIncrementInterval: Int? = null,
+        linkIncrementAmount: Int? = null
     ) = Counter(
         id = id,
         projectId = projectId,
@@ -279,7 +417,10 @@ class CountersViewModelTest {
         currentValue = currentValue,
         goal = goal,
         createdAt = createdAt,
-        updatedAt = 0
+        updatedAt = 0,
+        linkedCounterId = linkedCounterId,
+        linkIncrementInterval = linkIncrementInterval,
+        linkIncrementAmount = linkIncrementAmount
     )
 
     private fun project(id: String, name: String) = Project(
@@ -318,11 +459,18 @@ private class FakeCounterRepository(initial: List<Counter>) : CounterRepository 
     override fun observeCountersByProject(projectId: String): Flow<List<Counter>> =
         throw UnsupportedOperationException("Not used by CountersViewModel")
 
-    override fun observeCounter(id: String): Flow<Counter?> =
-        throw UnsupportedOperationException("Not used by CountersViewModel")
+    override fun observeCounter(id: String): Flow<Counter?> {
+        return counters.map { all -> all.firstOrNull { it.id == id } }
+    }
 
     override suspend fun saveCounter(counter: Counter) {
         counters.value = counters.value.filterNot { it.id == counter.id } + counter
+    }
+
+    override suspend fun incrementCounterValue(id: String, amount: Int, updatedAt: Long) {
+        counters.value = counters.value.map {
+            if (it.id == id) it.copy(currentValue = it.currentValue + amount, updatedAt = updatedAt) else it
+        }
     }
 
     override suspend fun deleteCounter(counter: Counter) {

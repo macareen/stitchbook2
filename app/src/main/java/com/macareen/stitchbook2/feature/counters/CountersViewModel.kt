@@ -9,6 +9,7 @@ import com.macareen.stitchbook2.domain.model.Counter
 import com.macareen.stitchbook2.domain.model.CounterNote
 import com.macareen.stitchbook2.domain.model.Project
 import com.macareen.stitchbook2.domain.model.normalizedCounterName
+import com.macareen.stitchbook2.domain.model.wouldCreateCycle
 import com.macareen.stitchbook2.domain.repository.CounterNoteRepository
 import com.macareen.stitchbook2.domain.repository.CounterRepository
 import com.macareen.stitchbook2.domain.repository.ProjectRepository
@@ -28,8 +29,12 @@ import kotlinx.coroutines.launch
 
 data class CounterFilterState(val searchQuery: String = "")
 
-/** A [Counter] paired with its owning Project's name, resolved once here so the screen never looks it up itself. */
-data class CounterListEntry(val counter: Counter, val projectName: String?)
+/**
+ * A [Counter] paired with its owning Project's name and, if it has a link,
+ * the target counter's name -- both resolved once here so the screen never
+ * looks them up itself.
+ */
+data class CounterListEntry(val counter: Counter, val projectName: String?, val linkedCounterName: String?)
 
 sealed interface CountersUiState {
     data object Loading : CountersUiState
@@ -47,7 +52,10 @@ data class CounterFormInput(
     val name: String,
     val unitLabel: String,
     val goalText: String,
-    val projectId: String?
+    val projectId: String?,
+    val linkedCounterId: String? = null,
+    val linkIntervalText: String = "",
+    val linkAmountText: String = ""
 )
 
 /** State for the value-specific-notes dialog opened for one counter at a time; see [CountersViewModel.openNotes]. */
@@ -74,9 +82,16 @@ class CountersViewModel(
         filterState
     ) { counters, projects, filter ->
         val projectNameById = projects.associate { it.id to it.name }
+        val counterNameById = counters.associate { it.id to it.name }
         val entries = counters
             .filter { matchesFilter(it, filter) }
-            .map { CounterListEntry(it, it.projectId?.let(projectNameById::get)) }
+            .map { counter ->
+                CounterListEntry(
+                    counter = counter,
+                    projectName = counter.projectId?.let(projectNameById::get),
+                    linkedCounterName = counter.linkedCounterId?.let(counterNameById::get)
+                )
+            }
         CountersUiState.Content(
             entries = entries,
             filter = filter,
@@ -157,6 +172,8 @@ class CountersViewModel(
     fun saveCounter(original: Counter?, form: CounterFormInput) {
         val normalizedName = normalizedCounterName(form.name) ?: return
         val normalizedUnitLabel = form.unitLabel.trim().ifEmpty { return }
+        val currentCounters = (uiState.value as? CountersUiState.Content)?.entries?.map { it.counter }.orEmpty()
+        val link = validatedLink(original?.id, form, currentCounters)
         scope.launch {
             val now = System.currentTimeMillis()
             val counter = Counter(
@@ -167,14 +184,67 @@ class CountersViewModel(
                 currentValue = original?.currentValue ?: 0,
                 goal = form.goalText.toIntOrNull()?.takeIf { it > 0 },
                 createdAt = original?.createdAt ?: now,
-                updatedAt = now
+                updatedAt = now,
+                linkedCounterId = link?.targetId,
+                linkIncrementInterval = link?.interval,
+                linkIncrementAmount = link?.amount
             )
             persist(counter)
         }
     }
 
+    /**
+     * Parses and validates [form]'s link fields into a [Link], or null if
+     * there's no link, the interval/amount don't parse to positive
+     * integers, or [wouldCreateCycle] rejects the target. This is a
+     * defensive backstop -- [CountersScreen]'s dialog is expected to reject
+     * an invalid/cyclic link before ever calling [saveCounter], the same
+     * division of labor as the existing blank-name/blank-unit-label checks.
+     */
+    private fun validatedLink(
+        editingCounterId: String?,
+        form: CounterFormInput,
+        currentCounters: List<Counter>
+    ): Link? {
+        val targetId = form.linkedCounterId ?: return null
+        val interval = form.linkIntervalText.toIntOrNull()?.takeIf { it > 0 } ?: return null
+        val amount = form.linkAmountText.toIntOrNull()?.takeIf { it > 0 } ?: return null
+        if (wouldCreateCycle(currentCounters, editingCounterId, targetId)) return null
+        return Link(targetId, interval, amount)
+    }
+
+    private data class Link(val targetId: String, val interval: Int, val amount: Int)
+
     fun increment(counter: Counter) {
-        persistValue(counter, counter.currentValue + 1)
+        val newValue = counter.currentValue + 1
+        persistValue(counter, newValue)
+        triggerLinkIfDue(counter, newValue)
+    }
+
+    /**
+     * Every [Counter.linkIncrementInterval] increments of [counter], bumps
+     * [Counter.linkedCounterId] by [Counter.linkIncrementAmount] (PRODUCT_SPEC.md
+     * 6.3, "Linked behavior between counters"). Only forward increments
+     * trigger this -- decrementing or resetting [counter] never does.
+     */
+    private fun triggerLinkIfDue(counter: Counter, newValue: Int) {
+        val targetId = counter.linkedCounterId ?: return
+        val interval = counter.linkIncrementInterval ?: return
+        val amount = counter.linkIncrementAmount ?: return
+        if (interval <= 0 || newValue % interval != 0) return
+        scope.launch {
+            try {
+                // An atomic SQL increment, not a read-then-write: two
+                // counters linked to the same target (or two rapid-fire
+                // triggers) can never clobber each other's update.
+                repository.incrementCounterValue(targetId, amount, System.currentTimeMillis())
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                // Best-effort, same rationale as persist(): the list
+                // re-renders from persisted state on the next emission.
+            }
+        }
     }
 
     fun decrement(counter: Counter) {

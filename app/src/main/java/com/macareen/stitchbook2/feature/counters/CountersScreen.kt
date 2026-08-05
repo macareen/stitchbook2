@@ -58,6 +58,7 @@ import com.macareen.stitchbook2.domain.model.Craft
 import com.macareen.stitchbook2.domain.model.Project
 import com.macareen.stitchbook2.domain.model.ProjectStatus
 import com.macareen.stitchbook2.domain.model.ProjectType
+import com.macareen.stitchbook2.domain.model.wouldCreateCycle
 import com.macareen.stitchbook2.ui.components.LabelPill
 import com.macareen.stitchbook2.ui.components.QuietText
 import com.macareen.stitchbook2.ui.theme.StitchbookSpacing
@@ -153,11 +154,13 @@ fun CountersScreen(
     }
 
     val projects = (uiState as? CountersUiState.Content)?.projects.orEmpty()
+    val allCounters = (uiState as? CountersUiState.Content)?.entries?.map { it.counter }.orEmpty()
 
     if (isAddingCounter) {
         CounterDialog(
             original = null,
             projects = projects,
+            counters = allCounters,
             onDismiss = { isAddingCounter = false },
             onSave = { form ->
                 onSaveCounter(null, form)
@@ -170,6 +173,7 @@ fun CountersScreen(
         CounterDialog(
             original = counter,
             projects = projects,
+            counters = allCounters,
             onDismiss = { editingCounter = null },
             onSave = { form ->
                 onSaveCounter(counter, form)
@@ -366,6 +370,17 @@ private fun CounterCard(
                 style = MaterialTheme.typography.cardTitle
             )
 
+            entry.linkedCounterName?.let { linkedCounterName ->
+                QuietText(
+                    text = stringResource(
+                        R.string.counters_link_indicator,
+                        counter.linkIncrementInterval ?: 0,
+                        counter.linkIncrementAmount ?: 0,
+                        linkedCounterName
+                    )
+                )
+            }
+
             Spacer(modifier = Modifier.height(StitchbookSpacing.small))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -428,6 +443,7 @@ private fun CounterCard(
 private fun CounterDialog(
     original: Counter?,
     projects: List<Project>,
+    counters: List<Counter>,
     onDismiss: () -> Unit,
     onSave: (CounterFormInput) -> Unit
 ) {
@@ -435,8 +451,17 @@ private fun CounterDialog(
     var unitLabel by remember { mutableStateOf(original?.unitLabel.orEmpty()) }
     var goalText by remember { mutableStateOf(original?.goal?.toString().orEmpty()) }
     var projectId by remember { mutableStateOf(original?.projectId) }
+    var linkedCounterId by remember { mutableStateOf(original?.linkedCounterId) }
+    var linkIntervalText by remember { mutableStateOf(original?.linkIncrementInterval?.toString().orEmpty()) }
+    var linkAmountText by remember { mutableStateOf(original?.linkIncrementAmount?.toString().orEmpty()) }
     var nameIsBlank by remember { mutableStateOf(false) }
     var unitLabelIsBlank by remember { mutableStateOf(false) }
+    var linkIsInvalid by remember { mutableStateOf(false) }
+    var linkWouldCycle by remember { mutableStateOf(false) }
+
+    // Excludes the counter being edited (a counter can't link to itself) --
+    // wouldCreateCycle still runs at save time to catch longer cycles.
+    val linkableCounters = counters.filter { it.id != original?.id }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -498,6 +523,57 @@ private fun CounterDialog(
                     selectedProjectId = projectId,
                     onSelected = { projectId = it }
                 )
+                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+                LinkedCounterDropdown(
+                    counters = linkableCounters,
+                    selectedCounterId = linkedCounterId,
+                    onSelected = {
+                        linkedCounterId = it
+                        linkIsInvalid = false
+                        linkWouldCycle = false
+                    }
+                )
+                if (linkedCounterId != null) {
+                    Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+                    Row(horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
+                        OutlinedTextField(
+                            value = linkIntervalText,
+                            onValueChange = {
+                                linkIntervalText = it
+                                linkIsInvalid = false
+                            },
+                            singleLine = true,
+                            isError = linkIsInvalid,
+                            label = { Text(text = stringResource(R.string.counters_field_link_interval)) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = linkAmountText,
+                            onValueChange = {
+                                linkAmountText = it
+                                linkIsInvalid = false
+                            },
+                            singleLine = true,
+                            isError = linkIsInvalid,
+                            label = { Text(text = stringResource(R.string.counters_field_link_amount)) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    if (linkIsInvalid) {
+                        Text(
+                            text = stringResource(R.string.counters_field_link_invalid),
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    if (linkWouldCycle) {
+                        Text(
+                            text = stringResource(R.string.counters_field_link_cycle),
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
@@ -507,13 +583,29 @@ private fun CounterDialog(
                     val trimmedUnitLabel = unitLabel.trim()
                     nameIsBlank = trimmedName.isEmpty()
                     unitLabelIsBlank = trimmedUnitLabel.isEmpty()
-                    if (nameIsBlank || unitLabelIsBlank) return@TextButton
+
+                    val targetId = linkedCounterId
+                    if (targetId != null) {
+                        val interval = linkIntervalText.toIntOrNull()?.takeIf { it > 0 }
+                        val amount = linkAmountText.toIntOrNull()?.takeIf { it > 0 }
+                        linkIsInvalid = interval == null || amount == null
+                        linkWouldCycle = !linkIsInvalid &&
+                            wouldCreateCycle(counters, original?.id, targetId)
+                    } else {
+                        linkIsInvalid = false
+                        linkWouldCycle = false
+                    }
+
+                    if (nameIsBlank || unitLabelIsBlank || linkIsInvalid || linkWouldCycle) return@TextButton
                     onSave(
                         CounterFormInput(
                             name = trimmedName,
                             unitLabel = trimmedUnitLabel,
                             goalText = goalText,
-                            projectId = projectId
+                            projectId = projectId,
+                            linkedCounterId = linkedCounterId,
+                            linkIntervalText = linkIntervalText,
+                            linkAmountText = linkAmountText
                         )
                     )
                 }
@@ -571,6 +663,56 @@ private fun ProjectDropdown(
                     text = { Text(text = project.name) },
                     onClick = {
                         onSelected(project.id)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LinkedCounterDropdown(
+    counters: List<Counter>,
+    selectedCounterId: String?,
+    onSelected: (String?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedLabel = counters.firstOrNull { it.id == selectedCounterId }?.name
+        ?: stringResource(R.string.counters_field_link_none)
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded }
+    ) {
+        OutlinedTextField(
+            value = selectedLabel,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(text = stringResource(R.string.counters_field_link_label)) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                .fillMaxWidth()
+        )
+
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            DropdownMenuItem(
+                text = { Text(text = stringResource(R.string.counters_field_link_none)) },
+                onClick = {
+                    onSelected(null)
+                    expanded = false
+                }
+            )
+            counters.forEach { counter ->
+                DropdownMenuItem(
+                    text = { Text(text = counter.name) },
+                    onClick = {
+                        onSelected(counter.id)
                         expanded = false
                     }
                 )
@@ -707,9 +849,13 @@ private fun CountersScreenPreview() {
                             currentValue = 12,
                             goal = 60,
                             createdAt = 0,
-                            updatedAt = 0
+                            updatedAt = 0,
+                            linkedCounterId = "preview-3",
+                            linkIncrementInterval = 4,
+                            linkIncrementAmount = 1
                         ),
-                        projectName = "Everyday Cardigan"
+                        projectName = "Everyday Cardigan",
+                        linkedCounterName = "Border Rounds"
                     ),
                     CounterListEntry(
                         counter = Counter(
@@ -720,9 +866,13 @@ private fun CountersScreenPreview() {
                             currentValue = 3,
                             goal = null,
                             createdAt = 0,
-                            updatedAt = 0
+                            updatedAt = 0,
+                            linkedCounterId = null,
+                            linkIncrementInterval = null,
+                            linkIncrementAmount = null
                         ),
-                        projectName = null
+                        projectName = null,
+                        linkedCounterName = null
                     ),
                     CounterListEntry(
                         counter = Counter(
@@ -733,9 +883,13 @@ private fun CountersScreenPreview() {
                             currentValue = 8,
                             goal = 8,
                             createdAt = 0,
-                            updatedAt = 0
+                            updatedAt = 0,
+                            linkedCounterId = null,
+                            linkIncrementInterval = null,
+                            linkIncrementAmount = null
                         ),
-                        projectName = null
+                        projectName = null,
+                        linkedCounterName = null
                     )
                 ),
                 filter = CounterFilterState(),

@@ -12,5 +12,13 @@ interface CounterRepository {
 
     suspend fun saveCounter(counter: Counter)
 
+    /**
+     * Atomically adds [amount] to the counter at [id]'s current value
+     * without a separate read first, so two concurrent callers targeting
+     * the same counter can never lose one of their updates. A no-op if
+     * [id] doesn't match any counter (e.g. it was deleted).
+     */
+    suspend fun incrementCounterValue(id: String, amount: Int, updatedAt: Long)
+
     suspend fun deleteCounter(counter: Counter)
 }
