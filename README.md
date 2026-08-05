@@ -99,7 +99,7 @@ The debug APK is normally produced under `app/build/outputs/apk/debug/`.
 
 ## Current limitations
 
-- No photo, counter, or session tracking yet. PDF pattern attachment/viewing exists (see above), but many-to-many pattern-to-project linking and PDF text parsing do not.
+- No photo or session tracking yet. Counters have a persistence foundation (domain model, Room schema, repository -- see ARCHITECTURE.md) but no user-facing way to create or use one yet; no UI, increment/decrement actions, goals, linked-counter behavior, or active crafting screen exist. PDF pattern attachment/viewing exists (see above), but many-to-many pattern-to-project linking does not.
 - Stash, Tools, and Library all have CSV import/export now (see above). Stash's field set doesn't yet cover full/partial skein tracking, storage location, or purchase data (see ROADMAP.md Phase 4).
 - Needle/hook/cable/interchangeable-set tool inventory (with bulk creation) is not implemented.
 - Guide authoring can now also start from a PDF's extracted (or, when needed, OCR'd) and parsed text (see above); this prototype's parser only recognizes a small explicit set of phrasings, not general natural-language pattern text.
