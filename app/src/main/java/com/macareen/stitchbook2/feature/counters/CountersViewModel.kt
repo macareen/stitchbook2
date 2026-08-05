@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.macareen.stitchbook2.domain.model.Counter
 import com.macareen.stitchbook2.domain.model.CounterNote
 import com.macareen.stitchbook2.domain.model.Project
+import com.macareen.stitchbook2.domain.model.dueForRepeatingReset
 import com.macareen.stitchbook2.domain.model.normalizedCounterName
 import com.macareen.stitchbook2.domain.model.wouldCreateCycle
 import com.macareen.stitchbook2.domain.repository.CounterNoteRepository
@@ -21,6 +22,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -56,7 +58,8 @@ data class CounterFormInput(
     val linkedCounterId: String? = null,
     val linkIntervalText: String = "",
     val linkAmountText: String = "",
-    val autoResetOnGoal: Boolean = false
+    val autoResetOnGoal: Boolean = false,
+    val repeatIntervalDaysText: String = ""
 )
 
 /** State for the value-specific-notes dialog opened for one counter at a time; see [CountersViewModel.openNotes]. */
@@ -123,6 +126,26 @@ class CountersViewModel(
             initialValue = CounterNotesUiState.Closed
         )
 
+    init {
+        scope.launch { applyDueRepeatingResets() }
+    }
+
+    /**
+     * Applies any repeating reset schedules that have come due (PRODUCT_SPEC.md
+     * 6.3, "Repeating schedules") once, when this ViewModel is created --
+     * this app has no background-execution mechanism, so this on-load
+     * check is the only time a due schedule ever actually fires, rather
+     * than at the exact scheduled moment. See [dueForRepeatingReset].
+     */
+    private suspend fun applyDueRepeatingResets() {
+        val now = System.currentTimeMillis()
+        repository.observeCounters().first()
+            .filter { dueForRepeatingReset(it, now) }
+            .forEach { counter ->
+                persist(counter.copy(currentValue = 0, lastRepeatResetAt = now, updatedAt = now))
+            }
+    }
+
     fun updateSearchQuery(value: String) {
         filterState.value = filterState.value.copy(searchQuery = value)
     }
@@ -176,6 +199,7 @@ class CountersViewModel(
         val currentCounters = (uiState.value as? CountersUiState.Content)?.entries?.map { it.counter }.orEmpty()
         val link = validatedLink(original?.id, form, currentCounters)
         val goal = form.goalText.toIntOrNull()?.takeIf { it > 0 }
+        val repeatIntervalDays = form.repeatIntervalDaysText.toIntOrNull()?.takeIf { it > 0 }
         scope.launch {
             val now = System.currentTimeMillis()
             val counter = Counter(
@@ -192,7 +216,19 @@ class CountersViewModel(
                 linkIncrementAmount = link?.amount,
                 // Meaningless without a goal to reach, same defensive
                 // normalization as the goal field itself.
-                autoResetOnGoal = form.autoResetOnGoal && goal != null
+                autoResetOnGoal = form.autoResetOnGoal && goal != null,
+                repeatIntervalDays = repeatIntervalDays,
+                lastRepeatResetAt = when {
+                    repeatIntervalDays == null -> null
+                    // Same schedule as before: keep its running baseline
+                    // rather than restarting the clock on every edit.
+                    original?.repeatIntervalDays == repeatIntervalDays -> original.lastRepeatResetAt
+                    // A newly configured or changed schedule starts
+                    // counting from now, not from createdAt -- otherwise
+                    // an old counter could appear "already overdue" the
+                    // instant a schedule is added to it.
+                    else -> now
+                }
             )
             persist(counter)
         }

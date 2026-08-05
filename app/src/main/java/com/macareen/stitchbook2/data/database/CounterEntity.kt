@@ -46,7 +46,9 @@ data class CounterEntity(
     @ColumnInfo(name = "linked_counter_id") val linkedCounterId: String?,
     @ColumnInfo(name = "link_increment_interval") val linkIncrementInterval: Int?,
     @ColumnInfo(name = "link_increment_amount") val linkIncrementAmount: Int?,
-    @ColumnInfo(name = "auto_reset_on_goal") val autoResetOnGoal: Boolean
+    @ColumnInfo(name = "auto_reset_on_goal") val autoResetOnGoal: Boolean,
+    @ColumnInfo(name = "repeat_interval_days") val repeatIntervalDays: Int?,
+    @ColumnInfo(name = "last_repeat_reset_at") val lastRepeatResetAt: Long?
 )
 
 fun CounterEntity.toDomain(): Counter {
@@ -62,7 +64,9 @@ fun CounterEntity.toDomain(): Counter {
         linkedCounterId = linkedCounterId,
         linkIncrementInterval = linkIncrementInterval,
         linkIncrementAmount = linkIncrementAmount,
-        autoResetOnGoal = autoResetOnGoal
+        autoResetOnGoal = autoResetOnGoal,
+        repeatIntervalDays = repeatIntervalDays,
+        lastRepeatResetAt = lastRepeatResetAt
     )
 }
 
@@ -79,6 +83,8 @@ fun Counter.toEntity(): CounterEntity {
         linkedCounterId = linkedCounterId,
         linkIncrementInterval = linkIncrementInterval,
         linkIncrementAmount = linkIncrementAmount,
-        autoResetOnGoal = autoResetOnGoal
+        autoResetOnGoal = autoResetOnGoal,
+        repeatIntervalDays = repeatIntervalDays,
+        lastRepeatResetAt = lastRepeatResetAt
     )
 }

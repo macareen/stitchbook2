@@ -433,6 +433,8 @@ private fun Counter.toJson(): JSONObject = JSONObject().apply {
     put("linkIncrementInterval", linkIncrementInterval ?: JSONObject.NULL)
     put("linkIncrementAmount", linkIncrementAmount ?: JSONObject.NULL)
     put("autoResetOnGoal", autoResetOnGoal)
+    put("repeatIntervalDays", repeatIntervalDays ?: JSONObject.NULL)
+    put("lastRepeatResetAt", lastRepeatResetAt ?: JSONObject.NULL)
 }
 
 private fun JSONObject.toCounter(): Counter = Counter(
@@ -450,7 +452,9 @@ private fun JSONObject.toCounter(): Counter = Counter(
     linkedCounterId = optNullableString("linkedCounterId"),
     linkIncrementInterval = if (isNull("linkIncrementInterval")) null else getInt("linkIncrementInterval"),
     linkIncrementAmount = if (isNull("linkIncrementAmount")) null else getInt("linkIncrementAmount"),
-    autoResetOnGoal = optBoolean("autoResetOnGoal", false)
+    autoResetOnGoal = optBoolean("autoResetOnGoal", false),
+    repeatIntervalDays = if (isNull("repeatIntervalDays")) null else getInt("repeatIntervalDays"),
+    lastRepeatResetAt = if (isNull("lastRepeatResetAt")) null else getLong("lastRepeatResetAt")
 )
 
 private fun CounterNote.toJson(): JSONObject = JSONObject().apply {

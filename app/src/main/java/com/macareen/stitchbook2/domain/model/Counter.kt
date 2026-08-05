@@ -12,10 +12,12 @@ package com.macareen.stitchbook2.domain.model
  * validate against. [name] (what this counter is for, e.g. "Right Sleeve")
  * and [unitLabel] (what is being counted, e.g. "rows") are both free text.
  *
- * This is the persistence/data-model foundation only (ROADMAP.md Phase 3):
- * increment/decrement/reset actions, automatic reset rules, linked
- * behavior between counters, repeating schedules, and notifications are
- * later increments of the same phase, not represented here.
+ * ROADMAP.md Phase 3 built this up incrementally: value/goal, then
+ * increment/decrement/reset, then an outgoing link to another counter
+ * ([linkedCounterId]), automatic reset on reaching goal ([autoResetOnGoal]),
+ * and a repeating reset schedule ([repeatIntervalDays]). An active crafting
+ * screen and persistent notifications remain later increments, not
+ * represented here.
  */
 data class Counter(
     val id: String,
@@ -50,10 +52,42 @@ data class Counter(
      * independent: both are evaluated against the same increment, so a
      * counter can bump a linked target *and* auto-reset on the same tap.
      */
-    val autoResetOnGoal: Boolean = false
+    val autoResetOnGoal: Boolean = false,
+    /**
+     * If set, this counter resets to 0 on its own every [repeatIntervalDays]
+     * days (PRODUCT_SPEC.md 6.3, "Repeating schedules") -- e.g. a daily
+     * practice-row counter. [lastRepeatResetAt] is the baseline the next
+     * reset is measured from: it starts null (meaning [createdAt] is the
+     * baseline) and is set to the actual reset time every time the
+     * schedule fires. See [dueForRepeatingReset] for the exact rule.
+     *
+     * This app has no background-execution mechanism (no WorkManager or
+     * AlarmManager usage anywhere), so a due schedule only actually fires
+     * the next time the app checks for it (in practice, whenever Counters
+     * loads) -- not at the exact scheduled moment in the background. Both
+     * fields are null together (no schedule) or [repeatIntervalDays] is set
+     * (a schedule exists, whether or not it has fired yet).
+     */
+    val repeatIntervalDays: Int? = null,
+    val lastRepeatResetAt: Long? = null
 )
 
 fun normalizedCounterName(value: String): String? = value.trim().takeIf { it.isNotEmpty() }
+
+/**
+ * True if [counter]'s repeating schedule has been due for at least one
+ * reset as of [now] -- i.e. at least [Counter.repeatIntervalDays] days have
+ * passed since its baseline ([Counter.lastRepeatResetAt], or [Counter.createdAt]
+ * if the schedule has never fired yet). False if there's no schedule
+ * ([Counter.repeatIntervalDays] is null) or the interval is non-positive.
+ */
+fun dueForRepeatingReset(counter: Counter, now: Long): Boolean {
+    val intervalDays = counter.repeatIntervalDays ?: return false
+    if (intervalDays <= 0) return false
+    val baseline = counter.lastRepeatResetAt ?: counter.createdAt
+    val intervalMillis = intervalDays.toLong() * 24 * 60 * 60 * 1000
+    return now - baseline >= intervalMillis
+}
 
 /**
  * True if pointing [editingCounterId]'s link at [proposedTargetId] would

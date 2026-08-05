@@ -27,7 +27,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CounterEntity::class,
         CounterNoteEntity::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = true
 )
 abstract class StitchbookDatabase : RoomDatabase() {
@@ -62,7 +62,8 @@ abstract class StitchbookDatabase : RoomDatabase() {
                     MIGRATION_6_7,
                     MIGRATION_7_8,
                     MIGRATION_8_9,
-                    MIGRATION_9_10
+                    MIGRATION_9_10,
+                    MIGRATION_10_11
                 )
                     .build()
                     .also { instance = it }
@@ -680,5 +681,19 @@ val MIGRATION_9_10 = object : Migration(9, 10) {
         db.execSQL(
             "ALTER TABLE `counters` ADD COLUMN `auto_reset_on_goal` INTEGER NOT NULL DEFAULT 0"
         )
+    }
+}
+
+/**
+ * Adds a repeating reset schedule to Counters (PRODUCT_SPEC.md 6.3,
+ * "Repeating schedules"): a counter can reset itself every N days. Both
+ * new columns are plain nullable columns, so -- like MIGRATION_9_10, and
+ * unlike the link column's migration -- a simple `ALTER TABLE ADD COLUMN`
+ * suffices; no table recreation needed.
+ */
+val MIGRATION_10_11 = object : Migration(10, 11) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `counters` ADD COLUMN `repeat_interval_days` INTEGER")
+        db.execSQL("ALTER TABLE `counters` ADD COLUMN `last_repeat_reset_at` INTEGER")
     }
 }

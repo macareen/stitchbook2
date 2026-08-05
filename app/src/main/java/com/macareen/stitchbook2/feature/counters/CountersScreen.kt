@@ -385,6 +385,9 @@ private fun CounterCard(
             if (counter.autoResetOnGoal) {
                 QuietText(text = stringResource(R.string.counters_auto_reset_indicator))
             }
+            counter.repeatIntervalDays?.let { intervalDays ->
+                QuietText(text = stringResource(R.string.counters_repeat_interval_indicator, intervalDays))
+            }
 
             Spacer(modifier = Modifier.height(StitchbookSpacing.small))
             Row(
@@ -460,6 +463,7 @@ private fun CounterDialog(
     var linkIntervalText by remember { mutableStateOf(original?.linkIncrementInterval?.toString().orEmpty()) }
     var linkAmountText by remember { mutableStateOf(original?.linkIncrementAmount?.toString().orEmpty()) }
     var autoResetOnGoal by remember { mutableStateOf(original?.autoResetOnGoal ?: false) }
+    var repeatIntervalDaysText by remember { mutableStateOf(original?.repeatIntervalDays?.toString().orEmpty()) }
     var nameIsBlank by remember { mutableStateOf(false) }
     var unitLabelIsBlank by remember { mutableStateOf(false) }
     var linkIsInvalid by remember { mutableStateOf(false) }
@@ -589,6 +593,14 @@ private fun CounterDialog(
                         )
                     }
                 }
+                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+                OutlinedTextField(
+                    value = repeatIntervalDaysText,
+                    onValueChange = { repeatIntervalDaysText = it },
+                    singleLine = true,
+                    label = { Text(text = stringResource(R.string.counters_field_repeat_interval)) },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         },
         confirmButton = {
@@ -621,7 +633,8 @@ private fun CounterDialog(
                             linkedCounterId = linkedCounterId,
                             linkIntervalText = linkIntervalText,
                             linkAmountText = linkAmountText,
-                            autoResetOnGoal = autoResetOnGoal
+                            autoResetOnGoal = autoResetOnGoal,
+                            repeatIntervalDaysText = repeatIntervalDaysText
                         )
                     )
                 }
