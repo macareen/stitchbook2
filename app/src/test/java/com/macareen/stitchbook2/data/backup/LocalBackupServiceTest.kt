@@ -13,6 +13,7 @@ import com.macareen.stitchbook2.domain.model.StashItem
 import com.macareen.stitchbook2.domain.model.ToolCategory
 import com.macareen.stitchbook2.domain.model.ToolItem
 import com.macareen.stitchbook2.domain.model.ToolSet
+import com.macareen.stitchbook2.domain.model.ToolTemplate
 import com.macareen.stitchbook2.domain.repository.CounterNoteRepository
 import com.macareen.stitchbook2.domain.repository.CounterRepository
 import com.macareen.stitchbook2.domain.repository.LibraryRepository
@@ -458,6 +459,13 @@ private class FakeToolRepository(
     override suspend fun deleteToolSet(set: ToolSet) {
         sets.value = sets.value.filterNot { it.id == set.id }
     }
+
+    override fun observeToolTemplates(): Flow<List<ToolTemplate>> =
+        throw UnsupportedOperationException("Not used by LocalBackupService")
+    override suspend fun saveToolTemplate(template: ToolTemplate) =
+        throw UnsupportedOperationException("Not used by LocalBackupService")
+    override suspend fun deleteToolTemplate(template: ToolTemplate) =
+        throw UnsupportedOperationException("Not used by LocalBackupService")
 }
 
 private class FakeCounterRepository(initial: List<Counter>) : CounterRepository {

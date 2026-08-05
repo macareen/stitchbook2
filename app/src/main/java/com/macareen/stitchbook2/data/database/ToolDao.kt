@@ -50,4 +50,18 @@ interface ToolDao {
 
     @Delete
     suspend fun deleteSet(set: ToolSetEntity)
+
+    @Query(
+        """
+        SELECT * FROM tool_templates
+        ORDER BY updated_at DESC, name COLLATE NOCASE ASC, id ASC
+        """
+    )
+    fun observeAllTemplates(): Flow<List<ToolTemplateEntity>>
+
+    @Upsert
+    suspend fun upsertTemplate(template: ToolTemplateEntity)
+
+    @Delete
+    suspend fun deleteTemplate(template: ToolTemplateEntity)
 }

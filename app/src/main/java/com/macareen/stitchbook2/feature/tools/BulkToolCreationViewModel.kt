@@ -5,25 +5,23 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.macareen.stitchbook2.domain.model.BulkSizeInputMode
 import com.macareen.stitchbook2.domain.model.ToolCategory
 import com.macareen.stitchbook2.domain.model.ToolItem
 import com.macareen.stitchbook2.domain.model.ToolSet
+import com.macareen.stitchbook2.domain.model.ToolTemplate
+import com.macareen.stitchbook2.domain.model.normalizedToolTemplateName
 import com.macareen.stitchbook2.domain.repository.ToolRepository
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-
-/** Bulk creation is scoped to categories with a meaningful numeric size --
- * see [com.macareen.stitchbook2.domain.model.ToolCategory] usesSizeFields().
- * Categories without a size (markers, stoppers, notions...) already have
- * adequate quantity support through the single-item form, since there is no
- * varying attribute to generate a size range or list from. */
-enum class BulkSizeInputMode { RANGE, CUSTOM_LIST }
 
 data class BulkToolCreationFormState(
     val category: ToolCategory = ToolCategory.CIRCULAR_NEEDLES,
@@ -62,6 +60,9 @@ class BulkToolCreationViewModel(
     private val _uiState = MutableStateFlow(BulkToolCreationUiState())
     val uiState: StateFlow<BulkToolCreationUiState> = _uiState.asStateFlow()
 
+    val templates: StateFlow<List<ToolTemplate>> = repository.observeToolTemplates()
+        .stateIn(scope = scope, started = SharingStarted.WhileSubscribed(5_000), initialValue = emptyList())
+
     fun updateCategory(value: ToolCategory) = updateForm { it.copy(category = value) }
     fun updateBrand(value: String) = updateForm { it.copy(brand = value) }
     fun updateMaterial(value: String) = updateForm { it.copy(material = value) }
@@ -75,6 +76,77 @@ class BulkToolCreationViewModel(
     fun updateNotes(value: String) = updateForm { it.copy(notes = value) }
     fun updateCreateAsSet(value: Boolean) = updateForm { it.copy(createAsSet = value) }
     fun updateSetName(value: String) = updateForm { it.copy(setName = value) }
+
+    /** Persists the current form as a named, reusable [ToolTemplate] -- applying it later only pre-fills the form, it never creates [ToolItem]s on its own. */
+    fun saveCurrentAsTemplate(name: String) {
+        val normalizedName = normalizedToolTemplateName(name) ?: return
+        val form = _uiState.value.form
+        scope.launch {
+            val now = System.currentTimeMillis()
+            try {
+                repository.saveToolTemplate(
+                    ToolTemplate(
+                        id = UUID.randomUUID().toString(),
+                        name = normalizedName,
+                        category = form.category,
+                        brand = form.brand.trim().ifEmpty { null },
+                        material = form.material.trim().ifEmpty { null },
+                        sizeInputMode = form.sizeInputMode,
+                        rangeStart = form.rangeStartText.toDoubleOrNull(),
+                        rangeEnd = form.rangeEndText.toDoubleOrNull(),
+                        rangeIncrement = form.rangeIncrementText.toDoubleOrNull(),
+                        customSizes = form.customSizesText.trim().ifEmpty { null },
+                        quantityPerSize = form.quantityPerSizeText.toIntOrNull()?.coerceAtLeast(1) ?: 1,
+                        storageLocation = form.storageLocation.trim().ifEmpty { null },
+                        notes = form.notes.trim().ifEmpty { null },
+                        createAsSet = form.createAsSet,
+                        setName = form.setName.trim().ifEmpty { null },
+                        createdAt = now,
+                        updatedAt = now
+                    )
+                )
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                // Best-effort, same rationale as ToolsViewModel.saveItem: the
+                // template list reflects whatever is actually persisted on
+                // the next emission either way.
+            }
+        }
+    }
+
+    /** Overwrites every form field with [template]'s saved values -- this alone never creates a ToolItem, only createAll() does. */
+    fun applyTemplate(template: ToolTemplate) {
+        updateForm {
+            BulkToolCreationFormState(
+                category = template.category,
+                brand = template.brand.orEmpty(),
+                material = template.material.orEmpty(),
+                sizeInputMode = template.sizeInputMode,
+                rangeStartText = template.rangeStart?.toString().orEmpty(),
+                rangeEndText = template.rangeEnd?.toString().orEmpty(),
+                rangeIncrementText = template.rangeIncrement?.toString() ?: "0.5",
+                customSizesText = template.customSizes.orEmpty(),
+                quantityPerSizeText = template.quantityPerSize.toString(),
+                storageLocation = template.storageLocation.orEmpty(),
+                notes = template.notes.orEmpty(),
+                createAsSet = template.createAsSet,
+                setName = template.setName.orEmpty()
+            )
+        }
+    }
+
+    fun deleteTemplate(template: ToolTemplate) {
+        scope.launch {
+            try {
+                repository.deleteToolTemplate(template)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                // Best-effort, same rationale as saveCurrentAsTemplate above.
+            }
+        }
+    }
 
     fun createAll() {
         val state = _uiState.value

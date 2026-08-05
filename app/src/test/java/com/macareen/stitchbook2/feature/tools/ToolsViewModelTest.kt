@@ -3,6 +3,7 @@ package com.macareen.stitchbook2.feature.tools
 import com.macareen.stitchbook2.domain.model.ToolCategory
 import com.macareen.stitchbook2.domain.model.ToolItem
 import com.macareen.stitchbook2.domain.model.ToolSet
+import com.macareen.stitchbook2.domain.model.ToolTemplate
 import com.macareen.stitchbook2.domain.repository.ToolRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -286,4 +287,11 @@ private class FakeToolRepository(initialItems: List<ToolItem>) : ToolRepository 
     override suspend fun deleteToolSet(set: ToolSet) {
         sets.value = sets.value.filterNot { it.id == set.id }
     }
+
+    override fun observeToolTemplates(): Flow<List<ToolTemplate>> =
+        throw UnsupportedOperationException("Not used by ToolsViewModel")
+    override suspend fun saveToolTemplate(template: ToolTemplate) =
+        throw UnsupportedOperationException("Not used by ToolsViewModel")
+    override suspend fun deleteToolTemplate(template: ToolTemplate) =
+        throw UnsupportedOperationException("Not used by ToolsViewModel")
 }

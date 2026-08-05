@@ -24,10 +24,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         StashItemEntity::class,
         ToolSetEntity::class,
         ToolItemEntity::class,
+        ToolTemplateEntity::class,
         CounterEntity::class,
         CounterNoteEntity::class
     ],
-    version = 11,
+    version = 12,
     exportSchema = true
 )
 abstract class StitchbookDatabase : RoomDatabase() {
@@ -63,7 +64,8 @@ abstract class StitchbookDatabase : RoomDatabase() {
                     MIGRATION_7_8,
                     MIGRATION_8_9,
                     MIGRATION_9_10,
-                    MIGRATION_10_11
+                    MIGRATION_10_11,
+                    MIGRATION_11_12
                 )
                     .build()
                     .also { instance = it }
@@ -695,5 +697,39 @@ val MIGRATION_10_11 = object : Migration(10, 11) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE `counters` ADD COLUMN `repeat_interval_days` INTEGER")
         db.execSQL("ALTER TABLE `counters` ADD COLUMN `last_repeat_reset_at` INTEGER")
+    }
+}
+
+/**
+ * A brand-new, standalone table -- no foreign key to any existing table, so
+ * this is the simplest kind of migration (see MIGRATION_8_9's KDoc for the
+ * contrasting case where an FK column addition forced a table recreation).
+ */
+val MIGRATION_11_12 = object : Migration(11, 12) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `tool_templates` (
+                `id` TEXT NOT NULL,
+                `name` TEXT NOT NULL,
+                `category` TEXT NOT NULL,
+                `brand` TEXT,
+                `material` TEXT,
+                `size_input_mode` TEXT NOT NULL,
+                `range_start` REAL,
+                `range_end` REAL,
+                `range_increment` REAL,
+                `custom_sizes` TEXT,
+                `quantity_per_size` INTEGER NOT NULL,
+                `storage_location` TEXT,
+                `notes` TEXT,
+                `create_as_set` INTEGER NOT NULL,
+                `set_name` TEXT,
+                `created_at` INTEGER NOT NULL,
+                `updated_at` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent()
+        )
     }
 }
