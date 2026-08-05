@@ -233,6 +233,15 @@
     <string name="delete_counter">Delete counter</string>
     <string name="delete_counter_title">Delete this counter?</string>
     <string name="delete_counter_confirmation">"%1$s and its current count will be permanently deleted."</string>
+    <string name="counter_notes_action">Notes</string>
+    <string name="counter_notes_title">Notes for %1$s</string>
+    <string name="counter_notes_field_value">Value</string>
+    <string name="counter_notes_field_note">Note</string>
+    <string name="counter_notes_add_action">Add note</string>
+    <string name="counter_notes_empty">No notes yet.</string>
+    <string name="counter_notes_entry">%1$d %2$s: %3$s</string>
+    <string name="counter_notes_delete_action">Delete note</string>
+    <string name="counter_notes_close_action">Done</string>
 
     <string name="settings_header_title">Settings &amp; Data Ownership</string>
     <string name="settings_header_subtitle">Manage portable exports, local data backups, and application status.</string>

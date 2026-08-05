@@ -3,6 +3,7 @@ package com.macareen.stitchbook2.data.backup
 import com.macareen.stitchbook2.domain.backup.BackupImportResult
 import com.macareen.stitchbook2.domain.backup.BackupService
 import com.macareen.stitchbook2.domain.model.Counter
+import com.macareen.stitchbook2.domain.model.CounterNote
 import com.macareen.stitchbook2.domain.model.Craft
 import com.macareen.stitchbook2.domain.model.LibraryItem
 import com.macareen.stitchbook2.domain.model.Project
@@ -13,6 +14,7 @@ import com.macareen.stitchbook2.domain.model.StashItem
 import com.macareen.stitchbook2.domain.model.ToolCategory
 import com.macareen.stitchbook2.domain.model.ToolItem
 import com.macareen.stitchbook2.domain.model.ToolSet
+import com.macareen.stitchbook2.domain.repository.CounterNoteRepository
 import com.macareen.stitchbook2.domain.repository.CounterRepository
 import com.macareen.stitchbook2.domain.repository.LibraryRepository
 import com.macareen.stitchbook2.domain.repository.ProjectRepository
@@ -32,13 +34,15 @@ private const val KEY_STASH_ITEMS = "stashItems"
 private const val KEY_TOOL_SETS = "toolSets"
 private const val KEY_TOOL_ITEMS = "toolItems"
 private const val KEY_COUNTERS = "counters"
+private const val KEY_COUNTER_NOTES = "counterNotes"
 
 class LocalBackupService(
     private val projectRepository: ProjectRepository,
     private val libraryRepository: LibraryRepository,
     private val stashRepository: StashRepository,
     private val toolRepository: ToolRepository,
-    private val counterRepository: CounterRepository
+    private val counterRepository: CounterRepository,
+    private val counterNoteRepository: CounterNoteRepository
 ) : BackupService {
 
     override suspend fun exportJson(): String {
@@ -53,6 +57,10 @@ class LocalBackupService(
         root.put(KEY_TOOL_SETS, JSONArray(toolRepository.observeToolSets().first().map { it.toJson() }))
         root.put(KEY_TOOL_ITEMS, JSONArray(toolRepository.observeToolItems().first().map { it.toJson() }))
         root.put(KEY_COUNTERS, JSONArray(counterRepository.observeCounters().first().map { it.toJson() }))
+        root.put(
+            KEY_COUNTER_NOTES,
+            JSONArray(counterNoteRepository.observeNotes().first().map { it.toJson() })
+        )
         return root.toString(2)
     }
 
@@ -149,13 +157,29 @@ class LocalBackupService(
                 null
             }
 
+            // Notes last: a note's counterId must resolve against the
+            // counters already replaced immediately above.
+            val counterNoteCount = if (root.has(KEY_COUNTER_NOTES)) {
+                val notes = root.getJSONArray(KEY_COUNTER_NOTES).toObjectList().map { it.toCounterNote() }
+                replaceAll(
+                    current = counterNoteRepository.observeNotes().first(),
+                    incoming = notes,
+                    delete = counterNoteRepository::deleteNote,
+                    save = counterNoteRepository::saveNote
+                )
+                notes.size
+            } else {
+                null
+            }
+
             BackupImportResult.Success(
                 projectCount,
                 libraryItemCount,
                 stashItemCount,
                 toolSetCount,
                 toolItemCount,
-                counterCount
+                counterCount,
+                counterNoteCount
             )
         } catch (_: JSONException) {
             BackupImportResult.InvalidFormat
@@ -173,6 +197,11 @@ class LocalBackupService(
         // now-empty grouping" rather than the reverse.
         toolRepository.observeToolItems().first().forEach { toolRepository.deleteToolItem(it) }
         toolRepository.observeToolSets().first().forEach { toolRepository.deleteToolSet(it) }
+        // Notes before their owning counter: no functional requirement
+        // (counter_id is ON DELETE CASCADE either way), but it reads as
+        // "clear the notes, then the counter they were about" rather than
+        // the reverse.
+        counterNoteRepository.observeNotes().first().forEach { counterNoteRepository.deleteNote(it) }
         counterRepository.observeCounters().first().forEach { counterRepository.deleteCounter(it) }
     }
 
@@ -370,6 +399,22 @@ private fun JSONObject.toCounter(): Counter = Counter(
     goal = if (isNull("goal")) null else getInt("goal"),
     createdAt = getLong("createdAt"),
     updatedAt = getLong("updatedAt")
+)
+
+private fun CounterNote.toJson(): JSONObject = JSONObject().apply {
+    put("id", id)
+    put("counterId", counterId)
+    put("value", value)
+    put("note", note)
+    put("createdAt", createdAt)
+}
+
+private fun JSONObject.toCounterNote(): CounterNote = CounterNote(
+    id = getString("id"),
+    counterId = getString("counterId"),
+    value = getInt("value"),
+    note = getString("note"),
+    createdAt = getLong("createdAt")
 )
 
 private fun JSONObject.optNullableString(name: String): String? =

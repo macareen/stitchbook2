@@ -6,17 +6,23 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.macareen.stitchbook2.domain.model.Counter
+import com.macareen.stitchbook2.domain.model.CounterNote
 import com.macareen.stitchbook2.domain.model.Project
 import com.macareen.stitchbook2.domain.model.normalizedCounterName
+import com.macareen.stitchbook2.domain.repository.CounterNoteRepository
 import com.macareen.stitchbook2.domain.repository.CounterRepository
 import com.macareen.stitchbook2.domain.repository.ProjectRepository
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -44,14 +50,23 @@ data class CounterFormInput(
     val projectId: String?
 )
 
+/** State for the value-specific-notes dialog opened for one counter at a time; see [CountersViewModel.openNotes]. */
+sealed interface CounterNotesUiState {
+    data object Closed : CounterNotesUiState
+    data class Content(val counter: Counter, val notes: List<CounterNote>) : CounterNotesUiState
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
 class CountersViewModel(
     private val repository: CounterRepository,
     private val projectRepository: ProjectRepository,
+    private val noteRepository: CounterNoteRepository,
     externalScope: CoroutineScope? = null
 ) : ViewModel() {
 
     private val scope: CoroutineScope = externalScope ?: viewModelScope
     private val filterState = MutableStateFlow(CounterFilterState())
+    private val notesTarget = MutableStateFlow<Counter?>(null)
 
     val uiState = combine(
         repository.observeCounters(),
@@ -76,8 +91,67 @@ class CountersViewModel(
             initialValue = CountersUiState.Loading
         )
 
+    val notesUiState = notesTarget
+        .flatMapLatest { counter ->
+            if (counter == null) {
+                flowOf(CounterNotesUiState.Closed)
+            } else {
+                noteRepository.observeNotesByCounter(counter.id).map { notes ->
+                    CounterNotesUiState.Content(counter, notes) as CounterNotesUiState
+                }
+            }
+        }
+        .stateIn(
+            scope = scope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = CounterNotesUiState.Closed
+        )
+
     fun updateSearchQuery(value: String) {
         filterState.value = filterState.value.copy(searchQuery = value)
+    }
+
+    fun openNotes(counter: Counter) {
+        notesTarget.value = counter
+    }
+
+    fun closeNotes() {
+        notesTarget.value = null
+    }
+
+    fun addNote(counter: Counter, value: Int, noteText: String) {
+        val trimmed = noteText.trim()
+        if (trimmed.isEmpty()) return
+        scope.launch {
+            try {
+                noteRepository.saveNote(
+                    CounterNote(
+                        id = UUID.randomUUID().toString(),
+                        counterId = counter.id,
+                        value = value,
+                        note = trimmed,
+                        createdAt = System.currentTimeMillis()
+                    )
+                )
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                // Best-effort, same as saveCounter/persist below: the notes
+                // list re-renders from persisted state on the next emission.
+            }
+        }
+    }
+
+    fun deleteNote(note: CounterNote) {
+        scope.launch {
+            try {
+                noteRepository.deleteNote(note)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                // Nothing to reconcile locally, same rationale as deleteCounter.
+            }
+        }
     }
 
     fun saveCounter(original: Counter?, form: CounterFormInput) {
@@ -152,10 +226,11 @@ class CountersViewModel(
     companion object {
         fun factory(
             repository: CounterRepository,
-            projectRepository: ProjectRepository
+            projectRepository: ProjectRepository,
+            noteRepository: CounterNoteRepository
         ): ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                CountersViewModel(repository, projectRepository)
+                CountersViewModel(repository, projectRepository, noteRepository)
             }
         }
     }

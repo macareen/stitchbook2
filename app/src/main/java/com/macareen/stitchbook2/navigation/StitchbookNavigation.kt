@@ -52,6 +52,7 @@ fun StitchbookNavHost(
     val stashRepository = application.container.stashRepository
     val toolRepository = application.container.toolRepository
     val counterRepository = application.container.counterRepository
+    val counterNoteRepository = application.container.counterNoteRepository
     val backupService = application.container.backupService
     val createGuideFromPdfUseCase = application.container.createGuideFromPdfUseCase
 
@@ -163,7 +164,11 @@ fun StitchbookNavHost(
         }
         composable(TopLevelDestination.Counters.route) {
             val viewModel: CountersViewModel = viewModel(
-                factory = CountersViewModel.factory(counterRepository, projectRepository)
+                factory = CountersViewModel.factory(
+                    counterRepository,
+                    projectRepository,
+                    counterNoteRepository
+                )
             )
             CountersRoute(viewModel = viewModel)
         }

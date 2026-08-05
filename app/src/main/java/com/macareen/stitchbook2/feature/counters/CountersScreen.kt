@@ -9,13 +9,18 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -46,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.macareen.stitchbook2.R
 import com.macareen.stitchbook2.domain.model.Counter
+import com.macareen.stitchbook2.domain.model.CounterNote
 import com.macareen.stitchbook2.domain.model.Craft
 import com.macareen.stitchbook2.domain.model.Project
 import com.macareen.stitchbook2.domain.model.ProjectStatus
@@ -60,27 +66,38 @@ import com.macareen.stitchbook2.ui.theme.textSecondary
 @Composable
 fun CountersRoute(viewModel: CountersViewModel) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val notesUiState by viewModel.notesUiState.collectAsStateWithLifecycle()
 
     CountersScreen(
         uiState = uiState,
+        notesUiState = notesUiState,
         onSearchQueryChanged = viewModel::updateSearchQuery,
         onSaveCounter = viewModel::saveCounter,
         onIncrement = viewModel::increment,
         onDecrement = viewModel::decrement,
         onReset = viewModel::reset,
-        onDeleteCounter = viewModel::deleteCounter
+        onDeleteCounter = viewModel::deleteCounter,
+        onOpenNotes = viewModel::openNotes,
+        onCloseNotes = viewModel::closeNotes,
+        onAddNote = viewModel::addNote,
+        onDeleteNote = viewModel::deleteNote
     )
 }
 
 @Composable
 fun CountersScreen(
     uiState: CountersUiState,
+    notesUiState: CounterNotesUiState,
     onSearchQueryChanged: (String) -> Unit,
     onSaveCounter: (Counter?, CounterFormInput) -> Unit,
     onIncrement: (Counter) -> Unit,
     onDecrement: (Counter) -> Unit,
     onReset: (Counter) -> Unit,
     onDeleteCounter: (Counter) -> Unit,
+    onOpenNotes: (Counter) -> Unit,
+    onCloseNotes: () -> Unit,
+    onAddNote: (Counter, Int, String) -> Unit,
+    onDeleteNote: (CounterNote) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var editingCounter by remember { mutableStateOf<Counter?>(null) }
@@ -111,6 +128,7 @@ fun CountersScreen(
                     onEditCounter = { editingCounter = it },
                     onResetRequested = { resettingCounter = it },
                     onDeleteRequested = { deletingCounter = it },
+                    onNotesRequested = onOpenNotes,
                     onIncrement = onIncrement,
                     onDecrement = onDecrement
                 )
@@ -203,6 +221,16 @@ fun CountersScreen(
             }
         )
     }
+
+    (notesUiState as? CounterNotesUiState.Content)?.let { content ->
+        CounterNotesDialog(
+            counter = content.counter,
+            notes = content.notes,
+            onDismiss = onCloseNotes,
+            onAddNote = { value, note -> onAddNote(content.counter, value, note) },
+            onDeleteNote = onDeleteNote
+        )
+    }
 }
 
 @Composable
@@ -212,6 +240,7 @@ private fun CountersContent(
     onEditCounter: (Counter) -> Unit,
     onResetRequested: (Counter) -> Unit,
     onDeleteRequested: (Counter) -> Unit,
+    onNotesRequested: (Counter) -> Unit,
     onIncrement: (Counter) -> Unit,
     onDecrement: (Counter) -> Unit
 ) {
@@ -258,6 +287,7 @@ private fun CountersContent(
                     onEdit = { onEditCounter(entry.counter) },
                     onResetRequested = { onResetRequested(entry.counter) },
                     onDeleteRequested = { onDeleteRequested(entry.counter) },
+                    onNotesRequested = { onNotesRequested(entry.counter) },
                     onIncrement = { onIncrement(entry.counter) },
                     onDecrement = { onDecrement(entry.counter) }
                 )
@@ -272,6 +302,7 @@ private fun CounterCard(
     onEdit: () -> Unit,
     onResetRequested: () -> Unit,
     onDeleteRequested: () -> Unit,
+    onNotesRequested: () -> Unit,
     onIncrement: () -> Unit,
     onDecrement: () -> Unit
 ) {
@@ -343,6 +374,12 @@ private fun CounterCard(
                     Text(text = stringResource(R.string.counters_reset_action))
                 }
                 Row {
+                    IconButton(onClick = onNotesRequested) {
+                        Icon(
+                            imageVector = Icons.Outlined.EditNote,
+                            contentDescription = stringResource(R.string.counter_notes_action)
+                        )
+                    }
                     IconButton(onClick = onEdit) {
                         Icon(
                             imageVector = Icons.Outlined.Edit,
@@ -517,6 +554,95 @@ private fun ProjectDropdown(
 }
 
 @Composable
+private fun CounterNotesDialog(
+    counter: Counter,
+    notes: List<CounterNote>,
+    onDismiss: () -> Unit,
+    onAddNote: (Int, String) -> Unit,
+    onDeleteNote: (CounterNote) -> Unit
+) {
+    var valueText by remember(counter.id) { mutableStateOf(counter.currentValue.toString()) }
+    var noteText by remember(counter.id) { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = stringResource(R.string.counter_notes_title, counter.name)) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 400.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)
+                ) {
+                    OutlinedTextField(
+                        value = valueText,
+                        onValueChange = { valueText = it },
+                        singleLine = true,
+                        label = { Text(text = stringResource(R.string.counter_notes_field_value)) },
+                        modifier = Modifier.width(88.dp)
+                    )
+                    OutlinedTextField(
+                        value = noteText,
+                        onValueChange = { noteText = it },
+                        label = { Text(text = stringResource(R.string.counter_notes_field_note)) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+                TextButton(
+                    onClick = {
+                        onAddNote(valueText.toIntOrNull() ?: counter.currentValue, noteText)
+                        noteText = ""
+                    },
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text(text = stringResource(R.string.counter_notes_add_action))
+                }
+
+                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+                if (notes.isEmpty()) {
+                    QuietText(text = stringResource(R.string.counter_notes_empty))
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
+                        notes.forEach { note ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = stringResource(
+                                        R.string.counter_notes_entry,
+                                        note.value,
+                                        counter.unitLabel,
+                                        note.note
+                                    ),
+                                    modifier = Modifier.weight(1f)
+                                )
+                                IconButton(onClick = { onDeleteNote(note) }) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Delete,
+                                        contentDescription = stringResource(R.string.counter_notes_delete_action)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = stringResource(R.string.counter_notes_close_action))
+            }
+        }
+    )
+}
+
+@Composable
 private fun MessageState(
     title: String,
     description: String,
@@ -588,12 +714,17 @@ private fun CountersScreenPreview() {
                 ),
                 hasAnyCounters = true
             ),
+            notesUiState = CounterNotesUiState.Closed,
             onSearchQueryChanged = {},
             onSaveCounter = { _, _ -> },
             onIncrement = {},
             onDecrement = {},
             onReset = {},
-            onDeleteCounter = {}
+            onDeleteCounter = {},
+            onOpenNotes = {},
+            onCloseNotes = {},
+            onAddNote = { _, _, _ -> },
+            onDeleteNote = {}
         )
     }
 }
