@@ -69,4 +69,22 @@ class LocalToolRepository(
     override suspend fun deleteToolTemplate(template: ToolTemplate) {
         toolDao.deleteTemplate(template.toEntity())
     }
+
+    override fun observeToolItemsForProject(projectId: String): Flow<List<ToolItem>> {
+        return toolDao.observeItemsForProject(projectId).map { items ->
+            items.map { it.toDomain() }
+        }
+    }
+
+    override fun observeProjectIdsForToolItem(toolItemId: String): Flow<List<String>> {
+        return toolDao.observeProjectIdsForItem(toolItemId)
+    }
+
+    override suspend fun setProjectAssignments(toolItemId: String, projectIds: Set<String>) {
+        toolDao.replaceAssignmentsForItem(toolItemId, projectIds)
+    }
+
+    override suspend fun unassignToolFromProject(toolItemId: String, projectId: String) {
+        toolDao.deleteAssignment(toolItemId, projectId)
+    }
 }

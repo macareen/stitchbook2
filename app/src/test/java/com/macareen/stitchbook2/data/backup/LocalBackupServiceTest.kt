@@ -466,6 +466,15 @@ private class FakeToolRepository(
         throw UnsupportedOperationException("Not used by LocalBackupService")
     override suspend fun deleteToolTemplate(template: ToolTemplate) =
         throw UnsupportedOperationException("Not used by LocalBackupService")
+
+    override fun observeToolItemsForProject(projectId: String): Flow<List<ToolItem>> =
+        throw UnsupportedOperationException("Not used by LocalBackupService")
+    override fun observeProjectIdsForToolItem(toolItemId: String): Flow<List<String>> =
+        throw UnsupportedOperationException("Not used by LocalBackupService")
+    override suspend fun setProjectAssignments(toolItemId: String, projectIds: Set<String>) =
+        throw UnsupportedOperationException("Not used by LocalBackupService")
+    override suspend fun unassignToolFromProject(toolItemId: String, projectId: String) =
+        throw UnsupportedOperationException("Not used by LocalBackupService")
 }
 
 private class FakeCounterRepository(initial: List<Counter>) : CounterRepository {

@@ -1,15 +1,22 @@
 package com.macareen.stitchbook2.feature.tools
 
+import com.macareen.stitchbook2.domain.model.Craft
+import com.macareen.stitchbook2.domain.model.Project
+import com.macareen.stitchbook2.domain.model.ProjectStatus
+import com.macareen.stitchbook2.domain.model.ProjectType
 import com.macareen.stitchbook2.domain.model.ToolCategory
 import com.macareen.stitchbook2.domain.model.ToolItem
 import com.macareen.stitchbook2.domain.model.ToolSet
 import com.macareen.stitchbook2.domain.model.ToolTemplate
+import com.macareen.stitchbook2.domain.repository.ProjectRepository
 import com.macareen.stitchbook2.domain.repository.ToolRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -191,6 +198,36 @@ class ToolsViewModelTest {
         assertTrue(repository.items.value.isEmpty())
     }
 
+    @Test
+    fun contentExposesEveryPersistedProjectForTheAssignDialog() {
+        val repository = FakeToolRepository(emptyList())
+        val projects = FakeProjectRepository(listOf(project("project-1"), project("project-2")))
+        val viewModel = viewModel(repository, projects)
+
+        assertEquals(listOf("project-1", "project-2"), contentState(viewModel).projects.map { it.id })
+    }
+
+    @Test
+    fun savingProjectAssignmentsPersistsExactlyTheGivenSet() {
+        val repository = FakeToolRepository(listOf(item("tool-1")))
+        val viewModel = viewModel(repository)
+
+        viewModel.saveProjectAssignments("tool-1", setOf("project-1", "project-2"))
+
+        assertEquals(setOf("project-1", "project-2"), repository.assignmentsByToolItemId.value["tool-1"])
+    }
+
+    @Test
+    fun loadAssignedProjectIdsReturnsWhatWasPersisted() {
+        val repository = FakeToolRepository(listOf(item("tool-1")))
+        val viewModel = viewModel(repository)
+        viewModel.saveProjectAssignments("tool-1", setOf("project-1"))
+
+        val loaded = runBlocking { viewModel.loadAssignedProjectIds("tool-1") }
+
+        assertEquals(setOf("project-1"), loaded)
+    }
+
     private fun contentState(viewModel: ToolsViewModel): ToolsUiState.Content {
         return viewModel.uiState.value as ToolsUiState.Content
     }
@@ -243,8 +280,11 @@ class ToolsViewModelTest {
         updatedAt = 0
     )
 
-    private fun viewModel(repository: FakeToolRepository): ToolsViewModel {
-        val viewModel = ToolsViewModel(repository, externalScope = scope)
+    private fun viewModel(
+        repository: FakeToolRepository,
+        projects: FakeProjectRepository = FakeProjectRepository(emptyList())
+    ): ToolsViewModel {
+        val viewModel = ToolsViewModel(repository, projects, externalScope = scope)
         // uiState is built with SharingStarted.WhileSubscribed, so it only
         // starts (and its value only advances past the initial Loading
         // state) once it has an active collector. Under Dispatchers.Unconfined
@@ -258,6 +298,7 @@ class ToolsViewModelTest {
 private class FakeToolRepository(initialItems: List<ToolItem>) : ToolRepository {
     val items = MutableStateFlow(initialItems)
     val sets = MutableStateFlow(emptyList<ToolSet>())
+    val assignmentsByToolItemId = MutableStateFlow(emptyMap<String, Set<String>>())
 
     override fun observeToolItems(): Flow<List<ToolItem>> = items
 
@@ -294,4 +335,40 @@ private class FakeToolRepository(initialItems: List<ToolItem>) : ToolRepository 
         throw UnsupportedOperationException("Not used by ToolsViewModel")
     override suspend fun deleteToolTemplate(template: ToolTemplate) =
         throw UnsupportedOperationException("Not used by ToolsViewModel")
+
+    override fun observeToolItemsForProject(projectId: String): Flow<List<ToolItem>> =
+        throw UnsupportedOperationException("Not used by ToolsViewModel")
+
+    override fun observeProjectIdsForToolItem(toolItemId: String): Flow<List<String>> =
+        assignmentsByToolItemId.map { it[toolItemId]?.toList().orEmpty() }
+
+    override suspend fun setProjectAssignments(toolItemId: String, projectIds: Set<String>) {
+        assignmentsByToolItemId.value = assignmentsByToolItemId.value + (toolItemId to projectIds)
+    }
+
+    override suspend fun unassignToolFromProject(toolItemId: String, projectId: String) {
+        val current = assignmentsByToolItemId.value[toolItemId].orEmpty()
+        assignmentsByToolItemId.value = assignmentsByToolItemId.value + (toolItemId to (current - projectId))
+    }
 }
+
+private class FakeProjectRepository(private val projects: List<Project>) : ProjectRepository {
+    override fun observeProjects(): Flow<List<Project>> = MutableStateFlow(projects)
+    override fun observeProject(id: String): Flow<Project?> =
+        throw UnsupportedOperationException("Not used by ToolsViewModel")
+    override suspend fun saveProject(project: Project) =
+        throw UnsupportedOperationException("Not used by ToolsViewModel")
+    override suspend fun deleteProject(project: Project) =
+        throw UnsupportedOperationException("Not used by ToolsViewModel")
+}
+
+private fun project(id: String, name: String = id) = Project(
+    id = id,
+    name = name,
+    craft = Craft.KNITTING,
+    projectType = ProjectType.OTHER,
+    status = ProjectStatus.ACTIVE,
+    notes = null,
+    createdAt = 0,
+    updatedAt = 0
+)

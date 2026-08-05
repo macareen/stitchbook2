@@ -51,6 +51,7 @@ import com.macareen.stitchbook2.domain.model.Craft
 import com.macareen.stitchbook2.domain.model.Project
 import com.macareen.stitchbook2.domain.model.ProjectStatus
 import com.macareen.stitchbook2.domain.model.ProjectType
+import com.macareen.stitchbook2.domain.model.ToolItem
 import com.macareen.stitchbook2.ui.components.LabelPill
 import com.macareen.stitchbook2.ui.components.PrimaryActionButton
 import com.macareen.stitchbook2.ui.components.QuietText
@@ -94,7 +95,8 @@ fun ProjectDetailRoute(
         onOpenGuide = onOpenGuide,
         onEditDraft = onEditDraft,
         onCreateGuide = viewModel::createGuide,
-        onCreateGuideFromPdf = viewModel::createGuideFromPdf
+        onCreateGuideFromPdf = viewModel::createGuideFromPdf,
+        onUnassignTool = viewModel::unassignTool
     )
 }
 
@@ -107,6 +109,7 @@ fun ProjectDetailScreen(
     onEditDraft: (String) -> Unit,
     onCreateGuide: (String) -> Unit,
     onCreateGuideFromPdf: (String, ByteArray) -> Unit,
+    onUnassignTool: (ToolItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
     when (uiState) {
@@ -145,6 +148,7 @@ fun ProjectDetailScreen(
                 onEditDraft = onEditDraft,
                 onCreateGuide = onCreateGuide,
                 onCreateGuideFromPdf = onCreateGuideFromPdf,
+                onUnassignTool = onUnassignTool,
                 modifier = modifier
             )
         }
@@ -160,6 +164,7 @@ private fun ProjectDetailContent(
     onEditDraft: (String) -> Unit,
     onCreateGuide: (String) -> Unit,
     onCreateGuideFromPdf: (String, ByteArray) -> Unit,
+    onUnassignTool: (ToolItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showDeleteConfirmation by remember { mutableStateOf(false) }
@@ -258,6 +263,12 @@ private fun ProjectDetailContent(
             onEditDraft = onEditDraft,
             onAddGuide = { showAddGuideDialog = true },
             onCreateGuideFromPdf = { showCreateFromPdfDialog = true }
+        )
+
+        Spacer(modifier = Modifier.height(StitchbookSpacing.large))
+        ToolsSection(
+            assignedTools = state.assignedTools,
+            onUnassignTool = onUnassignTool
         )
     }
 
@@ -482,6 +493,75 @@ private fun GuidesSection(
 }
 
 /**
+ * Read-only-with-unassign: tools are created and assigned to a project from
+ * the Tools screen's own "Assign to Projects" dialog, not from here, so
+ * there is deliberately no "add tool" action in this section -- only a way
+ * to remove this project's side of an existing assignment.
+ */
+@Composable
+private fun ToolsSection(
+    assignedTools: List<ToolItem>,
+    onUnassignTool: (ToolItem) -> Unit
+) {
+    Text(
+        text = stringResource(R.string.project_tools_section_title),
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary
+    )
+    Spacer(modifier = Modifier.height(4.dp))
+
+    if (assignedTools.isEmpty()) {
+        Text(
+            text = stringResource(R.string.project_tools_empty_description),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    } else {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            assignedTools.forEach { toolItem ->
+                ProjectToolListItem(
+                    toolItem = toolItem,
+                    onUnassign = { onUnassignTool(toolItem) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProjectToolListItem(
+    toolItem: ToolItem,
+    onUnassign: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(StitchbookSpacing.medium),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = toolItem.name,
+                    style = MaterialTheme.typography.cardTitle
+                )
+                toolItem.brand?.let { QuietText(text = it) }
+            }
+            Spacer(modifier = Modifier.width(StitchbookSpacing.small))
+            SecondaryActionButton(
+                text = stringResource(R.string.project_unassign_tool_action),
+                onClick = onUnassign
+            )
+        }
+    }
+}
+
+/**
  * Renders exactly the entry action [GuideEntryAction] already resolved from
  * persisted state -- never decides Continue/Start/unavailable itself. A
  * Draft-only Guide (no published Revision yet) opens the Draft editor
@@ -696,7 +776,8 @@ private fun ProjectDetailPreview() {
             onOpenGuide = {},
             onEditDraft = {},
             onCreateGuide = {},
-            onCreateGuideFromPdf = { _, _ -> }
+            onCreateGuideFromPdf = { _, _ -> },
+            onUnassignTool = {}
         )
     }
 }

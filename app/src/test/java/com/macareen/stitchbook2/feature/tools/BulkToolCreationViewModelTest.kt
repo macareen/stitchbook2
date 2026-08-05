@@ -273,4 +273,13 @@ private class FakeBulkToolRepository : ToolRepository {
     override suspend fun deleteToolTemplate(template: ToolTemplate) {
         templates.value = templates.value.filterNot { it.id == template.id }
     }
+
+    override fun observeToolItemsForProject(projectId: String): Flow<List<ToolItem>> =
+        throw UnsupportedOperationException("Not used by BulkToolCreationViewModel")
+    override fun observeProjectIdsForToolItem(toolItemId: String): Flow<List<String>> =
+        throw UnsupportedOperationException("Not used by BulkToolCreationViewModel")
+    override suspend fun setProjectAssignments(toolItemId: String, projectIds: Set<String>) =
+        throw UnsupportedOperationException("Not used by BulkToolCreationViewModel")
+    override suspend fun unassignToolFromProject(toolItemId: String, projectId: String) =
+        throw UnsupportedOperationException("Not used by BulkToolCreationViewModel")
 }

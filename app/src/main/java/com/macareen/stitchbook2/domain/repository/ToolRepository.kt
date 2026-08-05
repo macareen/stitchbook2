@@ -29,4 +29,13 @@ interface ToolRepository {
     suspend fun saveToolTemplate(template: ToolTemplate)
 
     suspend fun deleteToolTemplate(template: ToolTemplate)
+
+    fun observeToolItemsForProject(projectId: String): Flow<List<ToolItem>>
+
+    fun observeProjectIdsForToolItem(toolItemId: String): Flow<List<String>>
+
+    /** Replaces every project [toolItemId] is assigned to with exactly [projectIds] in one atomic step. */
+    suspend fun setProjectAssignments(toolItemId: String, projectIds: Set<String>)
+
+    suspend fun unassignToolFromProject(toolItemId: String, projectId: String)
 }

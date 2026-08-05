@@ -146,7 +146,7 @@ fun StitchbookNavHost(
         }
         composable(TopLevelDestination.Tools.route) {
             val viewModel: ToolsViewModel = viewModel(
-                factory = ToolsViewModel.factory(toolRepository)
+                factory = ToolsViewModel.factory(toolRepository, projectRepository)
             )
             ToolsRoute(
                 viewModel = viewModel,
@@ -220,6 +220,7 @@ fun StitchbookNavHost(
                     repository = projectRepository,
                     guideRepository = guideRepository,
                     executionRepository = executionRepository,
+                    toolRepository = toolRepository,
                     createGuideFromPdfUseCase = createGuideFromPdfUseCase
                 )
             )
