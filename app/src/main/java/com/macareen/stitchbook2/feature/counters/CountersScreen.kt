@@ -34,6 +34,7 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -45,6 +46,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -318,6 +320,7 @@ private fun CounterCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                val goalReached = counter.goal?.let { counter.currentValue >= it } == true
                 entry.projectName?.let { projectName ->
                     LabelPill(
                         text = projectName,
@@ -329,8 +332,31 @@ private fun CounterCard(
                     text = counter.goal?.let {
                         stringResource(R.string.counters_value_with_goal_pill, counter.currentValue, it, counter.unitLabel)
                     } ?: stringResource(R.string.counters_value_pill, counter.currentValue, counter.unitLabel),
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    contentColor = MaterialTheme.colorScheme.textSecondary
+                    containerColor = if (goalReached) {
+                        MaterialTheme.colorScheme.tertiaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surfaceContainerHigh
+                    },
+                    contentColor = if (goalReached) {
+                        MaterialTheme.colorScheme.onTertiaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.textSecondary
+                    }
+                )
+            }
+
+            counter.goal?.let { goal ->
+                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+                LinearProgressIndicator(
+                    progress = { (counter.currentValue.toFloat() / goal).coerceIn(0f, 1f) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(MaterialTheme.shapes.small),
+                    color = if (counter.currentValue >= goal) {
+                        MaterialTheme.colorScheme.tertiary
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    }
                 )
             }
 
@@ -693,6 +719,19 @@ private fun CountersScreenPreview() {
                             unitLabel = "repeats",
                             currentValue = 3,
                             goal = null,
+                            createdAt = 0,
+                            updatedAt = 0
+                        ),
+                        projectName = null
+                    ),
+                    CounterListEntry(
+                        counter = Counter(
+                            id = "preview-3",
+                            projectId = null,
+                            name = "Border Rounds",
+                            unitLabel = "rounds",
+                            currentValue = 8,
+                            goal = 8,
                             createdAt = 0,
                             updatedAt = 0
                         ),
