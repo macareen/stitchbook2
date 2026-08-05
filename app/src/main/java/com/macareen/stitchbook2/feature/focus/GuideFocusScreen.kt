@@ -1,5 +1,6 @@
 package com.macareen.stitchbook2.feature.focus
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,10 +10,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Remove
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -31,6 +40,7 @@ import com.macareen.stitchbook2.domain.execution.DefinitionRevisionId
 import com.macareen.stitchbook2.domain.execution.ExecutionAddress
 import com.macareen.stitchbook2.domain.execution.ExecutionId
 import com.macareen.stitchbook2.domain.execution.NodeId
+import com.macareen.stitchbook2.domain.model.Counter
 import com.macareen.stitchbook2.ui.components.PrimaryActionButton
 import com.macareen.stitchbook2.ui.components.QuietText
 import com.macareen.stitchbook2.ui.components.SecondaryActionButton
@@ -50,7 +60,9 @@ fun GuideFocusRoute(viewModel: GuideFocusViewModel) {
         onComplete = viewModel::onComplete,
         onPrevious = viewModel::onPrevious,
         onJumpToFirstIncomplete = viewModel::onJumpToFirstIncomplete,
-        onStartNext = viewModel::onStartNext
+        onStartNext = viewModel::onStartNext,
+        onIncrementCounter = viewModel::onIncrementCounter,
+        onDecrementCounter = viewModel::onDecrementCounter
     )
 }
 
@@ -62,6 +74,8 @@ fun GuideFocusScreen(
     onPrevious: () -> Unit,
     onJumpToFirstIncomplete: () -> Unit,
     onStartNext: () -> Unit,
+    onIncrementCounter: (Counter) -> Unit,
+    onDecrementCounter: (Counter) -> Unit,
     modifier: Modifier = Modifier
 ) {
     when (uiState) {
@@ -96,6 +110,8 @@ fun GuideFocusScreen(
             onComplete = onComplete,
             onPrevious = onPrevious,
             onJumpToFirstIncomplete = onJumpToFirstIncomplete,
+            onIncrementCounter = onIncrementCounter,
+            onDecrementCounter = onDecrementCounter,
             modifier = modifier
         )
 
@@ -201,6 +217,8 @@ private fun InProgressContent(
     onComplete: () -> Unit,
     onPrevious: () -> Unit,
     onJumpToFirstIncomplete: () -> Unit,
+    onIncrementCounter: (Counter) -> Unit,
+    onDecrementCounter: (Counter) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize()) {
@@ -221,6 +239,30 @@ private fun InProgressContent(
             if (state.breadcrumbs.isNotEmpty()) {
                 QuietText(text = state.breadcrumbs.joinToString(separator = " › "))
             }
+        }
+
+        // Fixed (not scrollable) so counters stay reachable regardless of
+        // instruction length, the same reachability rationale as the pinned
+        // action row below -- PRODUCT_SPEC.md 6.3's "active crafting screen":
+        // tracking counters without leaving Focus Mode.
+        if (state.projectCounters.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = StitchbookSpacing.large),
+                horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)
+            ) {
+                state.projectCounters.forEach { counter ->
+                    FocusCounterChip(
+                        counter = counter,
+                        onIncrement = { onIncrementCounter(counter) },
+                        onDecrement = { onDecrementCounter(counter) }
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
 
         Column(
@@ -290,6 +332,49 @@ private fun InProgressContent(
                 ) {
                     Text(text = stringResource(R.string.focus_jump_to_incomplete_action))
                 }
+            }
+        }
+    }
+}
+
+/** A compact name/value/+/- unit for one counter, sized for a horizontal strip rather than the full CounterCard. */
+@Composable
+private fun FocusCounterChip(
+    counter: Counter,
+    onIncrement: () -> Unit,
+    onDecrement: () -> Unit
+) {
+    Card(
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = StitchbookSpacing.small, vertical = StitchbookSpacing.extraSmall),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onDecrement, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    imageVector = Icons.Outlined.Remove,
+                    contentDescription = stringResource(R.string.counters_decrement_action)
+                )
+            }
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(horizontal = StitchbookSpacing.extraSmall)
+            ) {
+                QuietText(text = counter.name, style = MaterialTheme.typography.labelSmall)
+                Text(
+                    text = counter.goal?.let {
+                        stringResource(R.string.counters_value_with_goal_pill, counter.currentValue, it, counter.unitLabel)
+                    } ?: stringResource(R.string.counters_value_pill, counter.currentValue, counter.unitLabel),
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+            IconButton(onClick = onIncrement, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    imageVector = Icons.Outlined.Add,
+                    contentDescription = stringResource(R.string.counters_increment_action)
+                )
             }
         }
     }
@@ -404,18 +489,21 @@ private fun CompletedContent(
 private fun ReadyToStartPreview() {
     StitchbookTheme {
         GuideFocusScreen(
-            uiState = GuideFocusUiState.ReadyToStart(guideName = "Everyday cardigan"),
+            uiState = GuideFocusUiState.ReadyToStart(guideName = "Everyday cardigan", projectId = "preview-project"),
             onStart = {},
             onComplete = {},
             onPrevious = {},
             onJumpToFirstIncomplete = {},
-            onStartNext = {}
+            onStartNext = {},
+            onIncrementCounter = {},
+            onDecrementCounter = {}
         )
     }
 }
 
 private val previewInProgressState = GuideFocusUiState.InProgress(
     guideName = "Everyday cardigan",
+    projectId = "preview-project",
     executionId = ExecutionId("preview-execution"),
     version = 0,
     instructionText = "Knit all stitches",
@@ -427,6 +515,34 @@ private val previewInProgressState = GuideFocusUiState.InProgress(
             currentValue = 3,
             startInclusive = 1,
             endInclusive = 4
+        )
+    ),
+    projectCounters = listOf(
+        Counter(
+            id = "preview-counter-1",
+            projectId = "preview-project",
+            name = "Row",
+            unitLabel = "rows",
+            currentValue = 12,
+            goal = null,
+            createdAt = 0,
+            updatedAt = 0,
+            linkedCounterId = null,
+            linkIncrementInterval = null,
+            linkIncrementAmount = null
+        ),
+        Counter(
+            id = "preview-counter-2",
+            projectId = "preview-project",
+            name = "Sleeve repeats",
+            unitLabel = "repeats",
+            currentValue = 3,
+            goal = 8,
+            createdAt = 0,
+            updatedAt = 0,
+            linkedCounterId = null,
+            linkIncrementInterval = null,
+            linkIncrementAmount = null
         )
     ),
     jumpToFirstIncompleteTarget = null
@@ -442,7 +558,9 @@ private fun InProgressPreview() {
             onComplete = {},
             onPrevious = {},
             onJumpToFirstIncomplete = {},
-            onStartNext = {}
+            onStartNext = {},
+            onIncrementCounter = {},
+            onDecrementCounter = {}
         )
     }
 }
@@ -457,7 +575,9 @@ private fun InProgressDarkPreview() {
             onComplete = {},
             onPrevious = {},
             onJumpToFirstIncomplete = {},
-            onStartNext = {}
+            onStartNext = {},
+            onIncrementCounter = {},
+            onDecrementCounter = {}
         )
     }
 }
@@ -481,7 +601,9 @@ private fun InProgressLongInstructionPreview() {
             onComplete = {},
             onPrevious = {},
             onJumpToFirstIncomplete = {},
-            onStartNext = {}
+            onStartNext = {},
+            onIncrementCounter = {},
+            onDecrementCounter = {}
         )
     }
 }
@@ -496,7 +618,9 @@ private fun InProgressLargeFontScalePreview() {
             onComplete = {},
             onPrevious = {},
             onJumpToFirstIncomplete = {},
-            onStartNext = {}
+            onStartNext = {},
+            onIncrementCounter = {},
+            onDecrementCounter = {}
         )
     }
 }
@@ -506,12 +630,14 @@ private fun InProgressLargeFontScalePreview() {
 private fun CompletedPreview() {
     StitchbookTheme {
         GuideFocusScreen(
-            uiState = GuideFocusUiState.Completed(guideName = "Everyday cardigan"),
+            uiState = GuideFocusUiState.Completed(guideName = "Everyday cardigan", projectId = "preview-project"),
             onStart = {},
             onComplete = {},
             onPrevious = {},
             onJumpToFirstIncomplete = {},
-            onStartNext = {}
+            onStartNext = {},
+            onIncrementCounter = {},
+            onDecrementCounter = {}
         )
     }
 }

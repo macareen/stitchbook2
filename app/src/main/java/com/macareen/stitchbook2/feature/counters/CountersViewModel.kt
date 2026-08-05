@@ -14,6 +14,7 @@ import com.macareen.stitchbook2.domain.model.wouldCreateCycle
 import com.macareen.stitchbook2.domain.repository.CounterNoteRepository
 import com.macareen.stitchbook2.domain.repository.CounterRepository
 import com.macareen.stitchbook2.domain.repository.ProjectRepository
+import com.macareen.stitchbook2.domain.usecase.IncrementCounterUseCase
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -79,6 +80,7 @@ class CountersViewModel(
     private val scope: CoroutineScope = externalScope ?: viewModelScope
     private val filterState = MutableStateFlow(CounterFilterState())
     private val notesTarget = MutableStateFlow<Counter?>(null)
+    private val incrementCounter = IncrementCounterUseCase(repository)
 
     val uiState = combine(
         repository.observeCounters(),
@@ -257,40 +259,7 @@ class CountersViewModel(
     private data class Link(val targetId: String, val interval: Int, val amount: Int)
 
     fun increment(counter: Counter) {
-        val newValue = counter.currentValue + 1
-        // The link's "every N increments" interval is evaluated against
-        // newValue itself, before any auto-reset below -- reaching the
-        // goal and resetting back to 0 must never interfere with that
-        // count, the two rules act independently on the same increment.
-        triggerLinkIfDue(counter, newValue)
-        val goalReached = counter.autoResetOnGoal && counter.goal?.let { newValue >= it } == true
-        persistValue(counter, if (goalReached) 0 else newValue)
-    }
-
-    /**
-     * Every [Counter.linkIncrementInterval] increments of [counter], bumps
-     * [Counter.linkedCounterId] by [Counter.linkIncrementAmount] (PRODUCT_SPEC.md
-     * 6.3, "Linked behavior between counters"). Only forward increments
-     * trigger this -- decrementing or resetting [counter] never does.
-     */
-    private fun triggerLinkIfDue(counter: Counter, newValue: Int) {
-        val targetId = counter.linkedCounterId ?: return
-        val interval = counter.linkIncrementInterval ?: return
-        val amount = counter.linkIncrementAmount ?: return
-        if (interval <= 0 || newValue % interval != 0) return
-        scope.launch {
-            try {
-                // An atomic SQL increment, not a read-then-write: two
-                // counters linked to the same target (or two rapid-fire
-                // triggers) can never clobber each other's update.
-                repository.incrementCounterValue(targetId, amount, System.currentTimeMillis())
-            } catch (error: CancellationException) {
-                throw error
-            } catch (_: Exception) {
-                // Best-effort, same rationale as persist(): the list
-                // re-renders from persisted state on the next emission.
-            }
-        }
+        scope.launch { incrementCounter(counter) }
     }
 
     fun decrement(counter: Counter) {
