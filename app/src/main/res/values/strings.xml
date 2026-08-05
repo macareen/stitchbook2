@@ -177,6 +177,7 @@
     <string name="save_tool_item">Save Tool</string>
     <string name="delete_tool_item_title">Delete tool?</string>
     <string name="delete_tool_item_confirmation">Delete \"%1$s\"? This removes it from your tools inventory.</string>
+    <string name="delete_tool_item_action">Delete</string>
     <string name="tools_load_error_title">Tools could not be loaded</string>
     <string name="tools_load_error_description">Close and reopen this screen to try again.</string>
     <string name="tools_bulk_create_link">Bulk Create Tools</string>

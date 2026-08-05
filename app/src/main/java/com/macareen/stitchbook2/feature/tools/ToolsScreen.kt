@@ -245,7 +245,7 @@ fun ToolsScreen(
                         deletingItem = null
                     }
                 ) {
-                    Text(text = stringResource(R.string.delete_project))
+                    Text(text = stringResource(R.string.delete_tool_item_action))
                 }
             },
             dismissButton = {
