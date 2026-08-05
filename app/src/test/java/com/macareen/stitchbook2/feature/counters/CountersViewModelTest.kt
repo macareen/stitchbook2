@@ -395,6 +395,94 @@ class CountersViewModelTest {
     }
 
     @Test
+    fun aDueRepeatingScheduleResetsOnLoad() {
+        val existing = counter("counter", currentValue = 5, repeatIntervalDays = 1, createdAt = 0)
+        val repository = FakeCounterRepository(listOf(existing))
+
+        viewModel(repository)
+
+        val saved = repository.counters.value.single()
+        assertEquals(0, saved.currentValue)
+        assertTrue(saved.lastRepeatResetAt != null)
+    }
+
+    @Test
+    fun aNotYetDueRepeatingScheduleIsUntouchedOnLoad() {
+        // createdAt is (approximately) now, with a huge interval -- so this
+        // is nowhere near due regardless of the real clock's exact value.
+        val justCreated = System.currentTimeMillis()
+        val existing = counter("counter", currentValue = 5, repeatIntervalDays = 10_000, createdAt = justCreated)
+        val repository = FakeCounterRepository(listOf(existing))
+
+        viewModel(repository)
+
+        val saved = repository.counters.value.single()
+        assertEquals(5, saved.currentValue)
+        assertEquals(null, saved.lastRepeatResetAt)
+    }
+
+    @Test
+    fun savingANewRepeatingScheduleSetsTheBaselineToNow() {
+        val repository = FakeCounterRepository(emptyList())
+        val viewModel = viewModel(repository)
+        val before = System.currentTimeMillis()
+
+        viewModel.saveCounter(
+            null,
+            CounterFormInput(name = "Daily", unitLabel = "rows", goalText = "", projectId = null, repeatIntervalDaysText = "1")
+        )
+
+        val saved = repository.counters.value.single()
+        assertEquals(1, saved.repeatIntervalDays)
+        assertTrue(saved.lastRepeatResetAt!! >= before)
+    }
+
+    @Test
+    fun editingACounterWithAnUnchangedRepeatIntervalPreservesItsBaseline() {
+        val existing = counter("counter", repeatIntervalDays = 7, lastRepeatResetAt = 12345L)
+        val repository = FakeCounterRepository(listOf(existing))
+        val viewModel = viewModel(repository)
+
+        viewModel.saveCounter(
+            existing,
+            CounterFormInput(name = "Renamed", unitLabel = "rows", goalText = "", projectId = null, repeatIntervalDaysText = "7")
+        )
+
+        assertEquals(12345L, repository.counters.value.single().lastRepeatResetAt)
+    }
+
+    @Test
+    fun changingTheRepeatIntervalResetsTheBaselineToNow() {
+        val existing = counter("counter", repeatIntervalDays = 7, lastRepeatResetAt = 12345L)
+        val repository = FakeCounterRepository(listOf(existing))
+        val viewModel = viewModel(repository)
+        val before = System.currentTimeMillis()
+
+        viewModel.saveCounter(
+            existing,
+            CounterFormInput(name = "counter", unitLabel = "rows", goalText = "", projectId = null, repeatIntervalDaysText = "14")
+        )
+
+        assertTrue(repository.counters.value.single().lastRepeatResetAt!! >= before)
+    }
+
+    @Test
+    fun clearingTheRepeatIntervalClearsTheBaseline() {
+        val existing = counter("counter", repeatIntervalDays = 7, lastRepeatResetAt = 12345L)
+        val repository = FakeCounterRepository(listOf(existing))
+        val viewModel = viewModel(repository)
+
+        viewModel.saveCounter(
+            existing,
+            CounterFormInput(name = "counter", unitLabel = "rows", goalText = "", projectId = null, repeatIntervalDaysText = "")
+        )
+
+        val saved = repository.counters.value.single()
+        assertEquals(null, saved.repeatIntervalDays)
+        assertEquals(null, saved.lastRepeatResetAt)
+    }
+
+    @Test
     fun openNotesShowsOnlyThatCountersNotes() {
         val sleeve = counter("sleeve")
         val cable = counter("cable")
@@ -482,7 +570,9 @@ class CountersViewModelTest {
         linkedCounterId: String? = null,
         linkIncrementInterval: Int? = null,
         linkIncrementAmount: Int? = null,
-        autoResetOnGoal: Boolean = false
+        autoResetOnGoal: Boolean = false,
+        repeatIntervalDays: Int? = null,
+        lastRepeatResetAt: Long? = null
     ) = Counter(
         id = id,
         projectId = projectId,
@@ -495,7 +585,9 @@ class CountersViewModelTest {
         linkedCounterId = linkedCounterId,
         linkIncrementInterval = linkIncrementInterval,
         linkIncrementAmount = linkIncrementAmount,
-        autoResetOnGoal = autoResetOnGoal
+        autoResetOnGoal = autoResetOnGoal,
+        repeatIntervalDays = repeatIntervalDays,
+        lastRepeatResetAt = lastRepeatResetAt
     )
 
     private fun project(id: String, name: String) = Project(

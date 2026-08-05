@@ -220,6 +220,7 @@
     <string name="counters_field_unit_label_required">Unit is required.</string>
     <string name="counters_field_goal">Goal (optional)</string>
     <string name="counters_field_auto_reset_on_goal">Automatically reset to 0 when goal is reached</string>
+    <string name="counters_field_repeat_interval">Repeat reset every N days (optional)</string>
     <string name="counters_field_project_label">Project</string>
     <string name="counters_field_project_none">Standalone (no project)</string>
     <string name="counters_field_link_label">Linked counter (optional)</string>
@@ -230,6 +231,7 @@
     <string name="counters_field_link_cycle">This link would create a loop between counters.</string>
     <string name="counters_link_indicator">Every %1$d, adds %2$d to %3$s</string>
     <string name="counters_auto_reset_indicator">Resets to 0 automatically when goal is reached</string>
+    <string name="counters_repeat_interval_indicator">Resets every %1$d days</string>
     <string name="counters_save_action">Save</string>
     <string name="counters_value_pill">%1$d %2$s</string>
     <string name="counters_value_with_goal_pill">%1$d / %2$d %3$s</string>
