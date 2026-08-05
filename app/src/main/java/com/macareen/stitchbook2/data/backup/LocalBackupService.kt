@@ -432,6 +432,7 @@ private fun Counter.toJson(): JSONObject = JSONObject().apply {
     put("linkedCounterId", linkedCounterId ?: JSONObject.NULL)
     put("linkIncrementInterval", linkIncrementInterval ?: JSONObject.NULL)
     put("linkIncrementAmount", linkIncrementAmount ?: JSONObject.NULL)
+    put("autoResetOnGoal", autoResetOnGoal)
 }
 
 private fun JSONObject.toCounter(): Counter = Counter(
@@ -448,7 +449,8 @@ private fun JSONObject.toCounter(): Counter = Counter(
     // restore cleanly with no link rather than failing to parse.
     linkedCounterId = optNullableString("linkedCounterId"),
     linkIncrementInterval = if (isNull("linkIncrementInterval")) null else getInt("linkIncrementInterval"),
-    linkIncrementAmount = if (isNull("linkIncrementAmount")) null else getInt("linkIncrementAmount")
+    linkIncrementAmount = if (isNull("linkIncrementAmount")) null else getInt("linkIncrementAmount"),
+    autoResetOnGoal = optBoolean("autoResetOnGoal", false)
 )
 
 private fun CounterNote.toJson(): JSONObject = JSONObject().apply {

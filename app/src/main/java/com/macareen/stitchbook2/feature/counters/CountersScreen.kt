@@ -25,6 +25,7 @@ import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -381,6 +382,10 @@ private fun CounterCard(
                 )
             }
 
+            if (counter.autoResetOnGoal) {
+                QuietText(text = stringResource(R.string.counters_auto_reset_indicator))
+            }
+
             Spacer(modifier = Modifier.height(StitchbookSpacing.small))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -454,6 +459,7 @@ private fun CounterDialog(
     var linkedCounterId by remember { mutableStateOf(original?.linkedCounterId) }
     var linkIntervalText by remember { mutableStateOf(original?.linkIncrementInterval?.toString().orEmpty()) }
     var linkAmountText by remember { mutableStateOf(original?.linkIncrementAmount?.toString().orEmpty()) }
+    var autoResetOnGoal by remember { mutableStateOf(original?.autoResetOnGoal ?: false) }
     var nameIsBlank by remember { mutableStateOf(false) }
     var unitLabelIsBlank by remember { mutableStateOf(false) }
     var linkIsInvalid by remember { mutableStateOf(false) }
@@ -517,6 +523,15 @@ private fun CounterDialog(
                     label = { Text(text = stringResource(R.string.counters_field_goal)) },
                     modifier = Modifier.fillMaxWidth()
                 )
+                if (goalText.toIntOrNull()?.let { it > 0 } == true) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(checked = autoResetOnGoal, onCheckedChange = { autoResetOnGoal = it })
+                        Text(text = stringResource(R.string.counters_field_auto_reset_on_goal))
+                    }
+                }
                 Spacer(modifier = Modifier.height(StitchbookSpacing.small))
                 ProjectDropdown(
                     projects = projects,
@@ -605,7 +620,8 @@ private fun CounterDialog(
                             projectId = projectId,
                             linkedCounterId = linkedCounterId,
                             linkIntervalText = linkIntervalText,
-                            linkAmountText = linkAmountText
+                            linkAmountText = linkAmountText,
+                            autoResetOnGoal = autoResetOnGoal
                         )
                     )
                 }
@@ -886,7 +902,8 @@ private fun CountersScreenPreview() {
                             updatedAt = 0,
                             linkedCounterId = null,
                             linkIncrementInterval = null,
-                            linkIncrementAmount = null
+                            linkIncrementAmount = null,
+                            autoResetOnGoal = true
                         ),
                         projectName = null,
                         linkedCounterName = null

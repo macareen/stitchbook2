@@ -315,6 +315,79 @@ class CountersViewModelTest {
     }
 
     @Test
+    fun incrementResetsToZeroWhenGoalIsReachedAndAutoResetIsEnabled() {
+        val existing = counter("counter", currentValue = 7, goal = 8, autoResetOnGoal = true)
+        val repository = FakeCounterRepository(listOf(existing))
+        val viewModel = viewModel(repository)
+
+        viewModel.increment(existing)
+
+        assertEquals(0, repository.counters.value.single().currentValue)
+    }
+
+    @Test
+    fun incrementDoesNotResetWhenGoalIsReachedButAutoResetIsDisabled() {
+        val existing = counter("counter", currentValue = 7, goal = 8, autoResetOnGoal = false)
+        val repository = FakeCounterRepository(listOf(existing))
+        val viewModel = viewModel(repository)
+
+        viewModel.increment(existing)
+
+        assertEquals(8, repository.counters.value.single().currentValue)
+    }
+
+    @Test
+    fun incrementDoesNotResetBeforeTheGoalIsReachedEvenWithAutoResetEnabled() {
+        val existing = counter("counter", currentValue = 3, goal = 8, autoResetOnGoal = true)
+        val repository = FakeCounterRepository(listOf(existing))
+        val viewModel = viewModel(repository)
+
+        viewModel.increment(existing)
+
+        assertEquals(4, repository.counters.value.single().currentValue)
+    }
+
+    @Test
+    fun incrementCanBothTriggerALinkAndAutoResetOnTheSameStep() {
+        val source = counter(
+            "source",
+            currentValue = 3,
+            goal = 4,
+            autoResetOnGoal = true,
+            linkedCounterId = "target",
+            linkIncrementInterval = 4,
+            linkIncrementAmount = 1
+        )
+        val target = counter("target", currentValue = 0)
+        val repository = FakeCounterRepository(listOf(source, target))
+        val viewModel = viewModel(repository)
+
+        viewModel.increment(source)
+
+        assertEquals(0, repository.counters.value.first { it.id == "source" }.currentValue)
+        assertEquals(1, repository.counters.value.first { it.id == "target" }.currentValue)
+    }
+
+    @Test
+    fun savingWithAutoResetButNoGoalDropsAutoReset() {
+        val repository = FakeCounterRepository(emptyList())
+        val viewModel = viewModel(repository)
+
+        viewModel.saveCounter(
+            null,
+            CounterFormInput(
+                name = "No goal",
+                unitLabel = "rows",
+                goalText = "",
+                projectId = null,
+                autoResetOnGoal = true
+            )
+        )
+
+        assertEquals(false, repository.counters.value.single().autoResetOnGoal)
+    }
+
+    @Test
     fun notesUiStateStartsClosed() {
         val viewModel = viewModel(FakeCounterRepository(emptyList()))
 
@@ -408,7 +481,8 @@ class CountersViewModelTest {
         createdAt: Long = 0,
         linkedCounterId: String? = null,
         linkIncrementInterval: Int? = null,
-        linkIncrementAmount: Int? = null
+        linkIncrementAmount: Int? = null,
+        autoResetOnGoal: Boolean = false
     ) = Counter(
         id = id,
         projectId = projectId,
@@ -420,7 +494,8 @@ class CountersViewModelTest {
         updatedAt = 0,
         linkedCounterId = linkedCounterId,
         linkIncrementInterval = linkIncrementInterval,
-        linkIncrementAmount = linkIncrementAmount
+        linkIncrementAmount = linkIncrementAmount,
+        autoResetOnGoal = autoResetOnGoal
     )
 
     private fun project(id: String, name: String) = Project(

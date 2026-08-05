@@ -114,7 +114,8 @@ class LocalBackupServiceTest {
         updatedAt = 200,
         linkedCounterId = null,
         linkIncrementInterval = null,
-        linkIncrementAmount = null
+        linkIncrementAmount = null,
+        autoResetOnGoal = true
     )
 
     private val counterNote = CounterNote(
