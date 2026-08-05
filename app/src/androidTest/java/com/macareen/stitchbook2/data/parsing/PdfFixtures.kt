@@ -1,11 +1,16 @@
 package com.macareen.stitchbook2.data.parsing
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
 import com.macareen.stitchbook2.domain.parsing.ExtractedLine
 import com.macareen.stitchbook2.domain.parsing.SourceReference
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
+import com.tom_roush.pdfbox.pdmodel.graphics.image.LosslessFactory
 import java.io.ByteArrayOutputStream
 
 /**
@@ -47,6 +52,44 @@ internal object PdfFixtures {
         PDDocument().use { document ->
             addPage(document, pageOneLines)
             addPage(document, pageTwoLines)
+            val output = ByteArrayOutputStream()
+            document.save(output)
+            return output.toByteArray()
+        }
+    }
+
+    /** The word [buildImageOnlyPagePdf] draws onto its page as a picture, not text. */
+    const val IMAGE_ONLY_PAGE_WORD = "STITCHBOOK"
+
+    /**
+     * A one-page PDF whose only content is a raster image of hand-drawn
+     * text -- no text content stream at all, so [PdfBoxTextExtractor] finds
+     * nothing on it and must fall back to OCR. The image is generated on
+     * the fly (an Android [Canvas] drawing [IMAGE_ONLY_PAGE_WORD]) rather
+     * than a committed asset, for the same reason [buildTwoPageSyntheticPatternPdf]
+     * builds its text on the fly: no binary fixture file to maintain, and
+     * nothing that could be mistaken for real (copyrighted) pattern content.
+     */
+    fun buildImageOnlyPagePdf(): ByteArray {
+        PDDocument().use { document ->
+            val page = PDPage()
+            document.addPage(page)
+
+            val bitmap = Bitmap.createBitmap(600, 200, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
+            canvas.drawColor(Color.WHITE)
+            val paint = Paint().apply {
+                color = Color.BLACK
+                textSize = 96f
+                isAntiAlias = true
+            }
+            canvas.drawText(IMAGE_ONLY_PAGE_WORD, 20f, 130f, paint)
+
+            val image = LosslessFactory.createFromImage(document, bitmap)
+            PDPageContentStream(document, page).use { stream ->
+                stream.drawImage(image, 20f, 400f, 300f, 100f)
+            }
+
             val output = ByteArrayOutputStream()
             document.save(output)
             return output.toByteArray()

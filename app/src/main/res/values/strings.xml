@@ -295,7 +295,7 @@
     <string name="create_guide_from_pdf_dialog_description">Name the guide, then choose a PDF. Its text is extracted and turned into a draft for you to review -- nothing is published automatically.</string>
     <string name="create_guide_from_pdf_confirm_action">Choose PDF</string>
     <string name="create_guide_from_pdf_importing">Importing…</string>
-    <string name="create_guide_from_pdf_no_text_error">This PDF has no text that could be extracted -- it may be a scanned image. Support for scanned PDFs is planned but not available yet.</string>
+    <string name="create_guide_from_pdf_no_text_error">No readable text could be found in this PDF, even after attempting on-device text recognition. It may be a blank or very low-quality scan.</string>
     <string name="create_guide_from_pdf_extraction_error">This PDF could not be read. Please try a different file.</string>
 
     <string name="draft_editor_add_step">Add step</string>

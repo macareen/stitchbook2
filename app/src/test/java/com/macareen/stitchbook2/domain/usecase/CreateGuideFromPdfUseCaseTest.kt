@@ -106,11 +106,11 @@ class CreateGuideFromPdfUseCaseTest {
 }
 
 private class FakePdfTextExtractor(private val document: ExtractedDocument) : PdfTextExtractor {
-    override fun extract(input: InputStream): ExtractedDocument = document
+    override suspend fun extract(input: InputStream): ExtractedDocument = document
 }
 
 private class FailingPdfTextExtractor : PdfTextExtractor {
-    override fun extract(input: InputStream): ExtractedDocument {
+    override suspend fun extract(input: InputStream): ExtractedDocument {
         throw PdfTextExtractionException("Simulated unreadable PDF.")
     }
 }

@@ -18,7 +18,7 @@ import java.io.InputStream
  */
 interface PdfTextExtractor {
     /** @throws PdfTextExtractionException if [input] is not a readable PDF. */
-    fun extract(input: InputStream): ExtractedDocument
+    suspend fun extract(input: InputStream): ExtractedDocument
 }
 
 class PdfTextExtractionException(message: String, cause: Throwable? = null) : IOException(message, cause)
