@@ -36,7 +36,9 @@ class GuideFocusScreenTest {
                     onComplete = {},
                     onPrevious = {},
                     onJumpToFirstIncomplete = {},
-                    onStartNext = {}
+                    onStartNext = {},
+                    onIncrementCounter = {},
+                    onDecrementCounter = {}
                 )
             }
         }
@@ -47,6 +49,7 @@ class GuideFocusScreenTest {
         setContent(
             GuideFocusUiState.InProgress(
                 guideName = "Everyday cardigan",
+                projectId = "project-1",
                 executionId = ExecutionId("execution-1"),
                 version = 0,
                 instructionText = "Knit all stitches",
@@ -70,6 +73,7 @@ class GuideFocusScreenTest {
         setContent(
             GuideFocusUiState.InProgress(
                 guideName = "Everyday cardigan",
+                projectId = "project-1",
                 executionId = ExecutionId("execution-1"),
                 version = 0,
                 instructionText = "Cast on 40 stitches",
@@ -86,6 +90,7 @@ class GuideFocusScreenTest {
         setContent(
             GuideFocusUiState.InProgress(
                 guideName = "Everyday cardigan",
+                projectId = "project-1",
                 executionId = ExecutionId("execution-1"),
                 version = 0,
                 instructionText = "Knit all stitches",
@@ -109,6 +114,7 @@ class GuideFocusScreenTest {
         setContent(
             GuideFocusUiState.InProgress(
                 guideName = "Everyday cardigan",
+                projectId = "project-1",
                 executionId = ExecutionId("execution-1"),
                 version = 0,
                 instructionText = "Lace row A",
@@ -127,6 +133,7 @@ class GuideFocusScreenTest {
         setContent(
             GuideFocusUiState.InProgress(
                 guideName = "Everyday cardigan",
+                projectId = "project-1",
                 executionId = ExecutionId("execution-1"),
                 version = 0,
                 instructionText = "Work texture round",
@@ -157,6 +164,7 @@ class GuideFocusScreenTest {
         setContent(
             GuideFocusUiState.InProgress(
                 guideName = "Everyday cardigan",
+                projectId = "project-1",
                 executionId = ExecutionId("execution-1"),
                 version = 0,
                 instructionText = longInstruction,
@@ -177,7 +185,7 @@ class GuideFocusScreenTest {
 
     @Test
     fun completedExecution_showsCompletionMessageAndStartNext() {
-        setContent(GuideFocusUiState.Completed(guideName = "Everyday cardigan"))
+        setContent(GuideFocusUiState.Completed(guideName = "Everyday cardigan", projectId = "project-1"))
 
         composeTestRule.onNodeWithText("Guide complete").assertIsDisplayed()
         composeTestRule.onNodeWithText("Start new").assertIsDisplayed().assertIsEnabled()
@@ -188,6 +196,7 @@ class GuideFocusScreenTest {
         setContent(
             GuideFocusUiState.InProgress(
                 guideName = "Everyday cardigan",
+                projectId = "project-1",
                 executionId = ExecutionId("execution-1"),
                 version = 1,
                 instructionText = "Knit all stitches",
@@ -208,6 +217,7 @@ class GuideFocusScreenTest {
         setContent(
             GuideFocusUiState.InProgress(
                 guideName = "Everyday cardigan",
+                projectId = "project-1",
                 executionId = ExecutionId("execution-1"),
                 version = 0,
                 instructionText = "Knit all stitches",
@@ -233,6 +243,7 @@ class GuideFocusScreenTest {
         setContent(
             GuideFocusUiState.InProgress(
                 guideName = "Everyday cardigan",
+                projectId = "project-1",
                 executionId = ExecutionId("execution-1"),
                 version = 0,
                 instructionText = "Knit all stitches",

@@ -21,6 +21,8 @@ import com.macareen.stitchbook2.domain.execution.Range
 import com.macareen.stitchbook2.domain.guide.DefinitionRevision
 import com.macareen.stitchbook2.domain.guide.Guide
 import com.macareen.stitchbook2.domain.guide.GuideDraft
+import com.macareen.stitchbook2.domain.model.Counter
+import com.macareen.stitchbook2.domain.repository.CounterRepository
 import com.macareen.stitchbook2.domain.repository.ExecutionRepository
 import com.macareen.stitchbook2.domain.repository.ExecutionVersionConflictException
 import com.macareen.stitchbook2.domain.repository.GuideRepository
@@ -28,7 +30,9 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -63,6 +67,68 @@ class GuideFocusViewModelTest {
             listOf(StructuralPosition.RangePosition("round", 2, 1, 4)),
             state.positions
         )
+    }
+
+    @Test
+    fun loadingAnActiveExecutionAlsoLoadsTheProjectsCounters() {
+        val guides = FakeGuideRepository().withGuide(projectId = "project-1").withRevision(simpleFourRoundDefinition())
+        val executions = FakeExecutionRepository(guides)
+        create(executions)
+        val counters = FakeCounterRepository(
+            listOf(
+                counter("row", projectId = "project-1"),
+                counter("other-project", projectId = "different-project")
+            )
+        )
+
+        val viewModel = viewModel(guides, executions, counters)
+
+        val state = viewModel.uiState.value as GuideFocusUiState.InProgress
+        assertEquals(listOf("row"), state.projectCounters.map { it.id })
+    }
+
+    @Test
+    fun incrementingAProjectCounterUpdatesTheSection() {
+        val guides = FakeGuideRepository().withGuide(projectId = "project-1").withRevision(simpleFourRoundDefinition())
+        val executions = FakeExecutionRepository(guides)
+        create(executions)
+        val counters = FakeCounterRepository(listOf(counter("row", projectId = "project-1", currentValue = 5)))
+        val viewModel = viewModel(guides, executions, counters)
+        val counterBefore = (viewModel.uiState.value as GuideFocusUiState.InProgress).projectCounters.single()
+
+        viewModel.onIncrementCounter(counterBefore)
+
+        val state = viewModel.uiState.value as GuideFocusUiState.InProgress
+        assertEquals(6, state.projectCounters.single().currentValue)
+    }
+
+    @Test
+    fun decrementingAProjectCounterFloorsAtZero() {
+        val guides = FakeGuideRepository().withGuide(projectId = "project-1").withRevision(simpleFourRoundDefinition())
+        val executions = FakeExecutionRepository(guides)
+        create(executions)
+        val counters = FakeCounterRepository(listOf(counter("row", projectId = "project-1", currentValue = 0)))
+        val viewModel = viewModel(guides, executions, counters)
+        val counterBefore = (viewModel.uiState.value as GuideFocusUiState.InProgress).projectCounters.single()
+
+        viewModel.onDecrementCounter(counterBefore)
+
+        val state = viewModel.uiState.value as GuideFocusUiState.InProgress
+        assertEquals(0, state.projectCounters.single().currentValue)
+    }
+
+    @Test
+    fun completingAGuideCarriesTheCountersSectionForwardWithoutRefetching() {
+        val guides = FakeGuideRepository().withGuide(projectId = "project-1").withRevision(simpleFourRoundDefinition())
+        val executions = FakeExecutionRepository(guides)
+        create(executions)
+        val counters = FakeCounterRepository(listOf(counter("row", projectId = "project-1", currentValue = 5)))
+        val viewModel = viewModel(guides, executions, counters)
+
+        viewModel.onComplete()
+
+        val state = viewModel.uiState.value as GuideFocusUiState.InProgress
+        assertEquals(listOf("row"), state.projectCounters.map { it.id })
     }
 
     @Test
@@ -388,13 +454,29 @@ class GuideFocusViewModelTest {
         ancestryFrames = listOf(AncestryFrame.RangeValue(NodeId("range"), value))
     )
 
+    private fun counter(id: String, projectId: String, currentValue: Int = 0) = Counter(
+        id = id,
+        projectId = projectId,
+        name = id,
+        unitLabel = "rows",
+        currentValue = currentValue,
+        goal = null,
+        createdAt = 0,
+        updatedAt = 0,
+        linkedCounterId = null,
+        linkIncrementInterval = null,
+        linkIncrementAmount = null
+    )
+
     private fun viewModel(
         guides: FakeGuideRepository,
-        executions: FakeExecutionRepository
+        executions: FakeExecutionRepository,
+        counters: FakeCounterRepository = FakeCounterRepository()
     ) = GuideFocusViewModel(
         guideId = guideId,
         guideRepository = guides,
         executionRepository = executions,
+        counterRepository = counters,
         externalScope = scope
     )
 
@@ -624,5 +706,31 @@ private class FakeExecutionRepository(
                 PersistedExecutionTransitionResult.Changed(updated)
             }
         }
+    }
+}
+
+private class FakeCounterRepository(initial: List<Counter> = emptyList()) : CounterRepository {
+    val counters = MutableStateFlow(initial)
+
+    override fun observeCounters(): Flow<List<Counter>> = counters
+
+    override fun observeCountersByProject(projectId: String): Flow<List<Counter>> =
+        counters.map { all -> all.filter { it.projectId == projectId } }
+
+    override fun observeCounter(id: String): Flow<Counter?> =
+        counters.map { all -> all.firstOrNull { it.id == id } }
+
+    override suspend fun saveCounter(counter: Counter) {
+        counters.value = counters.value.filterNot { it.id == counter.id } + counter
+    }
+
+    override suspend fun incrementCounterValue(id: String, amount: Int, updatedAt: Long) {
+        counters.value = counters.value.map {
+            if (it.id == id) it.copy(currentValue = it.currentValue + amount, updatedAt = updatedAt) else it
+        }
+    }
+
+    override suspend fun deleteCounter(counter: Counter) {
+        counters.value = counters.value.filterNot { it.id == counter.id }
     }
 }

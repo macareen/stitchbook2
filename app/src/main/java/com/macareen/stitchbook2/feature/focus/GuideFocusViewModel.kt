@@ -23,14 +23,18 @@ import com.macareen.stitchbook2.domain.execution.Range
 import com.macareen.stitchbook2.domain.execution.Repeat
 import com.macareen.stitchbook2.domain.execution.Section
 import com.macareen.stitchbook2.domain.execution.ValidatedGuideDefinition
+import com.macareen.stitchbook2.domain.model.Counter
+import com.macareen.stitchbook2.domain.repository.CounterRepository
 import com.macareen.stitchbook2.domain.repository.ExecutionRepository
 import com.macareen.stitchbook2.domain.repository.ExecutionVersionConflictException
 import com.macareen.stitchbook2.domain.repository.GuideRepository
+import com.macareen.stitchbook2.domain.usecase.IncrementCounterUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
@@ -75,17 +79,27 @@ sealed interface GuideFocusUiState {
 
     data class ReadyToStart(
         val guideName: String,
+        val projectId: String,
         val isStarting: Boolean = false,
         val startFailed: Boolean = false
     ) : GuideFocusUiState
 
     data class InProgress(
         val guideName: String,
+        val projectId: String,
         val executionId: ExecutionId,
         val version: Long,
         val instructionText: String,
         val breadcrumbs: List<String>,
         val positions: List<StructuralPosition>,
+        /**
+         * The owning Project's counters (PRODUCT_SPEC.md 6.3's "active
+         * crafting screen": tracking counters without leaving Focus Mode).
+         * Fetched once per (re)load/refresh rather than observed live, the
+         * same non-reactive-snapshot style this ViewModel already uses for
+         * the guide/execution state above it.
+         */
+        val projectCounters: List<Counter> = emptyList(),
         val jumpToFirstIncompleteTarget: ExecutionAddress? = null,
         val isBusy: Boolean = false,
         val feedback: FocusFeedback? = null
@@ -93,6 +107,7 @@ sealed interface GuideFocusUiState {
 
     data class Completed(
         val guideName: String,
+        val projectId: String,
         val isStartingNext: Boolean = false,
         val startNextFailed: Boolean = false
     ) : GuideFocusUiState
@@ -112,10 +127,12 @@ class GuideFocusViewModel(
     private val guideId: GuideId,
     private val guideRepository: GuideRepository,
     private val executionRepository: ExecutionRepository,
+    private val counterRepository: CounterRepository,
     externalScope: CoroutineScope? = null
 ) : ViewModel() {
 
     private val scope: CoroutineScope = externalScope ?: viewModelScope
+    private val incrementCounter = IncrementCounterUseCase(counterRepository)
 
     private val _uiState = MutableStateFlow<GuideFocusUiState>(GuideFocusUiState.Loading)
     val uiState: StateFlow<GuideFocusUiState> = _uiState.asStateFlow()
@@ -135,9 +152,11 @@ class GuideFocusViewModel(
         _uiState.value = current.copy(isStarting = true, startFailed = false)
         startNewExecution(
             guideName = current.guideName,
+            projectId = current.projectId,
             onFailure = {
                 _uiState.value = GuideFocusUiState.ReadyToStart(
                     guideName = current.guideName,
+                    projectId = current.projectId,
                     startFailed = true
                 )
             }
@@ -150,13 +169,50 @@ class GuideFocusViewModel(
         _uiState.value = current.copy(isStartingNext = true, startNextFailed = false)
         startNewExecution(
             guideName = current.guideName,
+            projectId = current.projectId,
             onFailure = {
                 _uiState.value = GuideFocusUiState.Completed(
                     guideName = current.guideName,
+                    projectId = current.projectId,
                     startNextFailed = true
                 )
             }
         )
+    }
+
+    fun onIncrementCounter(counter: Counter) {
+        scope.launch {
+            incrementCounter(counter)
+            refreshProjectCounters()
+        }
+    }
+
+    fun onDecrementCounter(counter: Counter) {
+        val newValue = (counter.currentValue - 1).coerceAtLeast(0)
+        if (newValue == counter.currentValue) return
+        scope.launch {
+            try {
+                counterRepository.saveCounter(counter.copy(currentValue = newValue, updatedAt = System.currentTimeMillis()))
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                // Best-effort, same rationale as CountersViewModel's own
+                // persist(): the section re-renders from persisted state
+                // on the next refresh either way.
+            }
+            refreshProjectCounters()
+        }
+    }
+
+    private suspend fun refreshProjectCounters() {
+        val projectId = (_uiState.value as? GuideFocusUiState.InProgress)?.projectId ?: return
+        val counters = counterRepository.observeCountersByProject(projectId).first()
+        // Re-read (not the snapshot from before the suspend above): a
+        // transition (Complete/Previous) could have changed other InProgress
+        // fields, or moved this ViewModel out of InProgress entirely, while
+        // the counters fetch was in flight.
+        val latest = _uiState.value as? GuideFocusUiState.InProgress ?: return
+        _uiState.value = latest.copy(projectCounters = counters)
     }
 
     fun onComplete() = applyTransition { executionId, version ->
@@ -175,7 +231,7 @@ class GuideFocusViewModel(
         }
     }
 
-    private fun startNewExecution(guideName: String, onFailure: () -> Unit) {
+    private fun startNewExecution(guideName: String, projectId: String, onFailure: () -> Unit) {
         scope.launch {
             try {
                 val revisionId = guideRepository.getLatestRevision(guideId)?.id
@@ -184,7 +240,8 @@ class GuideFocusViewModel(
                     return@launch
                 }
                 val execution = executionRepository.createExecution(guideId, revisionId)
-                applyExecutionResult(guideName, execution)
+                val projectCounters = counterRepository.observeCountersByProject(projectId).first()
+                applyExecutionResult(guideName, projectId, execution, projectCounters)
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Exception) {
@@ -202,14 +259,24 @@ class GuideFocusViewModel(
 
         scope.launch {
             try {
+                // A guide-execution transition never changes counters on its
+                // own, so the currently displayed list carries forward
+                // unchanged rather than being re-fetched on every tap.
                 when (val result = transition(current.executionId, current.version)) {
                     is PersistedExecutionTransitionResult.Changed ->
-                        applyExecutionResult(current.guideName, result.execution)
+                        applyExecutionResult(
+                            current.guideName,
+                            current.projectId,
+                            result.execution,
+                            current.projectCounters
+                        )
 
                     is PersistedExecutionTransitionResult.NoChange ->
                         applyExecutionResult(
                             guideName = current.guideName,
+                            projectId = current.projectId,
                             execution = result.execution,
+                            projectCounters = current.projectCounters,
                             feedback = result.reason.toFocusFeedback()
                         )
                 }
@@ -240,13 +307,14 @@ class GuideFocusViewModel(
 
             val active = executionRepository.getActiveExecution(guideId)
             if (active != null) {
-                applyExecutionResult(guide.name, active, feedback)
+                val projectCounters = counterRepository.observeCountersByProject(guide.projectId).first()
+                applyExecutionResult(guide.name, guide.projectId, active, projectCounters, feedback)
                 return
             }
 
             val hasPublishedRevision = guideRepository.getLatestRevision(guideId) != null
             _uiState.value = if (hasPublishedRevision) {
-                GuideFocusUiState.ReadyToStart(guideName = guide.name)
+                GuideFocusUiState.ReadyToStart(guideName = guide.name, projectId = guide.projectId)
             } else {
                 GuideFocusUiState.NoPublishedRevision
             }
@@ -259,11 +327,13 @@ class GuideFocusViewModel(
 
     private suspend fun applyExecutionResult(
         guideName: String,
+        projectId: String,
         execution: PersistedExecution,
+        projectCounters: List<Counter>,
         feedback: FocusFeedback? = null
     ) {
         if (execution.state.status == ExecutionStatus.COMPLETED) {
-            _uiState.value = GuideFocusUiState.Completed(guideName = guideName)
+            _uiState.value = GuideFocusUiState.Completed(guideName = guideName, projectId = projectId)
             return
         }
 
@@ -273,11 +343,13 @@ class GuideFocusViewModel(
             return
         }
 
-        _uiState.value = buildInProgress(guideName, revision.definition, execution, feedback)
+        _uiState.value = buildInProgress(guideName, projectId, projectCounters, revision.definition, execution, feedback)
     }
 
     private fun buildInProgress(
         guideName: String,
+        projectId: String,
+        projectCounters: List<Counter>,
         definition: GuideDefinition,
         execution: PersistedExecution,
         feedback: FocusFeedback?
@@ -303,11 +375,13 @@ class GuideFocusViewModel(
 
         return GuideFocusUiState.InProgress(
             guideName = guideName,
+            projectId = projectId,
             executionId = execution.state.executionId,
             version = execution.version,
             instructionText = instruction.text,
             breadcrumbs = breadcrumbs,
             positions = positions,
+            projectCounters = projectCounters,
             jumpToFirstIncompleteTarget = jumpTarget,
             feedback = feedback
         )
@@ -349,10 +423,11 @@ class GuideFocusViewModel(
         fun factory(
             guideId: GuideId,
             guideRepository: GuideRepository,
-            executionRepository: ExecutionRepository
+            executionRepository: ExecutionRepository,
+            counterRepository: CounterRepository
         ): ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                GuideFocusViewModel(guideId, guideRepository, executionRepository)
+                GuideFocusViewModel(guideId, guideRepository, executionRepository, counterRepository)
             }
         }
     }

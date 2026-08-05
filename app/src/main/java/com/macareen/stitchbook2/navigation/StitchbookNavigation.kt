@@ -274,7 +274,8 @@ fun StitchbookNavHost(
                 factory = GuideFocusViewModel.factory(
                     guideId = GuideId(guideId),
                     guideRepository = guideRepository,
-                    executionRepository = executionRepository
+                    executionRepository = executionRepository,
+                    counterRepository = counterRepository
                 )
             )
             GuideFocusRoute(viewModel = viewModel)
