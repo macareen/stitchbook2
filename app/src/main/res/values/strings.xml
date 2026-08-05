@@ -6,12 +6,14 @@
     <string name="destination_library">Library</string>
     <string name="destination_stash">Stash</string>
     <string name="destination_tools">Tools</string>
+    <string name="destination_counters">Counters</string>
     <string name="destination_settings">Settings</string>
     <string name="home_icon_description">Home destination</string>
     <string name="projects_icon_description">Projects destination</string>
     <string name="library_icon_description">Pattern library destination</string>
     <string name="stash_icon_description">Yarn and tools stash destination</string>
     <string name="tools_icon_description">Tools inventory destination</string>
+    <string name="counters_icon_description">Counters destination</string>
     <string name="settings_icon_description">Settings destination</string>
 
     <string name="home_load_error_title">Home could not be loaded</string>
@@ -201,6 +203,36 @@
     <string name="tools_csv_import_row_error">Row %1$d: %2$s</string>
     <string name="tools_csv_import_more_errors">…and %1$d more row(s) with errors.</string>
     <string name="tools_csv_import_dismiss_action">OK</string>
+
+    <string name="counters_header_title">Counters</string>
+    <string name="counters_header_subtitle">Track rows, rounds, repeats, and any other count you need while crafting.</string>
+    <string name="counters_search_placeholder">Search by name or unit</string>
+    <string name="counters_empty_title">No counters yet</string>
+    <string name="counters_empty_description">Add a counter to start tracking rows, rounds, or any other count.</string>
+    <string name="add_counter">Add Counter</string>
+    <string name="counters_load_error_title">Counters could not be loaded</string>
+    <string name="counters_load_error_description">Go back and try again.</string>
+    <string name="counters_form_title_add">New counter</string>
+    <string name="counters_form_title_edit">Edit counter</string>
+    <string name="counters_field_name">Name</string>
+    <string name="counters_field_name_required">Name is required.</string>
+    <string name="counters_field_unit_label">Unit (e.g. rows, rounds, motifs)</string>
+    <string name="counters_field_unit_label_required">Unit is required.</string>
+    <string name="counters_field_goal">Goal (optional)</string>
+    <string name="counters_field_project_label">Project</string>
+    <string name="counters_field_project_none">Standalone (no project)</string>
+    <string name="counters_save_action">Save</string>
+    <string name="counters_value_pill">%1$d %2$s</string>
+    <string name="counters_value_with_goal_pill">%1$d / %2$d %3$s</string>
+    <string name="counters_decrement_action">Decrease count</string>
+    <string name="counters_increment_action">Increase count</string>
+    <string name="counters_reset_action">Reset</string>
+    <string name="reset_counter_title">Reset this counter?</string>
+    <string name="reset_counter_confirmation">"%1$s will be set back to 0. This cannot be undone."</string>
+    <string name="edit_counter">Edit counter</string>
+    <string name="delete_counter">Delete counter</string>
+    <string name="delete_counter_title">Delete this counter?</string>
+    <string name="delete_counter_confirmation">"%1$s and its current count will be permanently deleted."</string>
 
     <string name="settings_header_title">Settings &amp; Data Ownership</string>
     <string name="settings_header_subtitle">Manage portable exports, local data backups, and application status.</string>

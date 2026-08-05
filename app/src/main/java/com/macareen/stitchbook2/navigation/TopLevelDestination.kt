@@ -7,6 +7,7 @@ import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Inventory2
+import androidx.compose.material.icons.outlined.Numbers
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.macareen.stitchbook2.R
@@ -46,6 +47,12 @@ enum class TopLevelDestination(
         title = R.string.destination_tools,
         iconContentDescription = R.string.tools_icon_description,
         icon = Icons.Outlined.Build
+    ),
+    Counters(
+        route = "counters",
+        title = R.string.destination_counters,
+        iconContentDescription = R.string.counters_icon_description,
+        icon = Icons.Outlined.Numbers
     ),
     Settings(
         route = "settings",
