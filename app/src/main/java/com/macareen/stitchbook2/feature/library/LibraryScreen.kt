@@ -53,6 +53,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,6 +65,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.macareen.stitchbook2.R
+import com.macareen.stitchbook2.data.csv.LibraryCsvImportReport
+import com.macareen.stitchbook2.data.csv.libraryCsvTemplate
 import com.macareen.stitchbook2.domain.model.Craft
 import com.macareen.stitchbook2.domain.model.LibraryItem
 import com.macareen.stitchbook2.feature.projects.labelResource
@@ -73,6 +76,15 @@ import com.macareen.stitchbook2.ui.theme.StitchbookSpacing
 import com.macareen.stitchbook2.ui.theme.StitchbookTheme
 import com.macareen.stitchbook2.ui.theme.cardTitle
 import com.macareen.stitchbook2.ui.theme.textSecondary
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.io.OutputStreamWriter
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun LibraryRoute(
@@ -80,6 +92,7 @@ fun LibraryRoute(
     onOpenPdf: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val importReport by viewModel.importReport.collectAsStateWithLifecycle()
 
     LibraryScreen(
         uiState = uiState,
@@ -89,7 +102,11 @@ fun LibraryRoute(
         onToggleBookmark = viewModel::toggleBookmark,
         onSaveItem = viewModel::saveItem,
         onDeleteItem = viewModel::deleteItem,
-        onOpenPdf = onOpenPdf
+        onOpenPdf = onOpenPdf,
+        onExportCsv = viewModel::exportCsv,
+        onImportCsv = viewModel::importCsv,
+        importReport = importReport,
+        onDismissImportReport = viewModel::dismissImportReport
     )
 }
 
@@ -103,11 +120,63 @@ fun LibraryScreen(
     onSaveItem: (LibraryItem?, String, Craft, String, String, List<String>, String, String?, String?) -> Unit,
     onDeleteItem: (LibraryItem) -> Unit,
     onOpenPdf: (String) -> Unit,
+    onExportCsv: (suspend (String) -> Unit) -> Unit,
+    onImportCsv: (String) -> Unit,
+    importReport: LibraryCsvImportReport?,
+    onDismissImportReport: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var editingItem by remember { mutableStateOf<LibraryItem?>(null) }
     var isAddingItem by remember { mutableStateOf(false) }
     var deletingItem by remember { mutableStateOf<LibraryItem?>(null) }
+
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    val exportCsvLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri ->
+        if (uri != null) {
+            onExportCsv { csv ->
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri)?.use { stream ->
+                        OutputStreamWriter(stream).use { it.write(csv) }
+                    }
+                }
+            }
+        }
+    }
+
+    val templateCsvLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri ->
+        if (uri != null) {
+            coroutineScope.launch {
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri)?.use { stream ->
+                        OutputStreamWriter(stream).use { it.write(libraryCsvTemplate()) }
+                    }
+                }
+            }
+        }
+    }
+
+    val importCsvLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            coroutineScope.launch {
+                val text = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use { stream ->
+                        BufferedReader(InputStreamReader(stream)).readText()
+                    }
+                }
+                if (text != null) {
+                    onImportCsv(text)
+                }
+            }
+        }
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         when (uiState) {
@@ -134,7 +203,12 @@ fun LibraryScreen(
                     onToggleBookmark = onToggleBookmark,
                     onEditItem = { editingItem = it },
                     onDeleteRequested = { deletingItem = it },
-                    onOpenPdf = onOpenPdf
+                    onOpenPdf = onOpenPdf,
+                    onExportCsvClick = { exportCsvLauncher.launch(libraryCsvFileName()) },
+                    onImportCsvClick = {
+                        importCsvLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "*/*"))
+                    },
+                    onTemplateCsvClick = { templateCsvLauncher.launch(LIBRARY_CSV_TEMPLATE_FILE_NAME) }
                 )
             }
         }
@@ -200,7 +274,65 @@ fun LibraryScreen(
             }
         )
     }
+
+    importReport?.let { report -> LibraryCsvImportReportDialog(report = report, onDismiss = onDismissImportReport) }
 }
+
+@Composable
+private fun LibraryCsvImportReportDialog(
+    report: LibraryCsvImportReport,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = stringResource(R.string.library_csv_import_result_title)) },
+        text = {
+            Column {
+                Text(
+                    text = stringResource(
+                        R.string.library_csv_import_result_summary,
+                        report.importedCount,
+                        report.rowErrors.size
+                    )
+                )
+                if (report.hasErrors) {
+                    Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+                    Column(verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.extraSmall)) {
+                        report.rowErrors.take(10).forEach { error ->
+                            QuietText(
+                                text = stringResource(
+                                    R.string.library_csv_import_row_error,
+                                    error.rowNumber,
+                                    error.message
+                                )
+                            )
+                        }
+                        if (report.rowErrors.size > 10) {
+                            QuietText(
+                                text = stringResource(
+                                    R.string.library_csv_import_more_errors,
+                                    report.rowErrors.size - 10
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = stringResource(R.string.library_csv_import_dismiss_action))
+            }
+        }
+    )
+}
+
+private fun libraryCsvFileName(): String {
+    val date = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+    return "stitchbook_library_$date.csv"
+}
+
+private const val LIBRARY_CSV_TEMPLATE_FILE_NAME = "stitchbook_library_template.csv"
 
 @Composable
 private fun LibraryContent(
@@ -211,7 +343,10 @@ private fun LibraryContent(
     onToggleBookmark: (LibraryItem) -> Unit,
     onEditItem: (LibraryItem) -> Unit,
     onDeleteRequested: (LibraryItem) -> Unit,
-    onOpenPdf: (String) -> Unit
+    onOpenPdf: (String) -> Unit,
+    onExportCsvClick: () -> Unit,
+    onImportCsvClick: () -> Unit,
+    onTemplateCsvClick: () -> Unit
 ) {
     LazyColumn(
         contentPadding = PaddingValues(
@@ -228,6 +363,18 @@ private fun LibraryContent(
                 style = MaterialTheme.typography.headlineMedium
             )
             QuietText(text = stringResource(R.string.library_header_subtitle))
+            Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+            Row(horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
+                TextButton(onClick = onExportCsvClick) {
+                    Text(text = stringResource(R.string.library_export_csv_action))
+                }
+                TextButton(onClick = onImportCsvClick) {
+                    Text(text = stringResource(R.string.library_import_csv_action))
+                }
+                TextButton(onClick = onTemplateCsvClick) {
+                    Text(text = stringResource(R.string.library_download_csv_template_action))
+                }
+            }
             Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
         }
 
@@ -776,7 +923,11 @@ private fun LibraryScreenPreview() {
             onToggleBookmark = {},
             onSaveItem = { _, _, _, _, _, _, _, _, _ -> },
             onDeleteItem = {},
-            onOpenPdf = {}
+            onOpenPdf = {},
+            onExportCsv = {},
+            onImportCsv = {},
+            importReport = null,
+            onDismissImportReport = {}
         )
     }
 }

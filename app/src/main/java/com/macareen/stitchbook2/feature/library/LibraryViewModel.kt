@@ -5,6 +5,10 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.macareen.stitchbook2.data.csv.LibraryCsvImportReport
+import com.macareen.stitchbook2.data.csv.LibraryCsvRowError
+import com.macareen.stitchbook2.data.csv.libraryItemsToCsv
+import com.macareen.stitchbook2.data.csv.parseLibraryCsv
 import com.macareen.stitchbook2.domain.model.Craft
 import com.macareen.stitchbook2.domain.model.LibraryItem
 import com.macareen.stitchbook2.domain.model.normalizedLibraryItemTags
@@ -15,8 +19,10 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -43,6 +49,8 @@ class LibraryViewModel(
 
     private val scope: CoroutineScope = externalScope ?: viewModelScope
     private val filterState = MutableStateFlow(LibraryFilterState())
+    private val _importReport = MutableStateFlow<LibraryCsvImportReport?>(null)
+    val importReport: StateFlow<LibraryCsvImportReport?> = _importReport
 
     val uiState = combine(
         repository.observeLibraryItems(),
@@ -156,6 +164,47 @@ class LibraryViewModel(
                 // actually persisted on the next emission.
             }
         }
+    }
+
+    /** Snapshots every persisted item (ignoring the current search/filter -- export is always complete) as CSV text. */
+    fun exportCsv(onReady: suspend (String) -> Unit) {
+        scope.launch {
+            val csv = libraryItemsToCsv(repository.observeLibraryItems().first())
+            onReady(csv)
+        }
+    }
+
+    /**
+     * Parses [csvText] against every currently persisted item (by id) and
+     * persists every structurally valid row immediately -- row-level
+     * errors are reported via [importReport] but never block the valid
+     * rows in the same file from being saved.
+     */
+    fun importCsv(csvText: String) {
+        scope.launch {
+            try {
+                val existingItemsById = repository.observeLibraryItems().first().associateBy { it.id }
+                val report = parseLibraryCsv(csvText, existingItemsById = existingItemsById)
+                report.validItems.forEach { repository.saveLibraryItem(it) }
+                _importReport.value = report
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                _importReport.value = LibraryCsvImportReport(
+                    validItems = emptyList(),
+                    rowErrors = listOf(
+                        LibraryCsvRowError(
+                            rowNumber = 0,
+                            message = "This file could not be read as CSV."
+                        )
+                    )
+                )
+            }
+        }
+    }
+
+    fun dismissImportReport() {
+        _importReport.value = null
     }
 
     private fun matchesFilter(item: LibraryItem, filter: LibraryFilterState): Boolean {

@@ -2,7 +2,7 @@
 
 Stitchbook is a planned private, local-first fibre-craft companion for Android. Knitting, crochet, Tunisian crochet, loom knitting, and other fibre crafts are intended to be first-class rather than variations of one knitting-centric model. The app is intended to help people manage projects, counters, patterns, yarn, tools, photos, work sessions, and statistics while retaining ownership and access to all of their data.
 
-The project is in **active development**. The repository contains a working Jetpack Compose application with real project management, a manual guide-authoring editor with Publish and Focus Mode execution, a pattern library, a yarn/tools stash, and JSON backup/restore -- see "Currently implemented" below for specifics. Counters, photos, sessions, PDF import, CSV import/export, and deterministic pattern parsing remain plans, not implemented features.
+The project is in **active development**. The repository contains a working Jetpack Compose application with real project management, a manual guide-authoring editor with Publish and Focus Mode execution, a pattern library, a yarn/tools stash, JSON backup/restore, and a deterministic PDF-parsing prototype -- see "Currently implemented" below for specifics. Counters, photos, and sessions remain plans, not implemented features.
 
 ## Core principles
 
@@ -37,7 +37,7 @@ See [PRODUCT_SPEC.md](PRODUCT_SPEC.md) for structured requirements and [ROADMAP.
 - A manual guide-authoring Draft editor supporting Section, Row range, Repeat, and Instruction nodes, with add/edit/delete/reorder, structural validation, and optimistic-concurrency conflict recovery
 - Publish: a Draft becomes an immutable, versioned Definition Revision through a real Publish action; the Draft remains editable afterward and a later edit publishes as a new Revision
 - Focus Mode: Start/Continue a published Guide's execution, with persisted Complete/Previous/Jump-to-incomplete transitions that survive app restarts -- reachable end to end through production UI with no debug tooling or database seeding required
-- A pattern library (title, author, source link, tags, notes, bookmarks) with search and craft/bookmark filtering
+- A pattern library (title, author, source link, tags, notes, bookmarks) with search and craft/bookmark filtering, plus CSV export, a downloadable template, and CSV import with a pre-commit validation report (the PDF attachment below is never a CSV column -- an update-in-place always preserves an item's existing attachment untouched)
 - PDF pattern attachment: select a PDF via the Storage Access Framework with durable (persistable) read access, view it page-by-page in a built-in viewer (`android.graphics.pdf.PdfRenderer`, no bundled PDF library) or hand off to another app, and resume from the last-viewed page. The original file is never copied or modified -- only its `content://` URI and display name are stored
 - A yarn/tools stash (category, brand, colorway, dye lot, weight, fiber, quantity, yardage, notes) with search and category filtering, plus CSV export, a downloadable template, and CSV import with a pre-commit validation report (row-level errors never discard the file's other valid rows) and duplicate handling by matching a row's `id` column
 - Portable JSON backup, restore, and full local reset via Settings, through the Storage Access Framework
@@ -100,7 +100,7 @@ The debug APK is normally produced under `app/build/outputs/apk/debug/`.
 ## Current limitations
 
 - No photo, counter, or session tracking yet. PDF pattern attachment/viewing exists (see above), but many-to-many pattern-to-project linking and PDF text parsing do not.
-- Stash has CSV import/export (see above); Library entries do not. Stash's field set doesn't yet cover full/partial skein tracking, storage location, or purchase data (see ROADMAP.md Phase 4).
+- Stash, Tools, and Library all have CSV import/export now (see above). Stash's field set doesn't yet cover full/partial skein tracking, storage location, or purchase data (see ROADMAP.md Phase 4).
 - Needle/hook/cable/interchangeable-set tool inventory (with bulk creation) is not implemented.
 - Guide authoring can now also start from a PDF's extracted (or, when needed, OCR'd) and parsed text (see above); this prototype's parser only recognizes a small explicit set of phrasings, not general natural-language pattern text.
 - Project records contain only the basic fields listed in Currently implemented; custom "Other" project-type labels are deferred.

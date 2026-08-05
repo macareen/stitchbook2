@@ -46,6 +46,14 @@
     <string name="library_search_placeholder">Search by title, author, or tag</string>
     <string name="library_filter_all_crafts">All Crafts</string>
     <string name="library_bookmarks_only">Bookmarks Only</string>
+    <string name="library_export_csv_action">Export CSV</string>
+    <string name="library_import_csv_action">Import CSV</string>
+    <string name="library_download_csv_template_action">Download Template</string>
+    <string name="library_csv_import_result_title">Import results</string>
+    <string name="library_csv_import_result_summary">%1$d item(s) imported. %2$d row(s) could not be imported.</string>
+    <string name="library_csv_import_row_error">Row %1$d: %2$s</string>
+    <string name="library_csv_import_more_errors">…and %1$d more row(s) with errors.</string>
+    <string name="library_csv_import_dismiss_action">OK</string>
     <string name="library_empty_title">No pattern references found</string>
     <string name="library_empty_description">Add a pattern reference to keep it accessible here.</string>
     <string name="library_item_author">By %1$s</string>
