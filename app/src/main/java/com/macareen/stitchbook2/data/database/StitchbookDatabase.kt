@@ -24,9 +24,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         StashItemEntity::class,
         ToolSetEntity::class,
         ToolItemEntity::class,
-        CounterEntity::class
+        CounterEntity::class,
+        CounterNoteEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = true
 )
 abstract class StitchbookDatabase : RoomDatabase() {
@@ -38,6 +39,7 @@ abstract class StitchbookDatabase : RoomDatabase() {
     abstract fun stashDao(): StashDao
     abstract fun toolDao(): ToolDao
     abstract fun counterDao(): CounterDao
+    abstract fun counterNoteDao(): CounterNoteDao
 
     companion object {
         private const val DATABASE_NAME = "stitchbook.db"
@@ -57,7 +59,8 @@ abstract class StitchbookDatabase : RoomDatabase() {
                     MIGRATION_3_4,
                     MIGRATION_4_5,
                     MIGRATION_5_6,
-                    MIGRATION_6_7
+                    MIGRATION_6_7,
+                    MIGRATION_7_8
                 )
                     .build()
                     .also { instance = it }
@@ -503,6 +506,36 @@ val MIGRATION_6_7 = object : Migration(6, 7) {
         db.execSQL(
             "CREATE INDEX IF NOT EXISTS `index_counters_project_id` " +
                 "ON `counters` (`project_id`)"
+        )
+    }
+}
+
+/**
+ * Adds value-specific notes for Counters (PRODUCT_SPEC.md 6.3, "Notes
+ * attached to particular values"). `counter_id` is required (unlike a
+ * Counter's own optional `project_id`) and uses ON DELETE CASCADE: a note
+ * only means something relative to the counter it was written against, so
+ * deleting that counter takes its notes with it.
+ */
+val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `counter_notes` (
+                `id` TEXT NOT NULL,
+                `counter_id` TEXT NOT NULL,
+                `value` INTEGER NOT NULL,
+                `note` TEXT NOT NULL,
+                `created_at` INTEGER NOT NULL,
+                PRIMARY KEY(`id`),
+                FOREIGN KEY(`counter_id`) REFERENCES `counters`(`id`)
+                    ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_counter_notes_counter_id` " +
+                "ON `counter_notes` (`counter_id`)"
         )
     }
 }
