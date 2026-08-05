@@ -1,6 +1,7 @@
 package com.macareen.stitchbook2.data.backup
 
 import com.macareen.stitchbook2.domain.backup.BackupImportResult
+import com.macareen.stitchbook2.domain.model.Counter
 import com.macareen.stitchbook2.domain.model.Craft
 import com.macareen.stitchbook2.domain.model.LibraryItem
 import com.macareen.stitchbook2.domain.model.Project
@@ -11,6 +12,7 @@ import com.macareen.stitchbook2.domain.model.StashItem
 import com.macareen.stitchbook2.domain.model.ToolCategory
 import com.macareen.stitchbook2.domain.model.ToolItem
 import com.macareen.stitchbook2.domain.model.ToolSet
+import com.macareen.stitchbook2.domain.repository.CounterRepository
 import com.macareen.stitchbook2.domain.repository.LibraryRepository
 import com.macareen.stitchbook2.domain.repository.ProjectRepository
 import com.macareen.stitchbook2.domain.repository.StashRepository
@@ -99,13 +101,31 @@ class LocalBackupServiceTest {
         updatedAt = 200
     )
 
+    private val counter = Counter(
+        id = "counter-1",
+        projectId = "project-1",
+        name = "Right Sleeve",
+        unitLabel = "rows",
+        currentValue = 12,
+        goal = 60,
+        createdAt = 100,
+        updatedAt = 200
+    )
+
     @Test
     fun exportedJsonRoundTripsThroughImportIntoAFreshRepositorySet() = runBlocking {
         val sourceProjects = FakeProjectRepository(listOf(project))
         val sourceLibrary = FakeLibraryRepository(listOf(libraryItem))
         val sourceStash = FakeStashRepository(listOf(stashItem))
         val sourceTools = FakeToolRepository(listOf(toolSet), listOf(toolItem))
-        val exportingService = LocalBackupService(sourceProjects, sourceLibrary, sourceStash, sourceTools)
+        val sourceCounters = FakeCounterRepository(listOf(counter))
+        val exportingService = LocalBackupService(
+            sourceProjects,
+            sourceLibrary,
+            sourceStash,
+            sourceTools,
+            sourceCounters
+        )
 
         val json = exportingService.exportJson()
 
@@ -113,11 +133,13 @@ class LocalBackupServiceTest {
         val destinationLibrary = FakeLibraryRepository(emptyList())
         val destinationStash = FakeStashRepository(emptyList())
         val destinationTools = FakeToolRepository(emptyList(), emptyList())
+        val destinationCounters = FakeCounterRepository(emptyList())
         val importingService = LocalBackupService(
             destinationProjects,
             destinationLibrary,
             destinationStash,
-            destinationTools
+            destinationTools,
+            destinationCounters
         )
 
         val result = importingService.importJson(json) as BackupImportResult.Success
@@ -126,12 +148,14 @@ class LocalBackupServiceTest {
         assertEquals(1, result.stashItemCount)
         assertEquals(1, result.toolSetCount)
         assertEquals(1, result.toolItemCount)
+        assertEquals(1, result.counterCount)
 
         assertEquals(project, destinationProjects.items.value.single())
         assertEquals(libraryItem, destinationLibrary.items.value.single())
         assertEquals(stashItem, destinationStash.items.value.single())
         assertEquals(toolSet, destinationTools.sets.value.single())
         assertEquals(toolItem, destinationTools.items.value.single())
+        assertEquals(counter, destinationCounters.counters.value.single())
     }
 
     @Test
@@ -140,7 +164,8 @@ class LocalBackupServiceTest {
         val library = FakeLibraryRepository(listOf(libraryItem))
         val stash = FakeStashRepository(listOf(stashItem))
         val tools = FakeToolRepository(listOf(toolSet), listOf(toolItem))
-        val service = LocalBackupService(projects, library, stash, tools)
+        val counters = FakeCounterRepository(listOf(counter))
+        val service = LocalBackupService(projects, library, stash, tools, counters)
 
         val replacement = project.copy(id = "project-2", name = "Replacement project")
         val json = """{"version":1,"exportedAt":0,"projects":[${projectJson(replacement)}]}"""
@@ -151,13 +176,15 @@ class LocalBackupServiceTest {
         assertEquals(null, result.stashItemCount)
         assertEquals(null, result.toolSetCount)
         assertEquals(null, result.toolItemCount)
+        assertEquals(null, result.counterCount)
 
         assertEquals(listOf(replacement), projects.items.value)
-        // Library/Stash/Tools were absent from the backup, so they are untouched.
+        // Library/Stash/Tools/Counters were absent from the backup, so they are untouched.
         assertEquals(listOf(libraryItem), library.items.value)
         assertEquals(listOf(stashItem), stash.items.value)
         assertEquals(listOf(toolSet), tools.sets.value)
         assertEquals(listOf(toolItem), tools.items.value)
+        assertEquals(listOf(counter), counters.counters.value)
     }
 
     @Test
@@ -166,7 +193,8 @@ class LocalBackupServiceTest {
         val library = FakeLibraryRepository(listOf(libraryItem))
         val stash = FakeStashRepository(listOf(stashItem))
         val tools = FakeToolRepository(listOf(toolSet), listOf(toolItem))
-        val service = LocalBackupService(projects, library, stash, tools)
+        val counters = FakeCounterRepository(listOf(counter))
+        val service = LocalBackupService(projects, library, stash, tools, counters)
 
         service.resetAllData()
 
@@ -175,6 +203,7 @@ class LocalBackupServiceTest {
         assertTrue(stash.items.value.isEmpty())
         assertTrue(tools.sets.value.isEmpty())
         assertTrue(tools.items.value.isEmpty())
+        assertTrue(counters.counters.value.isEmpty())
     }
 
     @Test
@@ -183,7 +212,8 @@ class LocalBackupServiceTest {
         val library = FakeLibraryRepository(listOf(libraryItem))
         val stash = FakeStashRepository(listOf(stashItem))
         val tools = FakeToolRepository(listOf(toolSet), listOf(toolItem))
-        val service = LocalBackupService(projects, library, stash, tools)
+        val counters = FakeCounterRepository(listOf(counter))
+        val service = LocalBackupService(projects, library, stash, tools, counters)
 
         val result = service.importJson("not json")
 
@@ -197,7 +227,8 @@ class LocalBackupServiceTest {
         val library = FakeLibraryRepository(emptyList())
         val stash = FakeStashRepository(emptyList())
         val tools = FakeToolRepository(emptyList(), emptyList())
-        val service = LocalBackupService(projects, library, stash, tools)
+        val counters = FakeCounterRepository(emptyList())
+        val service = LocalBackupService(projects, library, stash, tools, counters)
 
         val json = """
             {"version":1,"exportedAt":0,"projects":[
@@ -287,5 +318,20 @@ private class FakeToolRepository(
     }
     override suspend fun deleteToolSet(set: ToolSet) {
         sets.value = sets.value.filterNot { it.id == set.id }
+    }
+}
+
+private class FakeCounterRepository(initial: List<Counter>) : CounterRepository {
+    val counters = MutableStateFlow(initial)
+    override fun observeCounters(): Flow<List<Counter>> = counters
+    override fun observeCountersByProject(projectId: String): Flow<List<Counter>> =
+        throw UnsupportedOperationException("Not used by LocalBackupService")
+    override fun observeCounter(id: String): Flow<Counter?> =
+        throw UnsupportedOperationException("Not used by LocalBackupService")
+    override suspend fun saveCounter(counter: Counter) {
+        counters.value = counters.value.filterNot { it.id == counter.id } + counter
+    }
+    override suspend fun deleteCounter(counter: Counter) {
+        counters.value = counters.value.filterNot { it.id == counter.id }
     }
 }

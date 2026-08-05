@@ -62,7 +62,13 @@ class DefaultAppContainer(context: Context) : AppContainer {
         LocalCounterRepository(database.counterDao())
 
     override val backupService: BackupService =
-        LocalBackupService(projectRepository, libraryRepository, stashRepository, toolRepository)
+        LocalBackupService(
+            projectRepository,
+            libraryRepository,
+            stashRepository,
+            toolRepository,
+            counterRepository
+        )
 
     override val pdfTextExtractor: PdfTextExtractor = PdfBoxTextExtractor(context, MlKitPdfPageOcr())
 

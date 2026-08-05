@@ -2,6 +2,7 @@ package com.macareen.stitchbook2.data.backup
 
 import com.macareen.stitchbook2.domain.backup.BackupImportResult
 import com.macareen.stitchbook2.domain.backup.BackupService
+import com.macareen.stitchbook2.domain.model.Counter
 import com.macareen.stitchbook2.domain.model.Craft
 import com.macareen.stitchbook2.domain.model.LibraryItem
 import com.macareen.stitchbook2.domain.model.Project
@@ -12,6 +13,7 @@ import com.macareen.stitchbook2.domain.model.StashItem
 import com.macareen.stitchbook2.domain.model.ToolCategory
 import com.macareen.stitchbook2.domain.model.ToolItem
 import com.macareen.stitchbook2.domain.model.ToolSet
+import com.macareen.stitchbook2.domain.repository.CounterRepository
 import com.macareen.stitchbook2.domain.repository.LibraryRepository
 import com.macareen.stitchbook2.domain.repository.ProjectRepository
 import com.macareen.stitchbook2.domain.repository.StashRepository
@@ -29,12 +31,14 @@ private const val KEY_LIBRARY_ITEMS = "libraryItems"
 private const val KEY_STASH_ITEMS = "stashItems"
 private const val KEY_TOOL_SETS = "toolSets"
 private const val KEY_TOOL_ITEMS = "toolItems"
+private const val KEY_COUNTERS = "counters"
 
 class LocalBackupService(
     private val projectRepository: ProjectRepository,
     private val libraryRepository: LibraryRepository,
     private val stashRepository: StashRepository,
-    private val toolRepository: ToolRepository
+    private val toolRepository: ToolRepository,
+    private val counterRepository: CounterRepository
 ) : BackupService {
 
     override suspend fun exportJson(): String {
@@ -48,6 +52,7 @@ class LocalBackupService(
         // component's setId to resolve on import, mirroring the FK direction.
         root.put(KEY_TOOL_SETS, JSONArray(toolRepository.observeToolSets().first().map { it.toJson() }))
         root.put(KEY_TOOL_ITEMS, JSONArray(toolRepository.observeToolItems().first().map { it.toJson() }))
+        root.put(KEY_COUNTERS, JSONArray(counterRepository.observeCounters().first().map { it.toJson() }))
         return root.toString(2)
     }
 
@@ -129,12 +134,28 @@ class LocalBackupService(
                 null
             }
 
+            // Counters last: a counter's optional projectId must resolve
+            // against the projects already replaced above.
+            val counterCount = if (root.has(KEY_COUNTERS)) {
+                val counters = root.getJSONArray(KEY_COUNTERS).toObjectList().map { it.toCounter() }
+                replaceAll(
+                    current = counterRepository.observeCounters().first(),
+                    incoming = counters,
+                    delete = counterRepository::deleteCounter,
+                    save = counterRepository::saveCounter
+                )
+                counters.size
+            } else {
+                null
+            }
+
             BackupImportResult.Success(
                 projectCount,
                 libraryItemCount,
                 stashItemCount,
                 toolSetCount,
-                toolItemCount
+                toolItemCount,
+                counterCount
             )
         } catch (_: JSONException) {
             BackupImportResult.InvalidFormat
@@ -152,6 +173,7 @@ class LocalBackupService(
         // now-empty grouping" rather than the reverse.
         toolRepository.observeToolItems().first().forEach { toolRepository.deleteToolItem(it) }
         toolRepository.observeToolSets().first().forEach { toolRepository.deleteToolSet(it) }
+        counterRepository.observeCounters().first().forEach { counterRepository.deleteCounter(it) }
     }
 
     private suspend fun <T> replaceAll(
@@ -324,6 +346,28 @@ private fun JSONObject.toToolItem(): ToolItem = ToolItem(
     storageLocation = optNullableString("storageLocation"),
     notes = optNullableString("notes"),
     setId = optNullableString("setId"),
+    createdAt = getLong("createdAt"),
+    updatedAt = getLong("updatedAt")
+)
+
+private fun Counter.toJson(): JSONObject = JSONObject().apply {
+    put("id", id)
+    put("projectId", projectId ?: JSONObject.NULL)
+    put("name", name)
+    put("unitLabel", unitLabel)
+    put("currentValue", currentValue)
+    put("goal", goal ?: JSONObject.NULL)
+    put("createdAt", createdAt)
+    put("updatedAt", updatedAt)
+}
+
+private fun JSONObject.toCounter(): Counter = Counter(
+    id = getString("id"),
+    projectId = optNullableString("projectId"),
+    name = getString("name"),
+    unitLabel = getString("unitLabel"),
+    currentValue = getInt("currentValue"),
+    goal = if (isNull("goal")) null else getInt("goal"),
     createdAt = getLong("createdAt"),
     updatedAt = getLong("updatedAt")
 )

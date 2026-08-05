@@ -2,7 +2,7 @@ package com.macareen.stitchbook2.domain.backup
 
 /**
  * Portable JSON export/import over the app's flat, already-domain-modeled
- * data: Projects, Library items, Stash items, and Tool sets/items.
+ * data: Projects, Library items, Stash items, Tool sets/items, and Counters.
  *
  * Guides/Drafts/Revisions/Executions are intentionally out of scope for this
  * first version -- round-tripping that relational graph safely (immutable
@@ -24,7 +24,8 @@ sealed interface BackupImportResult {
         val libraryItemCount: Int?,
         val stashItemCount: Int?,
         val toolSetCount: Int?,
-        val toolItemCount: Int?
+        val toolItemCount: Int?,
+        val counterCount: Int?
     ) : BackupImportResult
 
     data object InvalidFormat : BackupImportResult
