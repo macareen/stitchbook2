@@ -1,5 +1,10 @@
 package com.macareen.stitchbook2.feature.focus
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -26,16 +31,21 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.macareen.stitchbook2.R
+import com.macareen.stitchbook2.data.notification.CounterFocusNotificationService
 import com.macareen.stitchbook2.domain.execution.DefinitionRevisionId
 import com.macareen.stitchbook2.domain.execution.ExecutionAddress
 import com.macareen.stitchbook2.domain.execution.ExecutionId
@@ -53,6 +63,38 @@ import com.macareen.stitchbook2.ui.theme.sectionLabel
 @Composable
 fun GuideFocusRoute(viewModel: GuideFocusViewModel) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        // Denial just means no notification is posted -- the on-screen
+        // counters strip is the source of truth either way, so there's
+        // nothing to react to here.
+        onResult = {}
+    )
+
+    // Scoped to this Focus Mode session (PRODUCT_SPEC.md 6.3's "persistent
+    // notifications"): starts while InProgress with counters to show, stops
+    // otherwise or when this screen is left. No always-on background
+    // tracking -- see CounterFocusNotificationService's KDoc.
+    val inProgress = uiState as? GuideFocusUiState.InProgress
+    LaunchedEffect(inProgress?.projectId, inProgress?.guideName, inProgress?.projectCounters?.isNotEmpty()) {
+        if (inProgress != null && inProgress.projectCounters.isNotEmpty()) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED
+            ) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+            CounterFocusNotificationService.start(context, inProgress.projectId, inProgress.guideName)
+        } else {
+            CounterFocusNotificationService.stop(context)
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { CounterFocusNotificationService.stop(context) }
+    }
 
     GuideFocusScreen(
         uiState = uiState,

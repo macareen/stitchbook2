@@ -413,4 +413,9 @@
     <string name="focus_feedback_stale_execution_state">This changed elsewhere. Showing the current step.</string>
     <string name="focus_feedback_invalid_transition">That step is no longer valid. Showing the current step.</string>
     <string name="focus_feedback_unknown_error">Something went wrong. Showing the current step.</string>
+
+    <string name="focus_notification_channel_name">Active counters</string>
+    <string name="focus_notification_channel_description">Shows the counters for the guide currently open in Focus Mode.</string>
+    <string name="focus_notification_default_title">Focus Mode</string>
+    <string name="focus_notification_no_counters">No counters for this project</string>
 </resources>
