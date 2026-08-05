@@ -43,6 +43,7 @@ See [PRODUCT_SPEC.md](PRODUCT_SPEC.md) for structured requirements and [ROADMAP.
 - Portable JSON backup, restore, and full local reset via Settings, through the Storage Access Framework
 - A Tools inventory destination (search, category filtering, and a category-adaptive add/edit form covering needles, hooks, interchangeable tips/cables, looms, and notions) backed by Room and included in the JSON backup, plus a Bulk Create Tools screen that generates one item per size from a numeric range or custom list -- with a live, deduplicated preview -- and can group the generated items as a new set, plus CSV export/import (a `setId`/`setName` column pair reconstitutes grouped-set membership, creating or reusing a set by name when only `setName` is given); manufacturer/user templates and browsing/renaming existing sets outside CSV are not yet built -- see ROADMAP.md Phase 5
 - Room schema versioned through v6 with real migrations backing Guides, Definition Revisions, Executions, Projects, Library items, Stash items, and Tool sets/items
+- The first increment of deterministic PDF pattern parsing: digital-text extraction with page/line source references (`domain/parsing`, PdfBox-Android-backed `data/parsing/PdfBoxTextExtractor.kt`) -- no section/row/repeat parsing or Draft-editor mapping yet, see ARCHITECTURE.md
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) and [docs/EXECUTION_ENGINE_SPEC.md](docs/EXECUTION_ENGINE_SPEC.md) for the execution engine's persistence and concurrency guarantees. Photo attachments, counters, sessions, Tools bulk-creation/grouped-set UI/CSV import-export, and deterministic pattern parsing are not implemented yet -- see [ROADMAP.md](ROADMAP.md).
 
@@ -101,7 +102,7 @@ The debug APK is normally produced under `app/build/outputs/apk/debug/`.
 - No photo, counter, or session tracking yet. PDF pattern attachment/viewing exists (see above), but many-to-many pattern-to-project linking and PDF text parsing do not.
 - Stash has CSV import/export (see above); Library entries do not. Stash's field set doesn't yet cover full/partial skein tracking, storage location, or purchase data (see ROADMAP.md Phase 4).
 - Needle/hook/cable/interchangeable-set tool inventory (with bulk creation) is not implemented.
-- Guide authoring is manual only -- no PDF/OCR-based pattern parsing exists yet.
+- Guide authoring is manual only -- PDF digital-text extraction exists (see above), but deterministic section/row/repeat parsing, OCR fallback, and mapping into a Draft do not yet.
 - Project records contain only the basic fields listed in Currently implemented; custom "Other" project-type labels are deferred.
 - Unsaved project-form input survives recomposition and ordinary configuration changes, but not full process death.
 - Automatic Android app backup is disabled for this private local milestone; uninstalling the app or clearing its data removes records not covered by a user-initiated JSON export.
