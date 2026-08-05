@@ -11,6 +11,7 @@ import com.macareen.stitchbook2.data.csv.parseToolsCsv
 import com.macareen.stitchbook2.data.csv.toolItemsToCsv
 import com.macareen.stitchbook2.domain.model.ToolCategory
 import com.macareen.stitchbook2.domain.model.ToolItem
+import com.macareen.stitchbook2.domain.model.ToolSet
 import com.macareen.stitchbook2.domain.model.normalizedToolItemName
 import com.macareen.stitchbook2.domain.repository.ToolRepository
 import java.util.UUID
@@ -36,7 +37,9 @@ sealed interface ToolsUiState {
     data class Content(
         val items: List<ToolItem>,
         val filter: ToolFilterState,
-        val hasAnyItems: Boolean
+        val hasAnyItems: Boolean,
+        /** Every persisted set, for the add/edit dialog's set picker -- ignores the current search/category filter. */
+        val sets: List<ToolSet>
     ) : ToolsUiState
 }
 
@@ -60,7 +63,9 @@ data class ToolItemFormInput(
     val compatibilityNotes: String,
     val quantityText: String,
     val storageLocation: String,
-    val notes: String
+    val notes: String,
+    /** Null for a standalone item; otherwise the ToolSet this item is a member of. */
+    val setId: String?
 )
 
 class ToolsViewModel(
@@ -76,12 +81,14 @@ class ToolsViewModel(
 
     val uiState = combine(
         repository.observeToolItems(),
-        filterState
-    ) { items, filter ->
+        filterState,
+        repository.observeToolSets()
+    ) { items, filter, sets ->
         ToolsUiState.Content(
             items = items.filter { matchesFilter(it, filter) },
             filter = filter,
-            hasAnyItems = items.isNotEmpty()
+            hasAnyItems = items.isNotEmpty(),
+            sets = sets
         ) as ToolsUiState
     }
         .catch { emit(ToolsUiState.Error) }
@@ -141,7 +148,7 @@ class ToolsViewModel(
                 quantity = form.quantityText.toIntOrNull()?.coerceAtLeast(0) ?: 1,
                 storageLocation = form.storageLocation.trim().ifEmpty { null },
                 notes = form.notes.trim().ifEmpty { null },
-                setId = original?.setId,
+                setId = form.setId,
                 createdAt = original?.createdAt ?: now,
                 updatedAt = now
             )
