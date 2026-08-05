@@ -121,7 +121,7 @@ class ToolsViewModelTest {
     }
 
     @Test
-    fun editingAnItemPreservesItsExistingSetAssignment() {
+    fun editingAnItemPreservesItsExistingSetAssignmentWhenTheFormCarriesItForward() {
         val repository = FakeToolRepository(
             listOf(item("member", category = ToolCategory.INTERCHANGEABLE_TIP, setId = "set-1"))
         )
@@ -130,12 +130,44 @@ class ToolsViewModelTest {
 
         viewModel.saveItem(
             original = original,
-            form = formFor(ToolCategory.INTERCHANGEABLE_TIP).copy(name = "Renamed tip")
+            form = formFor(ToolCategory.INTERCHANGEABLE_TIP).copy(name = "Renamed tip", setId = "set-1")
         )
 
         val saved = repository.items.value.single()
         assertEquals("Renamed tip", saved.name)
         assertEquals("set-1", saved.setId)
+    }
+
+    @Test
+    fun savingCanReassignAnItemToADifferentSet() {
+        val repository = FakeToolRepository(
+            listOf(item("member", category = ToolCategory.INTERCHANGEABLE_TIP, setId = "set-1"))
+        )
+        val viewModel = viewModel(repository)
+        val original = repository.items.value.single()
+
+        viewModel.saveItem(
+            original = original,
+            form = formFor(ToolCategory.INTERCHANGEABLE_TIP).copy(setId = "set-2")
+        )
+
+        assertEquals("set-2", repository.items.value.single().setId)
+    }
+
+    @Test
+    fun savingWithNoSetSelectedRemovesTheItemFromItsSet() {
+        val repository = FakeToolRepository(
+            listOf(item("member", category = ToolCategory.INTERCHANGEABLE_TIP, setId = "set-1"))
+        )
+        val viewModel = viewModel(repository)
+        val original = repository.items.value.single()
+
+        viewModel.saveItem(
+            original = original,
+            form = formFor(ToolCategory.INTERCHANGEABLE_TIP).copy(setId = null)
+        )
+
+        assertNull(repository.items.value.single().setId)
     }
 
     @Test
@@ -177,7 +209,8 @@ class ToolsViewModelTest {
         compatibilityNotes = "Twist-compatible only",
         quantityText = "1",
         storageLocation = "Drawer 1",
-        notes = ""
+        notes = "",
+        setId = null
     )
 
     private fun item(

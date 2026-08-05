@@ -60,6 +60,7 @@ import com.macareen.stitchbook2.data.csv.ToolsCsvImportReport
 import com.macareen.stitchbook2.data.csv.toolsCsvTemplate
 import com.macareen.stitchbook2.domain.model.ToolCategory
 import com.macareen.stitchbook2.domain.model.ToolItem
+import com.macareen.stitchbook2.domain.model.ToolSet
 import com.macareen.stitchbook2.ui.components.LabelPill
 import com.macareen.stitchbook2.ui.components.QuietText
 import com.macareen.stitchbook2.ui.theme.StitchbookSpacing
@@ -77,7 +78,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
-fun ToolsRoute(viewModel: ToolsViewModel, onBulkCreate: () -> Unit) {
+fun ToolsRoute(viewModel: ToolsViewModel, onBulkCreate: () -> Unit, onManageSets: () -> Unit) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val importReport by viewModel.importReport.collectAsStateWithLifecycle()
 
@@ -88,6 +89,7 @@ fun ToolsRoute(viewModel: ToolsViewModel, onBulkCreate: () -> Unit) {
         onSaveItem = viewModel::saveItem,
         onDeleteItem = viewModel::deleteItem,
         onBulkCreate = onBulkCreate,
+        onManageSets = onManageSets,
         onExportCsv = viewModel::exportCsv,
         onImportCsv = viewModel::importCsv,
         importReport = importReport,
@@ -103,6 +105,7 @@ fun ToolsScreen(
     onSaveItem: (ToolItem?, ToolItemFormInput) -> Unit,
     onDeleteItem: (ToolItem) -> Unit,
     onBulkCreate: () -> Unit,
+    onManageSets: () -> Unit,
     onExportCsv: (suspend (String) -> Unit) -> Unit,
     onImportCsv: (String) -> Unit,
     importReport: ToolsCsvImportReport?,
@@ -185,6 +188,7 @@ fun ToolsScreen(
                     onEditItem = { editingItem = it },
                     onDeleteRequested = { deletingItem = it },
                     onBulkCreate = onBulkCreate,
+                    onManageSets = onManageSets,
                     onExportCsvClick = { exportCsvLauncher.launch(toolsCsvFileName()) },
                     onImportCsvClick = {
                         importCsvLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "*/*"))
@@ -209,9 +213,12 @@ fun ToolsScreen(
         )
     }
 
+    val availableSets = (uiState as? ToolsUiState.Content)?.sets.orEmpty()
+
     if (isAddingItem) {
         ToolItemDialog(
             original = null,
+            availableSets = availableSets,
             onDismiss = { isAddingItem = false },
             onSave = { form ->
                 onSaveItem(null, form)
@@ -223,6 +230,7 @@ fun ToolsScreen(
     editingItem?.let { item ->
         ToolItemDialog(
             original = item,
+            availableSets = availableSets,
             onDismiss = { editingItem = null },
             onSave = { form ->
                 onSaveItem(item, form)
@@ -245,7 +253,7 @@ fun ToolsScreen(
                         deletingItem = null
                     }
                 ) {
-                    Text(text = stringResource(R.string.delete_project))
+                    Text(text = stringResource(R.string.delete_tool_item_action))
                 }
             },
             dismissButton = {
@@ -320,6 +328,7 @@ private fun ToolsContent(
     onEditItem: (ToolItem) -> Unit,
     onDeleteRequested: (ToolItem) -> Unit,
     onBulkCreate: () -> Unit,
+    onManageSets: () -> Unit,
     onExportCsvClick: () -> Unit,
     onImportCsvClick: () -> Unit,
     onTemplateCsvClick: () -> Unit
@@ -340,8 +349,13 @@ private fun ToolsContent(
             )
             QuietText(text = stringResource(R.string.tools_header_subtitle))
             Spacer(modifier = Modifier.height(StitchbookSpacing.small))
-            TextButton(onClick = onBulkCreate) {
-                Text(text = stringResource(R.string.tools_bulk_create_link))
+            Row(horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
+                TextButton(onClick = onBulkCreate) {
+                    Text(text = stringResource(R.string.tools_bulk_create_link))
+                }
+                TextButton(onClick = onManageSets) {
+                    Text(text = stringResource(R.string.tools_manage_sets_link))
+                }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
                 TextButton(onClick = onExportCsvClick) {
@@ -557,10 +571,12 @@ private fun cableDetail(item: ToolItem): String? {
 @Composable
 private fun ToolItemDialog(
     original: ToolItem?,
+    availableSets: List<ToolSet>,
     onDismiss: () -> Unit,
     onSave: (ToolItemFormInput) -> Unit
 ) {
     var name by remember { mutableStateOf(original?.name.orEmpty()) }
+    var setId by remember { mutableStateOf(original?.setId) }
     var category by remember { mutableStateOf(original?.category ?: ToolCategory.CROCHET_HOOK) }
     var brand by remember { mutableStateOf(original?.brand.orEmpty()) }
     var material by remember { mutableStateOf(original?.material.orEmpty()) }
@@ -612,6 +628,12 @@ private fun ToolItemDialog(
                 )
                 Spacer(modifier = Modifier.height(StitchbookSpacing.small))
                 CategoryDropdown(selected = category, onSelected = { category = it })
+                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+                ToolSetDropdown(
+                    availableSets = availableSets,
+                    selectedSetId = setId,
+                    onSelected = { setId = it }
+                )
                 Spacer(modifier = Modifier.height(StitchbookSpacing.small))
                 Row(horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
                     OutlinedTextField(
@@ -759,7 +781,8 @@ private fun ToolItemDialog(
                                 compatibilityNotes = compatibilityNotes,
                                 quantityText = quantityText,
                                 storageLocation = storageLocation,
-                                notes = notes
+                                notes = notes,
+                                setId = setId
                             )
                         )
                     }
@@ -808,6 +831,56 @@ private fun CategoryDropdown(
                     text = { Text(text = stringResource(category.labelResource())) },
                     onClick = {
                         onSelected(category)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+/** Assigns/reassigns an item to one of [availableSets], or to no set at all. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ToolSetDropdown(
+    availableSets: List<ToolSet>,
+    selectedSetId: String?,
+    onSelected: (String?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedSet = availableSets.firstOrNull { it.id == selectedSetId }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded }
+    ) {
+        OutlinedTextField(
+            value = selectedSet?.name ?: stringResource(R.string.tools_set_none),
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(text = stringResource(R.string.tools_field_set)) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                .fillMaxWidth()
+        )
+
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            DropdownMenuItem(
+                text = { Text(text = stringResource(R.string.tools_set_none)) },
+                onClick = {
+                    onSelected(null)
+                    expanded = false
+                }
+            )
+            availableSets.forEach { set ->
+                DropdownMenuItem(
+                    text = { Text(text = set.name) },
+                    onClick = {
+                        onSelected(set.id)
                         expanded = false
                     }
                 )
@@ -883,13 +956,15 @@ private fun ToolsScreenPreview() {
                     )
                 ),
                 filter = ToolFilterState(),
-                hasAnyItems = true
+                hasAnyItems = true,
+                sets = emptyList()
             ),
             onSearchQueryChanged = {},
             onCategoryFilterChanged = {},
             onSaveItem = { _, _ -> },
             onDeleteItem = {},
             onBulkCreate = {},
+            onManageSets = {},
             onExportCsv = {},
             onImportCsv = {},
             importReport = null,

@@ -73,3 +73,5 @@ data class ToolSet(
 )
 
 fun normalizedToolItemName(value: String): String? = value.trim().takeIf { it.isNotEmpty() }
+
+fun normalizedToolSetName(value: String): String? = value.trim().takeIf { it.isNotEmpty() }
