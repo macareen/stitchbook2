@@ -16,8 +16,9 @@ package com.macareen.stitchbook2.domain.model
  * increment/decrement/reset, then an outgoing link to another counter
  * ([linkedCounterId]), automatic reset on reaching goal ([autoResetOnGoal]),
  * and a repeating reset schedule ([repeatIntervalDays]). An active crafting
- * screen and persistent notifications remain later increments, not
- * represented here.
+ * screen (Focus Mode's counters strip) and Focus-Mode-scoped persistent
+ * notifications ([com.macareen.stitchbook2.data.notification.CounterFocusNotificationService])
+ * were both built on top of this model without needing new fields here.
  */
 data class Counter(
     val id: String,
