@@ -93,6 +93,8 @@ Every phase that adds durable user records must also extend the current versione
 
 ## Phase 3 — Configurable counters and active crafting screen
 
+**Status: first increment only -- domain model, Room schema (v7), and repository, nothing else.** `Counter` (`domain/model/Counter.kt`) has a current value, an optional goal, and an optional owning Project (`projectId` -- null for a standalone counter); `name` and `unitLabel` are both free text rather than a closed category enum, since PRODUCT_SPEC.md 6.3 explicitly wants "user-defined purposes" and craft-language labels ("rows, rounds, motifs, ... and user-defined terms") rather than a fixed taxonomy to validate against. `CounterRepository`/`LocalCounterRepository` follow the same shape as `StashRepository`. No increment/decrement/reset actions, goals UI, linked-counter behavior, automatic resets, repeating schedules, active crafting screen, persistent notifications, or inclusion in the versioned JSON safety export exist yet -- all later increments of this same phase, mirroring how Stash (Phase 4) and Tools (Phase 5) were each built up over several PRs starting from the same "domain model + schema + repository only" foundation.
+
 **Goal:** Deliver a dependable low-friction experience for tracking active work.
 
 **Scope:**

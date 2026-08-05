@@ -23,9 +23,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         LibraryItemEntity::class,
         StashItemEntity::class,
         ToolSetEntity::class,
-        ToolItemEntity::class
+        ToolItemEntity::class,
+        CounterEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = true
 )
 abstract class StitchbookDatabase : RoomDatabase() {
@@ -36,6 +37,7 @@ abstract class StitchbookDatabase : RoomDatabase() {
     abstract fun libraryDao(): LibraryDao
     abstract fun stashDao(): StashDao
     abstract fun toolDao(): ToolDao
+    abstract fun counterDao(): CounterDao
 
     companion object {
         private const val DATABASE_NAME = "stitchbook.db"
@@ -54,7 +56,8 @@ abstract class StitchbookDatabase : RoomDatabase() {
                     MIGRATION_2_3,
                     MIGRATION_3_4,
                     MIGRATION_4_5,
-                    MIGRATION_5_6
+                    MIGRATION_5_6,
+                    MIGRATION_6_7
                 )
                     .build()
                     .also { instance = it }
@@ -462,6 +465,44 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
         db.execSQL(
             "CREATE INDEX IF NOT EXISTS `index_tool_items_set_id` " +
                 "ON `tool_items` (`set_id`)"
+        )
+    }
+}
+
+/**
+ * Adds the Counters schema (PRODUCT_SPEC.md 6.3): this first increment is
+ * persistence only -- a counter's current value, optional goal, and the
+ * project it may belong to. `project_id` uses ON DELETE CASCADE, the same
+ * relationship a Guide already has to its Project (see [GuideEntity]):
+ * a project's counters are part of that project's own record and go with
+ * it, while a null `project_id` (a standalone counter) is never subject to
+ * this cascade. Increment/decrement actions, automatic reset rules, linked
+ * behavior between counters, repeating schedules, and notifications are
+ * later increments of this same phase (ROADMAP.md Phase 3), not part of
+ * this migration.
+ */
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `counters` (
+                `id` TEXT NOT NULL,
+                `project_id` TEXT,
+                `name` TEXT NOT NULL,
+                `unit_label` TEXT NOT NULL,
+                `current_value` INTEGER NOT NULL,
+                `goal` INTEGER,
+                `created_at` INTEGER NOT NULL,
+                `updated_at` INTEGER NOT NULL,
+                PRIMARY KEY(`id`),
+                FOREIGN KEY(`project_id`) REFERENCES `projects`(`id`)
+                    ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_counters_project_id` " +
+                "ON `counters` (`project_id`)"
         )
     }
 }
