@@ -14,6 +14,7 @@ import com.macareen.stitchbook2.domain.model.StashItem
 import com.macareen.stitchbook2.domain.model.ToolCategory
 import com.macareen.stitchbook2.domain.model.ToolItem
 import com.macareen.stitchbook2.domain.model.ToolSet
+import com.macareen.stitchbook2.domain.model.wouldCreateCycle
 import com.macareen.stitchbook2.domain.repository.CounterNoteRepository
 import com.macareen.stitchbook2.domain.repository.CounterRepository
 import com.macareen.stitchbook2.domain.repository.LibraryRepository
@@ -145,13 +146,28 @@ class LocalBackupService(
             // Counters last: a counter's optional projectId must resolve
             // against the projects already replaced above.
             val counterCount = if (root.has(KEY_COUNTERS)) {
-                val counters = root.getJSONArray(KEY_COUNTERS).toObjectList().map { it.toCounter() }
+                // A counter's optional link points at another counter's id.
+                // A backup is untrusted input (hand-edited, or from a buggy
+                // future exporter), so it can claim a link that would form a
+                // cycle or point at an id absent from this same backup --
+                // sanitizeLinks() drops any link like that before it's ever
+                // written, the same invariant CountersViewModel.saveCounter
+                // enforces for user-entered links.
+                val counters = sanitizeLinks(root.getJSONArray(KEY_COUNTERS).toObjectList().map { it.toCounter() })
+                // Incoming rows can reference each other in either order.
+                // Inserting a counter with its real link before its target
+                // row exists would violate the self-referencing FK, so
+                // every row is first saved with its link stripped, then
+                // saved again with the real link once all rows exist.
                 replaceAll(
                     current = counterRepository.observeCounters().first(),
-                    incoming = counters,
+                    incoming = counters.map {
+                        it.copy(linkedCounterId = null, linkIncrementInterval = null, linkIncrementAmount = null)
+                    },
                     delete = counterRepository::deleteCounter,
                     save = counterRepository::saveCounter
                 )
+                counters.filter { it.linkedCounterId != null }.forEach { counterRepository.saveCounter(it) }
                 counters.size
             } else {
                 null
@@ -213,6 +229,31 @@ class LocalBackupService(
     ) {
         current.forEach { delete(it) }
         incoming.forEach { save(it) }
+    }
+
+    /**
+     * Drops a counter's link if it points at an id absent from this same
+     * backup, or if [wouldCreateCycle] rejects it -- a backup is untrusted
+     * input, so this import path enforces the same no-cycle/valid-target
+     * invariant normal counter-editing enforces, rather than trusting the
+     * file. Checking every counter against the full, unmodified [counters]
+     * list (not a partially-sanitized one) means every counter that takes
+     * part in a cycle gets its link cleared, breaking the cycle completely
+     * rather than leaving one arbitrary link still cyclic.
+     */
+    private fun sanitizeLinks(counters: List<Counter>): List<Counter> {
+        val idsInBackup = counters.map { it.id }.toSet()
+        return counters.map { counter ->
+            val targetId = counter.linkedCounterId
+            val isValid = targetId != null &&
+                targetId in idsInBackup &&
+                !wouldCreateCycle(counters, counter.id, targetId)
+            if (isValid) {
+                counter
+            } else {
+                counter.copy(linkedCounterId = null, linkIncrementInterval = null, linkIncrementAmount = null)
+            }
+        }
     }
 }
 
@@ -388,6 +429,9 @@ private fun Counter.toJson(): JSONObject = JSONObject().apply {
     put("goal", goal ?: JSONObject.NULL)
     put("createdAt", createdAt)
     put("updatedAt", updatedAt)
+    put("linkedCounterId", linkedCounterId ?: JSONObject.NULL)
+    put("linkIncrementInterval", linkIncrementInterval ?: JSONObject.NULL)
+    put("linkIncrementAmount", linkIncrementAmount ?: JSONObject.NULL)
 }
 
 private fun JSONObject.toCounter(): Counter = Counter(
@@ -398,7 +442,13 @@ private fun JSONObject.toCounter(): Counter = Counter(
     currentValue = getInt("currentValue"),
     goal = if (isNull("goal")) null else getInt("goal"),
     createdAt = getLong("createdAt"),
-    updatedAt = getLong("updatedAt")
+    updatedAt = getLong("updatedAt"),
+    // Absent in backups written before this field existed -- isNull()
+    // treats a missing key the same as an explicit null, so older backups
+    // restore cleanly with no link rather than failing to parse.
+    linkedCounterId = optNullableString("linkedCounterId"),
+    linkIncrementInterval = if (isNull("linkIncrementInterval")) null else getInt("linkIncrementInterval"),
+    linkIncrementAmount = if (isNull("linkIncrementAmount")) null else getInt("linkIncrementAmount")
 )
 
 private fun CounterNote.toJson(): JSONObject = JSONObject().apply {

@@ -9,6 +9,21 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface CounterDao {
 
+    /**
+     * Atomically adds [amount] to a counter's current_value in a single SQL
+     * statement, rather than a read-then-write round trip -- so two
+     * concurrent callers targeting the same row can never lose one of
+     * their updates.
+     */
+    @Query(
+        """
+        UPDATE counters
+        SET current_value = current_value + :amount, updated_at = :updatedAt
+        WHERE id = :id
+        """
+    )
+    suspend fun incrementValue(id: String, amount: Int, updatedAt: Long)
+
     @Query(
         """
         SELECT * FROM counters

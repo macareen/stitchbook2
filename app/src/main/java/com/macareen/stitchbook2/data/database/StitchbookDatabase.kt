@@ -27,7 +27,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CounterEntity::class,
         CounterNoteEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = true
 )
 abstract class StitchbookDatabase : RoomDatabase() {
@@ -60,7 +60,8 @@ abstract class StitchbookDatabase : RoomDatabase() {
                     MIGRATION_4_5,
                     MIGRATION_5_6,
                     MIGRATION_6_7,
-                    MIGRATION_7_8
+                    MIGRATION_7_8,
+                    MIGRATION_8_9
                 )
                     .build()
                     .also { instance = it }
@@ -532,6 +533,129 @@ val MIGRATION_7_8 = object : Migration(7, 8) {
                     ON UPDATE NO ACTION ON DELETE CASCADE
             )
             """.trimIndent()
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_counter_notes_counter_id` " +
+                "ON `counter_notes` (`counter_id`)"
+        )
+    }
+}
+
+/**
+ * Adds a single optional outgoing link between Counters (PRODUCT_SPEC.md
+ * 6.3, "Linked behavior between counters"): every `link_increment_interval`
+ * increments of a counter, the counter at `linked_counter_id` is bumped by
+ * `link_increment_amount`. See [wouldCreateCycle] for the invariant the
+ * application layer enforces before ever writing a link.
+ *
+ * SQLite can't add a foreign-key column via `ALTER TABLE ADD COLUMN`, so
+ * `counters` has to be recreated to add `linked_counter_id`. A naive
+ * recreate (create a new table, copy rows across, `DROP TABLE counters`,
+ * rename the new table into place) is unsafe here: `counter_notes.counter_id`
+ * has `ON DELETE CASCADE` pointing at `counters`, and per SQLite's own
+ * documentation, `DROP TABLE` performs an implicit `DELETE` of every row in
+ * the dropped table first when foreign keys are enabled -- and that
+ * implicit delete *does* invoke `ON DELETE CASCADE` on children
+ * (sqlite.org/foreignkeys.html section 5: "the implicit DELETE ... may
+ * invoke foreign key actions"). A naive recreate would therefore silently
+ * wipe every `counter_notes` row the moment the old `counters` table is
+ * dropped, before it's even recreated.
+ *
+ * To avoid this, nothing that still has a live foreign key pointing at
+ * `counters` is ever dropped: `counters` is renamed out of the way first
+ * (SQLite automatically rewrites `counter_notes`' foreign key definition to
+ * follow the rename), then `counter_notes` itself is recreated pointing at
+ * the *new* `counters` table, and only then are the two renamed-away old
+ * tables dropped -- by that point nothing references them, so their
+ * implicit deletes have no cascade action left to invoke.
+ *
+ * `linked_counter_id` uses ON DELETE SET NULL, the same "pointer, not
+ * ownership" relationship tool_items already has to tool_sets: deleting the
+ * linked-to counter clears this counter's link rather than deleting it.
+ */
+val MIGRATION_8_9 = object : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // 1. Move the old counters table out of the way. SQLite rewrites
+        // counter_notes' FK definition to follow this rename automatically.
+        db.execSQL("ALTER TABLE `counters` RENAME TO `counters_old`")
+
+        // 2. Create the real, final counters table and copy every row
+        // across. The three new columns are nullable and omitted from the
+        // column list, so every existing row gets NULL for them -- no
+        // counter had a link before this migration.
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `counters` (
+                `id` TEXT NOT NULL,
+                `project_id` TEXT,
+                `name` TEXT NOT NULL,
+                `unit_label` TEXT NOT NULL,
+                `current_value` INTEGER NOT NULL,
+                `goal` INTEGER,
+                `created_at` INTEGER NOT NULL,
+                `updated_at` INTEGER NOT NULL,
+                `linked_counter_id` TEXT,
+                `link_increment_interval` INTEGER,
+                `link_increment_amount` INTEGER,
+                PRIMARY KEY(`id`),
+                FOREIGN KEY(`project_id`) REFERENCES `projects`(`id`)
+                    ON UPDATE NO ACTION ON DELETE CASCADE,
+                FOREIGN KEY(`linked_counter_id`) REFERENCES `counters`(`id`)
+                    ON UPDATE NO ACTION ON DELETE SET NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            INSERT INTO `counters` (
+                `id`, `project_id`, `name`, `unit_label`, `current_value`,
+                `goal`, `created_at`, `updated_at`
+            )
+            SELECT `id`, `project_id`, `name`, `unit_label`, `current_value`,
+                `goal`, `created_at`, `updated_at`
+            FROM `counters_old`
+            """.trimIndent()
+        )
+
+        // 3. Recreate counter_notes pointing at the new counters table --
+        // every counter_id value already exists there from step 2, so this
+        // insert satisfies the foreign key -- BEFORE counters_old is ever
+        // dropped, so nothing still references it by step 4.
+        db.execSQL("ALTER TABLE `counter_notes` RENAME TO `counter_notes_old`")
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `counter_notes` (
+                `id` TEXT NOT NULL,
+                `counter_id` TEXT NOT NULL,
+                `value` INTEGER NOT NULL,
+                `note` TEXT NOT NULL,
+                `created_at` INTEGER NOT NULL,
+                PRIMARY KEY(`id`),
+                FOREIGN KEY(`counter_id`) REFERENCES `counters`(`id`)
+                    ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            INSERT INTO `counter_notes` (`id`, `counter_id`, `value`, `note`, `created_at`)
+            SELECT `id`, `counter_id`, `value`, `note`, `created_at`
+            FROM `counter_notes_old`
+            """.trimIndent()
+        )
+
+        // 4. Now safe to drop both temporary copies: nothing references
+        // counters_old or counter_notes_old anymore.
+        db.execSQL("DROP TABLE `counter_notes_old`")
+        db.execSQL("DROP TABLE `counters_old`")
+
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_counters_project_id` " +
+                "ON `counters` (`project_id`)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_counters_linked_counter_id` " +
+                "ON `counters` (`linked_counter_id`)"
         )
         db.execSQL(
             "CREATE INDEX IF NOT EXISTS `index_counter_notes_counter_id` " +

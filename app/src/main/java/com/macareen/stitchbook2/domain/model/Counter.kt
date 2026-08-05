@@ -26,7 +26,47 @@ data class Counter(
     val currentValue: Int,
     val goal: Int?,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    /**
+     * A counter's optional single outgoing link (PRODUCT_SPEC.md 6.3, "Linked
+     * behavior between counters"): every [linkIncrementInterval] increments of
+     * *this* counter, the counter at [linkedCounterId] is incremented by
+     * [linkIncrementAmount]. All three are null together (no link) or
+     * non-null together (a configured link); decrementing or resetting this
+     * counter never triggers the link -- only forward increments do. See
+     * [wouldCreateCycle] for the invariant every write path must check before
+     * saving a link.
+     */
+    val linkedCounterId: String?,
+    val linkIncrementInterval: Int?,
+    val linkIncrementAmount: Int?
 )
 
 fun normalizedCounterName(value: String): String? = value.trim().takeIf { it.isNotEmpty() }
+
+/**
+ * True if pointing [editingCounterId]'s link at [proposedTargetId] would
+ * create a cycle -- either directly (a counter linking to itself) or
+ * transitively through [proposedTargetId]'s own chain of outgoing links
+ * eventually reaching back to [editingCounterId]. Since each counter has at
+ * most one outgoing link, that chain is a simple walk, not a general graph
+ * traversal. [editingCounterId] is null when creating a brand-new counter,
+ * which can never complete a cycle since nothing can point at it yet.
+ */
+fun wouldCreateCycle(
+    counters: List<Counter>,
+    editingCounterId: String?,
+    proposedTargetId: String?
+): Boolean {
+    if (editingCounterId == null || proposedTargetId == null) return false
+    if (proposedTargetId == editingCounterId) return true
+
+    val countersById = counters.associateBy { it.id }
+    val visited = mutableSetOf<String>()
+    var currentId: String? = proposedTargetId
+    while (currentId != null && visited.add(currentId)) {
+        if (currentId == editingCounterId) return true
+        currentId = countersById[currentId]?.linkedCounterId
+    }
+    return false
+}

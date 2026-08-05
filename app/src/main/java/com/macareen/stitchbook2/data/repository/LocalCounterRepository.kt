@@ -32,6 +32,10 @@ class LocalCounterRepository(
         counterDao.upsert(counter.toEntity())
     }
 
+    override suspend fun incrementCounterValue(id: String, amount: Int, updatedAt: Long) {
+        counterDao.incrementValue(id, amount, updatedAt)
+    }
+
     override suspend fun deleteCounter(counter: Counter) {
         counterDao.delete(counter.toEntity())
     }

@@ -221,6 +221,13 @@
     <string name="counters_field_goal">Goal (optional)</string>
     <string name="counters_field_project_label">Project</string>
     <string name="counters_field_project_none">Standalone (no project)</string>
+    <string name="counters_field_link_label">Linked counter (optional)</string>
+    <string name="counters_field_link_none">No link</string>
+    <string name="counters_field_link_interval">Every N increments</string>
+    <string name="counters_field_link_amount">Amount to add</string>
+    <string name="counters_field_link_invalid">Enter a positive whole number for both fields.</string>
+    <string name="counters_field_link_cycle">This link would create a loop between counters.</string>
+    <string name="counters_link_indicator">Every %1$d, adds %2$d to %3$s</string>
     <string name="counters_save_action">Save</string>
     <string name="counters_value_pill">%1$d %2$s</string>
     <string name="counters_value_with_goal_pill">%1$d / %2$d %3$s</string>

@@ -139,5 +139,8 @@ private fun counterEntity(id: String) = CounterEntity(
     currentValue = 0,
     goal = null,
     createdAt = 50,
-    updatedAt = 100
+    updatedAt = 100,
+    linkedCounterId = null,
+    linkIncrementInterval = null,
+    linkIncrementAmount = null
 )
