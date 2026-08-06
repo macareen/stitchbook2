@@ -100,10 +100,7 @@ fun StashScreen(
     uiState: StashUiState,
     onSearchQueryChanged: (String) -> Unit,
     onCategoryFilterChanged: (StashCategory?) -> Unit,
-    onSaveItem: (
-        StashItem?, String, StashCategory, String, String, String, String, String,
-        Double, String, Double?, String
-    ) -> Unit,
+    onSaveItem: (StashItem?, StashItemFormInput) -> Unit,
     onDeleteItem: (StashItem) -> Unit,
     onExportCsv: (suspend (String) -> Unit) -> Unit,
     onImportCsv: (String) -> Unit,
@@ -212,8 +209,8 @@ fun StashScreen(
         StashItemDialog(
             original = null,
             onDismiss = { isAddingItem = false },
-            onSave = { name, category, brand, colorway, dyeLot, weight, fiber, quantity, unit, yardage, notes ->
-                onSaveItem(null, name, category, brand, colorway, dyeLot, weight, fiber, quantity, unit, yardage, notes)
+            onSave = { form ->
+                onSaveItem(null, form)
                 isAddingItem = false
             }
         )
@@ -223,8 +220,8 @@ fun StashScreen(
         StashItemDialog(
             original = item,
             onDismiss = { editingItem = null },
-            onSave = { name, category, brand, colorway, dyeLot, weight, fiber, quantity, unit, yardage, notes ->
-                onSaveItem(item, name, category, brand, colorway, dyeLot, weight, fiber, quantity, unit, yardage, notes)
+            onSave = { form ->
+                onSaveItem(item, form)
                 editingItem = null
             }
         )
@@ -473,7 +470,7 @@ private fun StashItemCard(
             )
             item.brand?.let { QuietText(text = it) }
 
-            val yarnDetails = listOfNotNull(
+            val details = listOfNotNull(
                 item.colorway?.let { colorway ->
                     if (item.dyeLot != null) "$colorway (${item.dyeLot})" else colorway
                 },
@@ -481,9 +478,10 @@ private fun StashItemCard(
                 item.fiberContent,
                 item.yardagePerUnit?.let {
                     stringResource(R.string.stash_yardage_per_unit, formatQuantity(it))
-                }
+                },
+                item.storageLocation
             )
-            if (yarnDetails.isNotEmpty()) {
+            if (details.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(StitchbookSpacing.small))
                 Surface(
                     shape = MaterialTheme.shapes.medium,
@@ -493,7 +491,7 @@ private fun StashItemCard(
                         modifier = Modifier.padding(StitchbookSpacing.small),
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
-                        yarnDetails.forEach { detail ->
+                        details.forEach { detail ->
                             QuietText(text = detail)
                         }
                     }
@@ -537,10 +535,7 @@ private fun StashItemCard(
 private fun StashItemDialog(
     original: StashItem?,
     onDismiss: () -> Unit,
-    onSave: (
-        String, StashCategory, String, String, String, String, String,
-        Double, String, Double?, String
-    ) -> Unit
+    onSave: (StashItemFormInput) -> Unit
 ) {
     var name by remember { mutableStateOf(original?.name.orEmpty()) }
     var category by remember { mutableStateOf(original?.category ?: StashCategory.YARN) }
@@ -553,6 +548,12 @@ private fun StashItemDialog(
     var unitLabel by remember { mutableStateOf(original?.unitLabel ?: "skeins") }
     var yardageText by remember { mutableStateOf(original?.yardagePerUnit?.toString().orEmpty()) }
     var notes by remember { mutableStateOf(original?.notes.orEmpty()) }
+    var storageLocation by remember { mutableStateOf(original?.storageLocation.orEmpty()) }
+    var careInstructions by remember { mutableStateOf(original?.careInstructions.orEmpty()) }
+    var ravelryYarnId by remember { mutableStateOf(original?.ravelryYarnId.orEmpty()) }
+    var purchaseSource by remember { mutableStateOf(original?.purchaseSource.orEmpty()) }
+    var purchasePriceText by remember { mutableStateOf(original?.purchasePrice?.toString().orEmpty()) }
+    var purchaseDate by remember { mutableStateOf(original?.purchaseDate.orEmpty()) }
     var nameIsBlank by remember { mutableStateOf(false) }
 
     AlertDialog(
@@ -656,7 +657,58 @@ private fun StashItemDialog(
                         label = { Text(text = stringResource(R.string.stash_field_fiber_content)) },
                         modifier = Modifier.fillMaxWidth()
                     )
+                    Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+                    OutlinedTextField(
+                        value = ravelryYarnId,
+                        onValueChange = { ravelryYarnId = it },
+                        singleLine = true,
+                        label = { Text(text = stringResource(R.string.stash_field_ravelry_yarn_id)) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
+                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+                OutlinedTextField(
+                    value = storageLocation,
+                    onValueChange = { storageLocation = it },
+                    singleLine = true,
+                    label = { Text(text = stringResource(R.string.stash_field_storage_location)) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+                OutlinedTextField(
+                    value = careInstructions,
+                    onValueChange = { careInstructions = it },
+                    minLines = 2,
+                    label = { Text(text = stringResource(R.string.stash_field_care_instructions)) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+                Row(horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
+                    OutlinedTextField(
+                        value = purchaseSource,
+                        onValueChange = { purchaseSource = it },
+                        singleLine = true,
+                        label = { Text(text = stringResource(R.string.stash_field_purchase_source)) },
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = purchasePriceText,
+                        onValueChange = { purchasePriceText = it },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        label = { Text(text = stringResource(R.string.stash_field_purchase_price)) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+                OutlinedTextField(
+                    value = purchaseDate,
+                    onValueChange = { purchaseDate = it },
+                    singleLine = true,
+                    label = { Text(text = stringResource(R.string.stash_field_purchase_date)) },
+                    supportingText = { Text(text = stringResource(R.string.stash_field_purchase_date_hint)) },
+                    modifier = Modifier.fillMaxWidth()
+                )
                 Spacer(modifier = Modifier.height(StitchbookSpacing.small))
                 OutlinedTextField(
                     value = notes,
@@ -674,17 +726,25 @@ private fun StashItemDialog(
                         nameIsBlank = true
                     } else {
                         onSave(
-                            name,
-                            category,
-                            brand,
-                            colorway,
-                            dyeLot,
-                            weightCategory,
-                            fiberContent,
-                            quantityText.toDoubleOrNull() ?: 1.0,
-                            unitLabel,
-                            yardageText.toDoubleOrNull(),
-                            notes
+                            StashItemFormInput(
+                                name = name,
+                                category = category,
+                                brand = brand,
+                                colorway = colorway,
+                                dyeLot = dyeLot,
+                                weightCategory = weightCategory,
+                                fiberContent = fiberContent,
+                                quantityText = quantityText,
+                                unitLabel = unitLabel,
+                                yardagePerUnitText = yardageText,
+                                notes = notes,
+                                storageLocation = storageLocation,
+                                careInstructions = careInstructions,
+                                ravelryYarnId = ravelryYarnId,
+                                purchaseSource = purchaseSource,
+                                purchasePriceText = purchasePriceText,
+                                purchaseDate = purchaseDate
+                            )
                         )
                     }
                 }
@@ -797,6 +857,12 @@ private fun StashScreenPreview() {
                         unitLabel = "skeins",
                         yardagePerUnit = 220.0,
                         notes = "Reserved for the cardigan body.",
+                        storageLocation = "Bin 3",
+                        careInstructions = "Hand wash cold, lay flat to dry",
+                        ravelryYarnId = null,
+                        purchaseSource = "Local yarn shop",
+                        purchasePrice = 8.5,
+                        purchaseDate = "2024-03-15",
                         createdAt = 0,
                         updatedAt = 0
                     )
@@ -806,7 +872,7 @@ private fun StashScreenPreview() {
             ),
             onSearchQueryChanged = {},
             onCategoryFilterChanged = {},
-            onSaveItem = { _, _, _, _, _, _, _, _, _, _, _, _ -> },
+            onSaveItem = { _, _ -> },
             onDeleteItem = {},
             onExportCsv = {},
             onImportCsv = {},

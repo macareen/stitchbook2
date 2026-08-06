@@ -63,17 +63,7 @@ class StashViewModelTest {
 
         viewModel.saveItem(
             original = null,
-            name = "Cascade 220",
-            category = StashCategory.YARN,
-            brand = "Cascade Yarns",
-            colorway = "Ivory",
-            dyeLot = "12345",
-            weightCategory = "Worsted",
-            fiberContent = "100% Wool",
-            quantity = 6.0,
-            unitLabel = "skeins",
-            yardagePerUnit = 220.0,
-            notes = ""
+            form = formFor(StashCategory.YARN)
         )
 
         val saved = repository.items.value.single()
@@ -81,6 +71,7 @@ class StashViewModelTest {
         assertEquals("12345", saved.dyeLot)
         assertEquals("Worsted", saved.weightCategory)
         assertEquals(220.0, saved.yardagePerUnit)
+        assertEquals("98765", saved.ravelryYarnId)
     }
 
     @Test
@@ -90,17 +81,7 @@ class StashViewModelTest {
 
         viewModel.saveItem(
             original = null,
-            name = "5mm Crochet Hook",
-            category = StashCategory.NEEDLES_HOOKS,
-            brand = "Clover",
-            colorway = "should be dropped",
-            dyeLot = "should be dropped",
-            weightCategory = "should be dropped",
-            fiberContent = "should be dropped",
-            quantity = 1.0,
-            unitLabel = "hook",
-            yardagePerUnit = 999.0,
-            notes = ""
+            form = formFor(StashCategory.NEEDLES_HOOKS)
         )
 
         val saved = repository.items.value.single()
@@ -109,6 +90,25 @@ class StashViewModelTest {
         assertNull(saved.weightCategory)
         assertNull(saved.fiberContent)
         assertNull(saved.yardagePerUnit)
+        assertNull(saved.ravelryYarnId)
+    }
+
+    @Test
+    fun savingKeepsUniversalFieldsRegardlessOfCategory() {
+        val repository = FakeStashRepository(emptyList())
+        val viewModel = viewModel(repository)
+
+        viewModel.saveItem(
+            original = null,
+            form = formFor(StashCategory.NEEDLES_HOOKS)
+        )
+
+        val saved = repository.items.value.single()
+        assertEquals("Drawer 1", saved.storageLocation)
+        assertEquals("Wipe clean", saved.careInstructions)
+        assertEquals("Local craft store", saved.purchaseSource)
+        assertEquals(12.0, saved.purchasePrice)
+        assertEquals("2024-03-15", saved.purchaseDate)
     }
 
     @Test
@@ -116,20 +116,7 @@ class StashViewModelTest {
         val repository = FakeStashRepository(emptyList())
         val viewModel = viewModel(repository)
 
-        viewModel.saveItem(
-            original = null,
-            name = "   ",
-            category = StashCategory.YARN,
-            brand = "",
-            colorway = "",
-            dyeLot = "",
-            weightCategory = "",
-            fiberContent = "",
-            quantity = 1.0,
-            unitLabel = "skeins",
-            yardagePerUnit = null,
-            notes = ""
-        )
+        viewModel.saveItem(original = null, form = formFor(StashCategory.YARN).copy(name = "   "))
 
         assertTrue(repository.items.value.isEmpty())
     }
@@ -167,8 +154,34 @@ class StashViewModelTest {
         unitLabel = "units",
         yardagePerUnit = null,
         notes = null,
+        storageLocation = null,
+        careInstructions = null,
+        ravelryYarnId = null,
+        purchaseSource = null,
+        purchasePrice = null,
+        purchaseDate = null,
         createdAt = 0,
         updatedAt = 0
+    )
+
+    private fun formFor(category: StashCategory) = StashItemFormInput(
+        name = "Test item",
+        category = category,
+        brand = "Test brand",
+        colorway = "Ivory",
+        dyeLot = "12345",
+        weightCategory = "Worsted",
+        fiberContent = "100% Wool",
+        quantityText = "6",
+        unitLabel = "skeins",
+        yardagePerUnitText = "220",
+        notes = "",
+        storageLocation = "Drawer 1",
+        careInstructions = "Wipe clean",
+        ravelryYarnId = "98765",
+        purchaseSource = "Local craft store",
+        purchasePriceText = "12",
+        purchaseDate = "2024-03-15"
     )
 
     private fun viewModel(repository: FakeStashRepository): StashViewModel {

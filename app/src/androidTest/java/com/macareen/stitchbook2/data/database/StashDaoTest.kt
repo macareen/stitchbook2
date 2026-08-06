@@ -112,6 +112,12 @@ private fun stashItemEntity(
     unitLabel = "skeins",
     yardagePerUnit = null,
     notes = null,
+    storageLocation = null,
+    careInstructions = null,
+    ravelryYarnId = null,
+    purchaseSource = null,
+    purchasePrice = null,
+    purchaseDate = null,
     createdAt = 50,
     updatedAt = updatedAt
 )

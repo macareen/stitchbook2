@@ -40,6 +40,32 @@ sealed interface StashUiState {
     ) : StashUiState
 }
 
+/**
+ * Raw, unvalidated form field values from the add/edit dialog. [StashViewModel.saveItem]
+ * owns parsing numeric text and clearing yarn-only fields the selected
+ * category doesn't use -- the dialog itself makes no judgment about what
+ * is valid for a given category.
+ */
+data class StashItemFormInput(
+    val name: String,
+    val category: StashCategory,
+    val brand: String,
+    val colorway: String,
+    val dyeLot: String,
+    val weightCategory: String,
+    val fiberContent: String,
+    val quantityText: String,
+    val unitLabel: String,
+    val yardagePerUnitText: String,
+    val notes: String,
+    val storageLocation: String,
+    val careInstructions: String,
+    val ravelryYarnId: String,
+    val purchaseSource: String,
+    val purchasePriceText: String,
+    val purchaseDate: String
+)
+
 class StashViewModel(
     private val repository: StashRepository,
     externalScope: CoroutineScope? = null
@@ -77,43 +103,39 @@ class StashViewModel(
     }
 
     /**
-     * [colorway]/[dyeLot]/[weightCategory]/[fiberContent]/[yardagePerUnit] are
-     * only meaningful for [StashCategory.YARN]; a non-yarn category clears
-     * them regardless of what the form happened to hold, so switching a
-     * form's category away from Yarn can never leave stale yarn-only data
-     * behind.
+     * [colorway]/[dyeLot]/[weightCategory]/[fiberContent]/[yardagePerUnit]/[ravelryYarnId]
+     * are only meaningful for [StashCategory.YARN]; a non-yarn category
+     * clears them regardless of what the form happened to hold, so switching
+     * a form's category away from Yarn can never leave stale yarn-only data
+     * behind. [storageLocation]/[careInstructions]/[purchaseSource]/
+     * [purchasePrice]/[purchaseDate] are meaningful for every category (you
+     * buy and store needles and notions too, not just yarn) and are never
+     * cleared.
      */
-    fun saveItem(
-        original: StashItem?,
-        name: String,
-        category: StashCategory,
-        brand: String,
-        colorway: String,
-        dyeLot: String,
-        weightCategory: String,
-        fiberContent: String,
-        quantity: Double,
-        unitLabel: String,
-        yardagePerUnit: Double?,
-        notes: String
-    ) {
-        val normalizedName = normalizedStashItemName(name) ?: return
-        val isYarn = category == StashCategory.YARN
+    fun saveItem(original: StashItem?, form: StashItemFormInput) {
+        val normalizedName = normalizedStashItemName(form.name) ?: return
+        val isYarn = form.category == StashCategory.YARN
         scope.launch {
             val now = System.currentTimeMillis()
             val item = StashItem(
                 id = original?.id ?: UUID.randomUUID().toString(),
                 name = normalizedName,
-                category = category,
-                brand = brand.trim().ifEmpty { null },
-                colorway = if (isYarn) colorway.trim().ifEmpty { null } else null,
-                dyeLot = if (isYarn) dyeLot.trim().ifEmpty { null } else null,
-                weightCategory = if (isYarn) weightCategory.trim().ifEmpty { null } else null,
-                fiberContent = if (isYarn) fiberContent.trim().ifEmpty { null } else null,
-                quantity = quantity,
-                unitLabel = unitLabel.trim().ifEmpty { "units" },
-                yardagePerUnit = if (isYarn) yardagePerUnit else null,
-                notes = notes.trim().ifEmpty { null },
+                category = form.category,
+                brand = form.brand.trim().ifEmpty { null },
+                colorway = if (isYarn) form.colorway.trim().ifEmpty { null } else null,
+                dyeLot = if (isYarn) form.dyeLot.trim().ifEmpty { null } else null,
+                weightCategory = if (isYarn) form.weightCategory.trim().ifEmpty { null } else null,
+                fiberContent = if (isYarn) form.fiberContent.trim().ifEmpty { null } else null,
+                quantity = form.quantityText.toDoubleOrNull() ?: 1.0,
+                unitLabel = form.unitLabel.trim().ifEmpty { "units" },
+                yardagePerUnit = if (isYarn) form.yardagePerUnitText.toDoubleOrNull() else null,
+                notes = form.notes.trim().ifEmpty { null },
+                storageLocation = form.storageLocation.trim().ifEmpty { null },
+                careInstructions = form.careInstructions.trim().ifEmpty { null },
+                ravelryYarnId = if (isYarn) form.ravelryYarnId.trim().ifEmpty { null } else null,
+                purchaseSource = form.purchaseSource.trim().ifEmpty { null },
+                purchasePrice = form.purchasePriceText.toDoubleOrNull(),
+                purchaseDate = form.purchaseDate.trim().ifEmpty { null },
                 createdAt = original?.createdAt ?: now,
                 updatedAt = now
             )
