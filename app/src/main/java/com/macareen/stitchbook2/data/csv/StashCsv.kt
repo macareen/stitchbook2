@@ -6,13 +6,15 @@ import com.macareen.stitchbook2.domain.model.normalizedStashItemName
 import java.util.UUID
 
 /**
- * Stitchbook Stash CSV schema, version 1. Column order and names are the
+ * Stitchbook Stash CSV schema, version 2. Column order and names are the
  * public contract for this format -- do not reorder or rename a column
  * without bumping [STASH_CSV_SCHEMA_VERSION] and updating this doc comment
  * and [stashCsvTemplate].
  *
  * Columns: id, name, category, brand, colorway, dyeLot, weightCategory,
- * fiberContent, quantity, unitLabel, yardagePerUnit, notes
+ * fiberContent, quantity, unitLabel, yardagePerUnit, notes, storageLocation,
+ * careInstructions, ravelryYarnId, purchaseSource, purchasePrice,
+ * purchaseDate
  *
  * - `id`: stable identifier. Blank on import means "create a new item";
  *   an id matching an existing item's id means "update that item in place,
@@ -23,17 +25,23 @@ import java.util.UUID
  *   (case-insensitive).
  * - `quantity`: a non-negative number. Required.
  * - `yardagePerUnit`: a non-negative number, or blank.
+ * - `purchasePrice`: a non-negative number, or blank.
+ * - `purchaseDate`: free text, conventionally an ISO-8601 date ("yyyy-MM-dd") -- not format-validated on import.
  * - Every other column is free text; blank means absent (null).
  *
  * A malformed row is reported and skipped -- it never discards or corrupts
- * the other, valid rows in the same import.
+ * the other, valid rows in the same import. Version 1 files (without the
+ * six columns added in version 2) are rejected by the missing-column check
+ * below rather than silently importing with those fields blank -- the same
+ * fail-loud choice this format already made for every other required column.
  */
-const val STASH_CSV_SCHEMA_VERSION = 1
+const val STASH_CSV_SCHEMA_VERSION = 2
 
 private val CSV_HEADER = listOf(
     "id", "name", "category", "brand", "colorway", "dyeLot",
     "weightCategory", "fiberContent", "quantity", "unitLabel",
-    "yardagePerUnit", "notes"
+    "yardagePerUnit", "notes", "storageLocation", "careInstructions",
+    "ravelryYarnId", "purchaseSource", "purchasePrice", "purchaseDate"
 )
 
 data class StashCsvRowError(val rowNumber: Int, val message: String)
@@ -63,7 +71,13 @@ fun stashItemsToCsv(items: List<StashItem>): String {
                 formatCsvNumber(item.quantity),
                 item.unitLabel,
                 item.yardagePerUnit?.let { formatCsvNumber(it) }.orEmpty(),
-                item.notes.orEmpty()
+                item.notes.orEmpty(),
+                item.storageLocation.orEmpty(),
+                item.careInstructions.orEmpty(),
+                item.ravelryYarnId.orEmpty(),
+                item.purchaseSource.orEmpty(),
+                item.purchasePrice?.let { formatCsvNumber(it) }.orEmpty(),
+                item.purchaseDate.orEmpty()
             ).joinToString(",") { it.csvEscape() }
         ).append("\r\n")
     }
@@ -86,6 +100,12 @@ fun stashCsvTemplate(): String = stashItemsToCsv(
             unitLabel = "skeins",
             yardagePerUnit = 220.0,
             notes = "Example row -- replace or delete before importing",
+            storageLocation = "Bin 3",
+            careInstructions = "Hand wash cold, lay flat to dry",
+            ravelryYarnId = "",
+            purchaseSource = "Local yarn shop",
+            purchasePrice = 8.5,
+            purchaseDate = "2024-03-15",
             createdAt = 0,
             updatedAt = 0
         )
@@ -159,6 +179,17 @@ fun parseStashCsv(
             return@forEachIndexed
         }
 
+        val purchasePriceRaw = cell("purchasePrice")
+        val purchasePrice = if (purchasePriceRaw.isBlank()) null else purchasePriceRaw.toDoubleOrNull()
+        if (purchasePriceRaw.isNotBlank() && purchasePrice == null) {
+            errors += StashCsvRowError(rowNumber, "Invalid purchasePrice \"$purchasePriceRaw\" -- must be a number.")
+            return@forEachIndexed
+        }
+        if (purchasePrice != null && purchasePrice < 0) {
+            errors += StashCsvRowError(rowNumber, "Invalid purchasePrice \"$purchasePriceRaw\" -- must not be negative.")
+            return@forEachIndexed
+        }
+
         val idCell = cell("id")
         val id = idCell.ifBlank { newId() }
         val existing = existingItemsById[id]
@@ -177,6 +208,12 @@ fun parseStashCsv(
             unitLabel = cell("unitLabel").ifBlank { "skeins" },
             yardagePerUnit = yardage,
             notes = cell("notes").ifBlank { null },
+            storageLocation = cell("storageLocation").ifBlank { null },
+            careInstructions = cell("careInstructions").ifBlank { null },
+            ravelryYarnId = cell("ravelryYarnId").ifBlank { null },
+            purchaseSource = cell("purchaseSource").ifBlank { null },
+            purchasePrice = purchasePrice,
+            purchaseDate = cell("purchaseDate").ifBlank { null },
             createdAt = existing?.createdAt ?: timestamp,
             updatedAt = timestamp
         )

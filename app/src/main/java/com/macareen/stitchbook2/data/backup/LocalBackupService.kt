@@ -335,6 +335,12 @@ private fun StashItem.toJson(): JSONObject = JSONObject().apply {
     put("unitLabel", unitLabel)
     put("yardagePerUnit", yardagePerUnit ?: JSONObject.NULL)
     put("notes", notes ?: JSONObject.NULL)
+    put("storageLocation", storageLocation ?: JSONObject.NULL)
+    put("careInstructions", careInstructions ?: JSONObject.NULL)
+    put("ravelryYarnId", ravelryYarnId ?: JSONObject.NULL)
+    put("purchaseSource", purchaseSource ?: JSONObject.NULL)
+    put("purchasePrice", purchasePrice ?: JSONObject.NULL)
+    put("purchaseDate", purchaseDate ?: JSONObject.NULL)
     put("createdAt", createdAt)
     put("updatedAt", updatedAt)
 }
@@ -353,6 +359,12 @@ private fun JSONObject.toStashItem(): StashItem = StashItem(
     unitLabel = getString("unitLabel"),
     yardagePerUnit = if (isNull("yardagePerUnit")) null else getDouble("yardagePerUnit"),
     notes = optNullableString("notes"),
+    storageLocation = optNullableString("storageLocation"),
+    careInstructions = optNullableString("careInstructions"),
+    ravelryYarnId = optNullableString("ravelryYarnId"),
+    purchaseSource = optNullableString("purchaseSource"),
+    purchasePrice = optNullableDouble("purchasePrice"),
+    purchaseDate = optNullableString("purchaseDate"),
     createdAt = getLong("createdAt"),
     updatedAt = getLong("updatedAt")
 )

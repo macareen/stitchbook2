@@ -117,6 +117,13 @@
     <string name="stash_field_weight_category">Weight Category</string>
     <string name="stash_field_yardage_per_unit">Yardage / Unit</string>
     <string name="stash_field_fiber_content">Fiber Content</string>
+    <string name="stash_field_ravelry_yarn_id">Ravelry Yarn ID</string>
+    <string name="stash_field_storage_location">Storage Location</string>
+    <string name="stash_field_care_instructions">Care Instructions</string>
+    <string name="stash_field_purchase_source">Purchased From</string>
+    <string name="stash_field_purchase_price">Price</string>
+    <string name="stash_field_purchase_date">Purchase Date</string>
+    <string name="stash_field_purchase_date_hint">e.g. 2024-03-15</string>
     <string name="stash_field_notes">Notes</string>
     <string name="save_stash_item">Save Item</string>
     <string name="delete_stash_item_title">Delete stash item?</string>

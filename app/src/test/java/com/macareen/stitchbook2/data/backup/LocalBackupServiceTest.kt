@@ -69,6 +69,12 @@ class LocalBackupServiceTest {
         unitLabel = "skeins",
         yardagePerUnit = 220.0,
         notes = null,
+        storageLocation = "Bin 3",
+        careInstructions = "Hand wash cold",
+        ravelryYarnId = "12345",
+        purchaseSource = "Local yarn shop",
+        purchasePrice = 8.5,
+        purchaseDate = "2024-03-15",
         createdAt = 100,
         updatedAt = 200
     )

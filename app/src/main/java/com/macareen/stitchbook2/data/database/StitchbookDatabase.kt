@@ -29,7 +29,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CounterEntity::class,
         CounterNoteEntity::class
     ],
-    version = 13,
+    version = 14,
     exportSchema = true
 )
 abstract class StitchbookDatabase : RoomDatabase() {
@@ -67,7 +67,8 @@ abstract class StitchbookDatabase : RoomDatabase() {
                     MIGRATION_9_10,
                     MIGRATION_10_11,
                     MIGRATION_11_12,
-                    MIGRATION_12_13
+                    MIGRATION_12_13,
+                    MIGRATION_13_14
                 )
                     .build()
                     .also { instance = it }
@@ -764,5 +765,23 @@ val MIGRATION_12_13 = object : Migration(12, 13) {
             ON `project_tool_assignments` (`tool_item_id`)
             """.trimIndent()
         )
+    }
+}
+
+/**
+ * Six plain nullable columns, none of them foreign keys, so a simple
+ * `ALTER TABLE ADD COLUMN` per field suffices -- `stash_items` has never
+ * been touched by a migration since MIGRATION_3_4 created it, so this is
+ * its first schema change (PRODUCT_SPEC.md 6.7: storage location, care
+ * instructions, Ravelry yarn ID, and purchase information).
+ */
+val MIGRATION_13_14 = object : Migration(13, 14) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `stash_items` ADD COLUMN `storage_location` TEXT")
+        db.execSQL("ALTER TABLE `stash_items` ADD COLUMN `care_instructions` TEXT")
+        db.execSQL("ALTER TABLE `stash_items` ADD COLUMN `ravelry_yarn_id` TEXT")
+        db.execSQL("ALTER TABLE `stash_items` ADD COLUMN `purchase_source` TEXT")
+        db.execSQL("ALTER TABLE `stash_items` ADD COLUMN `purchase_price` REAL")
+        db.execSQL("ALTER TABLE `stash_items` ADD COLUMN `purchase_date` TEXT")
     }
 }

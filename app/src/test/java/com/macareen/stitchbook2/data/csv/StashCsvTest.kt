@@ -7,9 +7,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 private val HEADER_ROW =
-    "id,name,category,brand,colorway,dyeLot,weightCategory,fiberContent,quantity,unitLabel,yardagePerUnit,notes"
+    "id,name,category,brand,colorway,dyeLot,weightCategory,fiberContent,quantity,unitLabel," +
+        "yardagePerUnit,notes,storageLocation,careInstructions,ravelryYarnId,purchaseSource," +
+        "purchasePrice,purchaseDate"
 
-/** Builds one data row aligned to [HEADER_ROW]'s 12 columns -- avoids hand-counting commas. */
+/** Builds one data row aligned to [HEADER_ROW]'s 18 columns -- avoids hand-counting commas. */
 private fun row(
     id: String = "",
     name: String = "",
@@ -22,10 +24,17 @@ private fun row(
     quantity: String = "1",
     unitLabel: String = "skeins",
     yardagePerUnit: String = "",
-    notes: String = ""
+    notes: String = "",
+    storageLocation: String = "",
+    careInstructions: String = "",
+    ravelryYarnId: String = "",
+    purchaseSource: String = "",
+    purchasePrice: String = "",
+    purchaseDate: String = ""
 ): String = listOf(
     id, name, category, brand, colorway, dyeLot,
-    weightCategory, fiberContent, quantity, unitLabel, yardagePerUnit, notes
+    weightCategory, fiberContent, quantity, unitLabel, yardagePerUnit, notes,
+    storageLocation, careInstructions, ravelryYarnId, purchaseSource, purchasePrice, purchaseDate
 ).joinToString(",")
 
 class StashCsvTest {
@@ -43,6 +52,12 @@ class StashCsvTest {
         unitLabel = "skeins",
         yardagePerUnit = 220.0,
         notes = "Reserved for \"the cardigan\"\nBuy more if possible.",
+        storageLocation = "Bin 3",
+        careInstructions = "Hand wash cold, lay flat to dry",
+        ravelryYarnId = "12345",
+        purchaseSource = "Local yarn shop",
+        purchasePrice = 8.5,
+        purchaseDate = "2024-03-15",
         createdAt = 100,
         updatedAt = 200
     )
@@ -154,6 +169,44 @@ class StashCsvTest {
 
         assertEquals(0, report.validItems.size)
         assertTrue(report.rowErrors.single().message.contains("quantity"))
+    }
+
+    @Test
+    fun nonNumericPurchasePriceIsReportedRatherThanCrashing() {
+        val csv = listOf(
+            HEADER_ROW,
+            row(id = "id-1", name = "Some Yarn", purchasePrice = "not-a-number")
+        ).joinToString("\n")
+
+        val report = parseStashCsv(csv, existingItemsById = emptyMap())
+
+        assertEquals(0, report.validItems.size)
+        assertTrue(report.rowErrors.single().message.contains("purchasePrice"))
+    }
+
+    @Test
+    fun negativePurchasePriceIsReported() {
+        val csv = listOf(
+            HEADER_ROW,
+            row(id = "id-1", name = "Some Yarn", purchasePrice = "-5")
+        ).joinToString("\n")
+
+        val report = parseStashCsv(csv, existingItemsById = emptyMap())
+
+        assertEquals(0, report.validItems.size)
+        assertTrue(report.rowErrors.single().message.contains("purchasePrice"))
+    }
+
+    @Test
+    fun blankPurchasePriceIsAllowedAndStoredAsNull() {
+        val csv = listOf(
+            HEADER_ROW,
+            row(id = "id-1", name = "Some Yarn", purchasePrice = "")
+        ).joinToString("\n")
+
+        val report = parseStashCsv(csv, existingItemsById = emptyMap())
+
+        assertEquals(null, report.validItems.single().purchasePrice)
     }
 
     @Test

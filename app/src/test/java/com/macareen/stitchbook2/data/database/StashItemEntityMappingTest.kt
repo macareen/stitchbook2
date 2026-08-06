@@ -23,6 +23,12 @@ class StashItemEntityMappingTest {
             unitLabel = "skeins",
             yardagePerUnit = 220.0,
             notes = "Reserved for the cardigan body.",
+            storageLocation = "Bin 3",
+            careInstructions = "Hand wash cold, lay flat to dry",
+            ravelryYarnId = "12345",
+            purchaseSource = "Local yarn shop",
+            purchasePrice = 8.5,
+            purchaseDate = "2024-03-15",
             createdAt = 100,
             updatedAt = 200
         )
@@ -45,6 +51,12 @@ class StashItemEntityMappingTest {
             unitLabel = "hook",
             yardagePerUnit = null,
             notes = null,
+            storageLocation = null,
+            careInstructions = null,
+            ravelryYarnId = null,
+            purchaseSource = null,
+            purchasePrice = null,
+            purchaseDate = null,
             createdAt = 100,
             updatedAt = 200
         )
@@ -67,6 +79,12 @@ class StashItemEntityMappingTest {
             unitLabel = "markers",
             yardagePerUnit = null,
             notes = null,
+            storageLocation = null,
+            careInstructions = null,
+            ravelryYarnId = null,
+            purchaseSource = null,
+            purchasePrice = null,
+            purchaseDate = null,
             createdAt = 100,
             updatedAt = 200
         ).toEntity()
@@ -89,6 +107,12 @@ class StashItemEntityMappingTest {
             unitLabel = "unit",
             yardagePerUnit = null,
             notes = null,
+            storageLocation = null,
+            careInstructions = null,
+            ravelryYarnId = null,
+            purchaseSource = null,
+            purchasePrice = null,
+            purchaseDate = null,
             createdAt = 100,
             updatedAt = 200
         )

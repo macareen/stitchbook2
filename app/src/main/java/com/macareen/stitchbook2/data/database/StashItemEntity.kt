@@ -20,6 +20,12 @@ data class StashItemEntity(
     @ColumnInfo(name = "unit_label") val unitLabel: String,
     @ColumnInfo(name = "yardage_per_unit") val yardagePerUnit: Double?,
     val notes: String?,
+    @ColumnInfo(name = "storage_location") val storageLocation: String?,
+    @ColumnInfo(name = "care_instructions") val careInstructions: String?,
+    @ColumnInfo(name = "ravelry_yarn_id") val ravelryYarnId: String?,
+    @ColumnInfo(name = "purchase_source") val purchaseSource: String?,
+    @ColumnInfo(name = "purchase_price") val purchasePrice: Double?,
+    @ColumnInfo(name = "purchase_date") val purchaseDate: String?,
     @ColumnInfo(name = "created_at") val createdAt: Long,
     @ColumnInfo(name = "updated_at") val updatedAt: Long
 )
@@ -39,6 +45,12 @@ fun StashItemEntity.toDomain(): StashItem {
         unitLabel = unitLabel,
         yardagePerUnit = yardagePerUnit,
         notes = notes,
+        storageLocation = storageLocation,
+        careInstructions = careInstructions,
+        ravelryYarnId = ravelryYarnId,
+        purchaseSource = purchaseSource,
+        purchasePrice = purchasePrice,
+        purchaseDate = purchaseDate,
         createdAt = createdAt,
         updatedAt = updatedAt
     )
@@ -58,6 +70,12 @@ fun StashItem.toEntity(): StashItemEntity {
         unitLabel = unitLabel,
         yardagePerUnit = yardagePerUnit,
         notes = notes,
+        storageLocation = storageLocation,
+        careInstructions = careInstructions,
+        ravelryYarnId = ravelryYarnId,
+        purchaseSource = purchaseSource,
+        purchasePrice = purchasePrice,
+        purchaseDate = purchaseDate,
         createdAt = createdAt,
         updatedAt = updatedAt
     )
