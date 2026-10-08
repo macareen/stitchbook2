@@ -175,7 +175,7 @@ class ProjectDetailViewModel(
      */
     private suspend fun resolveEntryAction(guide: Guide): GuideEntryAction {
         return try {
-            if (executionRepository.getActiveExecution(guide.id) != null) {
+            if (executionRepository.getActiveExecution(guide.id, projectId) != null) {
                 GuideEntryAction.CONTINUE
             } else if (guideRepository.getLatestRevision(guide.id) != null) {
                 GuideEntryAction.START

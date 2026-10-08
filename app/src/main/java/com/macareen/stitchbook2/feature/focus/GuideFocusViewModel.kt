@@ -128,7 +128,9 @@ class GuideFocusViewModel(
     private val guideRepository: GuideRepository,
     private val executionRepository: ExecutionRepository,
     private val counterRepository: CounterRepository,
-    externalScope: CoroutineScope? = null
+    externalScope: CoroutineScope? = null,
+    /** The project this knitting belongs to; falls back to the guide's own project. */
+    private val projectId: String? = null
 ) : ViewModel() {
 
     private val scope: CoroutineScope = externalScope ?: viewModelScope
@@ -239,7 +241,7 @@ class GuideFocusViewModel(
                     _uiState.value = GuideFocusUiState.NoPublishedRevision
                     return@launch
                 }
-                val execution = executionRepository.createExecution(guideId, revisionId)
+                val execution = executionRepository.createExecution(guideId, revisionId, projectId.ifEmpty { null })
                 val projectCounters = counterRepository.observeCountersByProject(projectId).first()
                 applyExecutionResult(guideName, projectId, execution, projectCounters)
             } catch (error: CancellationException) {
@@ -306,10 +308,11 @@ class GuideFocusViewModel(
             }
 
             // A pattern guide opened on its own has no project, so no project counters.
-            val projectId = guide.projectId.orEmpty()
-            val active = executionRepository.getActiveExecution(guideId)
+            val contextProjectId = this.projectId ?: guide.projectId
+            val projectId = contextProjectId.orEmpty()
+            val active = executionRepository.getActiveExecution(guideId, contextProjectId)
             if (active != null) {
-                val projectCounters = guide.projectId?.let { counterRepository.observeCountersByProject(it).first() }.orEmpty()
+                val projectCounters = contextProjectId?.let { counterRepository.observeCountersByProject(it).first() }.orEmpty()
                 applyExecutionResult(guide.name, projectId, active, projectCounters, feedback)
                 return
             }
@@ -426,10 +429,11 @@ class GuideFocusViewModel(
             guideId: GuideId,
             guideRepository: GuideRepository,
             executionRepository: ExecutionRepository,
-            counterRepository: CounterRepository
+            counterRepository: CounterRepository,
+            projectId: String? = null
         ): ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                GuideFocusViewModel(guideId, guideRepository, executionRepository, counterRepository)
+                GuideFocusViewModel(guideId, guideRepository, executionRepository, counterRepository, projectId = projectId)
             }
         }
     }

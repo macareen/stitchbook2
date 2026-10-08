@@ -54,7 +54,7 @@ fun HomeRoute(
     onOpenProjects: () -> Unit,
     onOpenLibrary: () -> Unit,
     onOpenStash: () -> Unit,
-    onResumeGuide: (String) -> Unit,
+    onResumeGuide: (ResumeGuide) -> Unit,
     onOpenStatistics: () -> Unit = {},
     onOpenCounters: () -> Unit = {}
 ) {
@@ -81,7 +81,7 @@ fun HomeScreen(
     onOpenProjects: () -> Unit,
     onOpenLibrary: () -> Unit,
     onOpenStash: () -> Unit,
-    onResumeGuide: (String) -> Unit,
+    onResumeGuide: (ResumeGuide) -> Unit,
     modifier: Modifier = Modifier,
     onOpenStatistics: () -> Unit = {},
     onOpenCounters: () -> Unit = {}
@@ -141,7 +141,7 @@ private fun HomeContent(
     onOpenProjects: () -> Unit,
     onOpenLibrary: () -> Unit,
     onOpenStash: () -> Unit,
-    onResumeGuide: (String) -> Unit,
+    onResumeGuide: (ResumeGuide) -> Unit,
     modifier: Modifier = Modifier,
     onOpenStatistics: () -> Unit = {},
     onOpenCounters: () -> Unit = {}
@@ -170,7 +170,7 @@ private fun HomeContent(
         }
 
         uiState.resumeGuide?.let { resume ->
-            item { ContinueCard(resume = resume, onClick = { onResumeGuide(resume.guideId) }) }
+            item { ContinueCard(resume = resume, onClick = { onResumeGuide(resume) }) }
         }
 
         item {

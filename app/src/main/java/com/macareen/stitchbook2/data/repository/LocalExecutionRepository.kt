@@ -23,13 +23,15 @@ class LocalExecutionRepository(
 
     override suspend fun createExecution(
         guideId: GuideId,
-        revisionId: DefinitionRevisionId
+        revisionId: DefinitionRevisionId,
+        projectId: String?
     ): PersistedExecution {
         return executionDao.createExecution(
             guideId = guideId.value,
             revisionId = revisionId.value,
             executionId = newId(),
-            createdAt = currentTimeMillis()
+            createdAt = currentTimeMillis(),
+            projectId = projectId
         ).toDomain()
     }
 
@@ -37,9 +39,12 @@ class LocalExecutionRepository(
         return executionDao.getExecutionAggregate(executionId.value)?.toDomain()
     }
 
-    override suspend fun getActiveExecution(guideId: GuideId): PersistedExecution? {
-        return executionDao.getActiveExecutionAggregate(guideId.value)?.toDomain()
+    override suspend fun getActiveExecution(guideId: GuideId, projectId: String?): PersistedExecution? {
+        return executionDao.getActiveExecutionAggregate(guideId.value, projectId)?.toDomain()
     }
+
+    override suspend fun hasActiveExecutionAnywhere(guideId: GuideId): Boolean =
+        executionDao.hasAnyActiveExecution(guideId.value)
 
     override suspend fun listExecutions(guideId: GuideId): List<PersistedExecution> {
         return executionDao.getExecutionAggregatesForGuide(guideId.value)

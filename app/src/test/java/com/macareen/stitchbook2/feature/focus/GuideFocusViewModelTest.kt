@@ -615,7 +615,8 @@ private class FakeExecutionRepository(
 
     override suspend fun createExecution(
         guideId: GuideId,
-        revisionId: DefinitionRevisionId
+        revisionId: DefinitionRevisionId,
+        projectId: String?
     ): PersistedExecution {
         pauseNextCreateUntil?.let {
             pauseNextCreateUntil = null
@@ -642,7 +643,7 @@ private class FakeExecutionRepository(
     override suspend fun loadExecution(executionId: ExecutionId): PersistedExecution? =
         executions[executionId.value]
 
-    override suspend fun getActiveExecution(guideId: GuideId): PersistedExecution? =
+    override suspend fun getActiveExecution(guideId: GuideId, projectId: String?): PersistedExecution? =
         activeByGuide[guideId.value]?.let { executions[it] }
 
     override suspend fun listExecutions(guideId: GuideId): List<PersistedExecution> =

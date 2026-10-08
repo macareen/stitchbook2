@@ -36,7 +36,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         JournalEntryEntity::class,
         CraftingSessionEntity::class
     ],
-    version = 19,
+    version = 20,
     exportSchema = true
 )
 abstract class StitchbookDatabase : RoomDatabase() {
@@ -98,7 +98,8 @@ val ALL_MIGRATIONS: Array<Migration>
         MIGRATION_15_16,
         MIGRATION_16_17,
         MIGRATION_17_18,
-        MIGRATION_18_19
+        MIGRATION_18_19,
+        MIGRATION_19_20
     )
 
 val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -1039,6 +1040,52 @@ val MIGRATION_18_19 = object : Migration(18, 19) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_project_guides_guide_id` ON `project_guides` (`guide_id`)")
         db.query("PRAGMA foreign_key_check").use { cursor ->
             check(!cursor.moveToFirst()) { "Guide migration left a broken reference in ${cursor.getString(0)}." }
+        }
+    }
+}
+
+/**
+ * Keeps progress per project: `executions` gains `project_id`, filled from
+ * each guide's current project, and `active_executions` is keyed by guide
+ * and project (`project_key`, "" for a guide opened on its own), so one
+ * pattern guide used by two projects keeps a separate place in each.
+ *
+ * `active_executions` is rebuilt to change its primary key. Nothing
+ * references it, so the rebuild touches no other table; every row is copied.
+ */
+val MIGRATION_19_20 = object : Migration(19, 20) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `executions` ADD COLUMN `project_id` TEXT")
+        db.execSQL(
+            """
+            UPDATE `executions`
+            SET `project_id` = (SELECT `project_id` FROM `guides` WHERE `guides`.`id` = `executions`.`guide_id`)
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `active_executions_v20` (
+                `guide_id` TEXT NOT NULL,
+                `project_key` TEXT NOT NULL,
+                `execution_id` TEXT NOT NULL,
+                PRIMARY KEY(`guide_id`, `project_key`),
+                FOREIGN KEY(`guide_id`) REFERENCES `guides`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                FOREIGN KEY(`execution_id`) REFERENCES `executions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            INSERT INTO `active_executions_v20` (`guide_id`, `project_key`, `execution_id`)
+            SELECT a.`guide_id`, IFNULL(g.`project_id`, ''), a.`execution_id`
+            FROM `active_executions` a JOIN `guides` g ON g.`id` = a.`guide_id`
+            """.trimIndent()
+        )
+        db.execSQL("DROP TABLE `active_executions`")
+        db.execSQL("ALTER TABLE `active_executions_v20` RENAME TO `active_executions`")
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_active_executions_execution_id` ON `active_executions` (`execution_id`)")
+        db.query("PRAGMA foreign_key_check").use { cursor ->
+            check(!cursor.moveToFirst()) { "Progress migration left a broken reference in ${cursor.getString(0)}." }
         }
     }
 }
