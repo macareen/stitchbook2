@@ -18,7 +18,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Bump alongside `StitchbookDatabase.version`; every migration chain below must reach it. */
-private const val CURRENT_SCHEMA_VERSION = 19
+private const val CURRENT_SCHEMA_VERSION = 20
 
 @RunWith(AndroidJUnit4::class)
 class StitchbookMigrationTest {
@@ -608,6 +608,62 @@ class StitchbookMigrationTest {
         }
     }
 
+    /**
+     * Progress becomes per project: every existing progress record takes its
+     * guide's project, and the active pointer is keyed by that project ("" for
+     * a pattern guide with none), so nobody loses their place. Foreign keys are
+     * on before migrating, the worst case for the `active_executions` rebuild.
+     */
+    @Test
+    fun migrationFromNineteenToTwentyKeepsEveryPlaceUnderItsProject() {
+        val helper = migrationHelper
+        helper.createDatabase(HELPER_DATABASE_NAME, 19).use { db ->
+            listOf(
+                EXISTING_PROJECT_SQL,
+                """
+                INSERT INTO guides (id, project_id, library_item_id, size_label, name, notes, created_at, updated_at)
+                VALUES ('g1', 'existing-project', NULL, NULL, 'Body', NULL, 10, 20)
+                """,
+                """
+                INSERT INTO guides (id, project_id, library_item_id, size_label, name, notes, created_at, updated_at)
+                VALUES ('g2', NULL, NULL, 'M', 'Pattern guide', NULL, 10, 20)
+                """,
+                """
+                INSERT INTO definition_revisions (id, guide_id, revision_number, created_at)
+                VALUES ('r1', 'g1', 1, 30), ('r2', 'g2', 1, 30)
+                """,
+                """
+                INSERT INTO revision_nodes (revision_id, node_id, parent_node_id, child_order, type, instruction_text)
+                VALUES ('r1', 'n1', NULL, 0, 'INSTRUCTION', 'Knit'), ('r2', 'n1', NULL, 0, 'INSTRUCTION', 'Purl')
+                """,
+                """
+                INSERT INTO executions (id, guide_id, definition_revision_id, status, current_instruction_node_id, created_at, updated_at, completed_at, version)
+                VALUES ('e1', 'g1', 'r1', 'ACTIVE', 'n1', 40, 50, NULL, 3),
+                       ('e2', 'g2', 'r2', 'ACTIVE', 'n1', 40, 50, NULL, 1),
+                       ('e0', 'g1', 'r1', 'COMPLETED', NULL, 1, 2, 2, 5)
+                """,
+                "INSERT INTO active_executions (guide_id, execution_id) VALUES ('g1', 'e1'), ('g2', 'e2')"
+            ).forEach { db.execSQL(it.trimIndent()) }
+            db.execSQL("PRAGMA foreign_keys = ON")
+        }
+
+        helper.runMigrationsAndValidate(HELPER_DATABASE_NAME, 20, true, MIGRATION_19_20).use { db ->
+            db.query("SELECT id, project_id FROM executions ORDER BY id").use { cursor ->
+                val projects = buildMap { while (cursor.moveToNext()) put(cursor.getString(0), cursor.getString(1)) }
+                assertEquals(mapOf("e0" to "existing-project", "e1" to "existing-project", "e2" to null), projects)
+            }
+            db.query("SELECT guide_id, project_key, execution_id FROM active_executions ORDER BY guide_id").use { cursor ->
+                val rows = buildList {
+                    while (cursor.moveToNext()) add(Triple(cursor.getString(0), cursor.getString(1), cursor.getString(2)))
+                }
+                assertEquals(listOf(Triple("g1", "existing-project", "e1"), Triple("g2", "", "e2")), rows)
+            }
+            db.query("SELECT name FROM sqlite_master WHERE name = 'active_executions_v20'").use { cursor ->
+                assertFalse("the temporary table is gone", cursor.moveToFirst())
+            }
+        }
+    }
+
     private fun seedAtVersion(version: Int, vararg statements: String) {
         migrationHelper.createDatabase(DATABASE_NAME, version).use { db ->
             statements.forEach { db.execSQL(it.trimIndent()) }
@@ -658,7 +714,8 @@ class StitchbookMigrationTest {
             MIGRATION_15_16,
             MIGRATION_16_17,
             MIGRATION_17_18,
-            MIGRATION_18_19
+            MIGRATION_18_19,
+            MIGRATION_19_20
         ).use { db ->
             db.query(
                 "SELECT name, notes, description, construction_method, custom_type_label, start_date, target_date, completed_date FROM projects WHERE id = 'existing-project'"

@@ -159,6 +159,28 @@ class ExecutionRepositoryTest {
     }
 
     @Test
+    fun oneGuideKeepsASeparatePlaceInEachProject() = runBlocking {
+        val guideId = createGuideWithSimpleRevision("guide", "draft", "revision", occurrences = 1)
+
+        enqueueIds("exec-a")
+        val inA = executionRepository.createExecution(guideId, DefinitionRevisionId("revision"), "project-a")
+        enqueueIds("exec-b")
+        executionRepository.createExecution(guideId, DefinitionRevisionId("revision"), "project-b")
+        enqueueIds("exec-alone")
+        executionRepository.createExecution(guideId, DefinitionRevisionId("revision"))
+
+        assertEquals(ExecutionId("exec-a"), executionRepository.getActiveExecution(guideId, "project-a")?.state?.executionId)
+        assertEquals(ExecutionId("exec-b"), executionRepository.getActiveExecution(guideId, "project-b")?.state?.executionId)
+        assertEquals(ExecutionId("exec-alone"), executionRepository.getActiveExecution(guideId)?.state?.executionId)
+
+        executionRepository.applyComplete(inA.state.executionId, inA.version)
+
+        assertNull(executionRepository.getActiveExecution(guideId, "project-a"))
+        assertEquals(ExecutionId("exec-b"), executionRepository.getActiveExecution(guideId, "project-b")?.state?.executionId)
+        assertTrue(executionRepository.hasActiveExecutionAnywhere(guideId))
+    }
+
+    @Test
     fun differentGuidesEachHaveAnActiveExecution() = runBlocking {
         val guideOne = createGuideWithSimpleRevision("guide-one", "draft-one", "revision-one")
         val guideTwo = createGuideWithSimpleRevision("guide-two", "draft-two", "revision-two")

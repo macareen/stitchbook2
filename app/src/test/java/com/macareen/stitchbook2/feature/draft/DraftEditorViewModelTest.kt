@@ -548,13 +548,14 @@ private class FakeExecutionRepository(
 
     override suspend fun createExecution(
         guideId: GuideId,
-        revisionId: DefinitionRevisionId
+        revisionId: DefinitionRevisionId,
+        projectId: String?
     ): PersistedExecution = throw UnsupportedOperationException("Not used by DraftEditorViewModel")
 
     override suspend fun loadExecution(executionId: ExecutionId): PersistedExecution? =
         throw UnsupportedOperationException("Not used by DraftEditorViewModel")
 
-    override suspend fun getActiveExecution(guideId: GuideId): PersistedExecution? = activeExecution
+    override suspend fun getActiveExecution(guideId: GuideId, projectId: String?): PersistedExecution? = activeExecution
 
     override suspend fun listExecutions(guideId: GuideId): List<PersistedExecution> =
         throw UnsupportedOperationException("Not used by DraftEditorViewModel")

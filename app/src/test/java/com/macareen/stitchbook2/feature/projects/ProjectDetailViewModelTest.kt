@@ -607,13 +607,14 @@ private class FakeExecutionRepository : ExecutionRepository {
 
     override suspend fun createExecution(
         guideId: GuideId,
-        revisionId: DefinitionRevisionId
+        revisionId: DefinitionRevisionId,
+        projectId: String?
     ): PersistedExecution = throw UnsupportedOperationException("Not used by ProjectDetailViewModel")
 
     override suspend fun loadExecution(executionId: ExecutionId): PersistedExecution? =
         throw UnsupportedOperationException("Not used by ProjectDetailViewModel")
 
-    override suspend fun getActiveExecution(guideId: GuideId): PersistedExecution? =
+    override suspend fun getActiveExecution(guideId: GuideId, projectId: String?): PersistedExecution? =
         activeExecutionByGuide[guideId]
 
     override suspend fun listExecutions(guideId: GuideId): List<PersistedExecution> =
