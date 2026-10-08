@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="ravelry_title">Ravelry</string>
-    <string name="ravelry_explainer">Optional. Bring your Ravelry stash and needles into Stitchbook. On Ravelry, open Pro → Developer, create an app, and add a \"Basic Auth: personal account access\" key. Type it here: it stays encrypted on this phone, and Stitchbook only reads from Ravelry, never writes.</string>
+    <string name="ravelry_explainer">Optional. Bring your Ravelry stash, needles, projects, and library patterns into Stitchbook. On Ravelry, open Pro → Developer, create an app, and add a \"Basic Auth: personal account access\" key. Type it here: it stays encrypted on this phone, and Stitchbook only reads from Ravelry, never writes.</string>
     <string name="ravelry_access_key">Access key (username)</string>
     <string name="ravelry_personal_key">Personal key (password)</string>
     <string name="ravelry_connect">Save and connect</string>
@@ -19,9 +19,11 @@
     <string name="ravelry_review_up_to_date">Everything from Ravelry is already here.</string>
     <string name="ravelry_review_yarn">Yarn</string>
     <string name="ravelry_review_tools">Needles and hooks</string>
+    <string name="ravelry_review_projects">Projects</string>
+    <string name="ravelry_review_patterns">Patterns in your library</string>
     <string name="ravelry_review_new">%1$d new</string>
     <string name="ravelry_review_changed">%1$d changed on Ravelry</string>
-    <string name="ravelry_review_note">Updating changed items replaces only Ravelry\'s details. Your notes, purchase details, and weighed remainders stay as they are.</string>
+    <string name="ravelry_review_note">Updating changed items replaces only Ravelry\'s details. Your notes, purchase details, weighed remainders, project types, and attached PDFs stay as they are.</string>
     <string name="ravelry_add_new">Add new only</string>
     <string name="ravelry_add_and_update">Add new and update changed</string>
 </resources>

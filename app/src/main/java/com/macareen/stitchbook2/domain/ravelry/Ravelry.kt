@@ -47,6 +47,26 @@ data class RavelryNeedle(
     val comment: String?
 )
 
+/** A project from the person's Ravelry notebook ("Project (small)"). Dates are Ravelry's text, normalised later. */
+data class RavelryProject(
+    val id: Long,
+    val name: String?,
+    val craftName: String?,
+    val statusName: String?,
+    val patternName: String?,
+    val started: String?,
+    val completed: String?,
+    val finishBy: String?
+)
+
+/** A volume in the person's Ravelry library: a purchased or downloaded pattern, book, or magazine. */
+data class RavelryVolume(
+    val id: Long,
+    val title: String?,
+    val authorName: String?,
+    val patternId: Long?
+)
+
 /**
  * Read-only access to the signed-in person's own Ravelry records. Every
  * call is a GET; Stitchbook never writes to Ravelry.
@@ -56,6 +76,10 @@ interface RavelryApi {
     suspend fun currentUsername(credentials: RavelryCredentials): String
     suspend fun stash(credentials: RavelryCredentials, username: String): List<RavelryStashEntry>
     suspend fun needles(credentials: RavelryCredentials, username: String): List<RavelryNeedle>
+    suspend fun projects(credentials: RavelryCredentials, username: String): List<RavelryProject>
+
+    /** Every volume in the person's library, including Ravelry PDF purchases and downloads. */
+    suspend fun library(credentials: RavelryCredentials, username: String): List<RavelryVolume>
 }
 
 /** Ravelry refused the key (HTTP 401/403): it was mistyped, revoked, or is a read-only key. */

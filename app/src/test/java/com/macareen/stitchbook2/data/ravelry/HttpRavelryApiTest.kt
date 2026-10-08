@@ -81,6 +81,31 @@ class HttpRavelryApiTest {
     }
 
     @Test
+    fun projectsAndLibraryVolumesAreRead() = runBlocking {
+        val api = api(
+            mapOf(
+                "/projects/ana/list.json?page=1&page_size=100" to ok(
+                    """{"projects": [{"id": 42, "name": "Lagoon cardigan", "craft_name": "Knitting", "status_name": "Finished",
+                        "pattern_name": null, "personal_source_name": "Notebook sketch", "started": "2026/03/05",
+                        "completed": "2026/09/30", "finish_by": null}],
+                       "paginator": {"page": 1, "last_page": 1}}"""
+                ),
+                "/people/ana/library/search.json?page=1&page_size=100" to ok(
+                    """{"volumes": [{"id": 7, "title": "Seaside Cardigan", "author_name": "A. Designer", "pattern_id": 900}],
+                       "paginator": {"page": 1, "last_page": 1}}"""
+                )
+            )
+        )
+
+        val project = api.projects(credentials, "ana").single()
+        assertEquals("Notebook sketch", project.patternName)
+        assertEquals("2026/09/30", project.completed)
+        val volume = api.library(credentials, "ana").single()
+        assertEquals(900L, volume.patternId)
+        assertEquals("A. Designer", volume.authorName)
+    }
+
+    @Test
     fun aRejectedKeyAndOtherFailuresAreTold() = runBlocking {
         assertTrue(failure { api(mapOf("/current_user.json" to HttpRavelryApi.HttpResult(403, ""))).currentUsername(credentials) } is RavelryAuthException)
         assertTrue(failure { api(mapOf("/current_user.json" to HttpRavelryApi.HttpResult(503, ""))).currentUsername(credentials) } is RavelryUnavailableException)

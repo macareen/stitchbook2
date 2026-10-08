@@ -147,7 +147,7 @@ private fun ConnectedContent(uiState: RavelryUiState, onForgetKey: () -> Unit, o
 
 @Composable
 private fun PlanDialog(plan: RavelryImportPlan, isWorking: Boolean, onApply: (Boolean) -> Unit, onDismiss: () -> Unit) {
-    val changes = plan.changedStash.size + plan.changedTools.size
+    val changes = plan.changeCount
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.ravelry_review_title)) },
@@ -158,13 +158,15 @@ private fun PlanDialog(plan: RavelryImportPlan, isWorking: Boolean, onApply: (Bo
                 } else {
                     PlanLine(R.string.ravelry_review_yarn, plan.newStash.size, plan.changedStash.size)
                     PlanLine(R.string.ravelry_review_tools, plan.newTools.size, plan.changedTools.size)
+                    PlanLine(R.string.ravelry_review_projects, plan.projects.new.size, plan.projects.changed.size)
+                    PlanLine(R.string.ravelry_review_patterns, plan.patterns.new.size, plan.patterns.changed.size)
                     QuietText(text = stringResource(R.string.ravelry_review_note))
                 }
             }
         },
         confirmButton = {
             Column {
-                if (plan.newStash.isNotEmpty() || plan.newTools.isNotEmpty()) {
+                if (plan.hasNew) {
                     TextButton(onClick = { onApply(false) }, enabled = !isWorking) {
                         Text(stringResource(R.string.ravelry_add_new))
                     }

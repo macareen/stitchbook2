@@ -1,5 +1,8 @@
 package com.macareen.stitchbook2.domain.ravelry
 
+import com.macareen.stitchbook2.domain.model.Craft
+import com.macareen.stitchbook2.domain.model.ProjectStatus
+import com.macareen.stitchbook2.domain.model.ProjectType
 import com.macareen.stitchbook2.domain.model.ToolCategory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -99,5 +102,76 @@ class RavelryImportPlannerTest {
         assertEquals(3.25, RavelryImportPlanner.millimetres("3,25mm")!!, 0.0)
         assertNull(RavelryImportPlanner.millimetres("US 6"))
         assertNull(RavelryImportPlanner.millimetres("H-8"))
+    }
+
+    @Test
+    fun projectsBringCraftStatusDatesAndPattern() {
+        val remote = RavelryProject(
+            id = 42,
+            name = "Lagoon cardigan",
+            craftName = "Knitting",
+            statusName = "In progress",
+            patternName = "Seaside Cardigan",
+            started = "2026/03/05",
+            completed = null,
+            finishBy = "2026-12-01"
+        )
+
+        val project = RavelryImportPlanner.planProjects(listOf(remote), emptyList(), now = 5).new.single()
+
+        assertEquals("ravelry-project-42", project.id)
+        assertEquals(Craft.KNITTING, project.craft)
+        assertEquals(ProjectStatus.ACTIVE, project.status)
+        assertEquals("2026-03-05", project.startDate)
+        assertEquals("2026-12-01", project.targetDate)
+        assertEquals("Pattern: Seaside Cardigan", project.description)
+    }
+
+    @Test
+    fun aFinishedProjectUpdatesStatusButKeepsLocalTypeAndDescription() {
+        val remote = RavelryProject(42, "Lagoon cardigan", "Knitting", "In progress", "Seaside Cardigan", "2026/03/05", null, null)
+        val local = RavelryImportPlanner.planProjects(listOf(remote), emptyList(), now = 5).new.single()
+            .copy(projectType = ProjectType.CARDIGAN, description = "Gift for my sister", notes = "Size M")
+
+        val plan = RavelryImportPlanner.planProjects(
+            listOf(remote.copy(statusName = "Finished", completed = "2026/09/30")),
+            listOf(local),
+            now = 9
+        )
+
+        val updated = plan.changed.single().updated
+        assertEquals(ProjectStatus.COMPLETED, updated.status)
+        assertEquals("2026-09-30", updated.completedDate)
+        assertEquals(ProjectType.CARDIGAN, updated.projectType)
+        assertEquals("Gift for my sister", updated.description)
+        assertEquals("Size M", updated.notes)
+    }
+
+    @Test
+    fun libraryVolumesBecomePatternEntriesAndKeepAnAttachedPdf() {
+        val volume = RavelryVolume(id = 7, title = "Seaside Cardigan", authorName = "A. Designer", patternId = 900)
+        val created = RavelryImportPlanner.planPatterns(listOf(volume), emptyList(), now = 1).new.single()
+
+        assertEquals("ravelry-volume-7", created.id)
+        assertEquals("Seaside Cardigan", created.title)
+        assertEquals("A. Designer", created.author)
+        assertEquals("900", created.ravelryPatternId)
+        assertEquals(Craft.OTHER, created.craft)
+
+        val local = created.copy(craft = Craft.KNITTING, pdfUri = "content://picked/file.pdf")
+        val again = RavelryImportPlanner.planPatterns(listOf(volume), listOf(local), now = 2)
+        assertEquals(1, again.unchanged)
+    }
+
+    @Test
+    fun ravelryWordsMapConservatively() {
+        assertEquals(Craft.CROCHET, RavelryImportPlanner.craftFor("Crochet"))
+        assertEquals(Craft.LOOM_KNITTING, RavelryImportPlanner.craftFor("Loom Knitting"))
+        assertEquals(Craft.OTHER, RavelryImportPlanner.craftFor("Weaving"))
+        assertEquals(ProjectStatus.PAUSED, RavelryImportPlanner.statusFor("Hibernating"))
+        assertEquals(ProjectStatus.ABANDONED, RavelryImportPlanner.statusFor("Frogged"))
+        assertNull(RavelryImportPlanner.statusFor("Something new"))
+        assertEquals("2024-03-05", RavelryImportPlanner.isoDate("2024/3/5"))
+        assertNull(RavelryImportPlanner.isoDate("March 2024"))
     }
 }

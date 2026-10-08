@@ -1,7 +1,9 @@
 package com.macareen.stitchbook2.data.ravelry
 
 import com.macareen.stitchbook2.domain.ravelry.RavelryNeedle
+import com.macareen.stitchbook2.domain.ravelry.RavelryProject
 import com.macareen.stitchbook2.domain.ravelry.RavelryStashEntry
+import com.macareen.stitchbook2.domain.ravelry.RavelryVolume
 import org.json.JSONObject
 
 /**
@@ -16,18 +18,44 @@ internal object RavelryJson {
     fun username(body: String): String =
         JSONObject(body).getJSONObject("user").getString("username")
 
-    data class StashPage(val entries: List<RavelryStashEntry>, val isLastPage: Boolean)
+    data class Page<T>(val entries: List<T>, val isLastPage: Boolean)
 
-    fun stashPage(body: String): StashPage {
-        val root = JSONObject(body)
-        val array = root.optJSONArray("stash")
-        val entries = (0 until (array?.length() ?: 0)).mapNotNull { index ->
-            array?.optJSONObject(index)?.let(::stashEntry)
+    fun stashPage(body: String): Page<RavelryStashEntry> = page(body, "stash", ::stashEntry)
+
+    fun projectsPage(body: String): Page<RavelryProject> = page(body, "projects") { project ->
+        project.number("id")?.toLong()?.let { id ->
+            RavelryProject(
+                id = id,
+                name = project.text("name"),
+                craftName = project.text("craft_name"),
+                statusName = project.text("status_name"),
+                patternName = project.text("pattern_name") ?: project.text("personal_source_name"),
+                started = project.text("started"),
+                completed = project.text("completed"),
+                finishBy = project.text("finish_by")
+            )
         }
+    }
+
+    fun volumesPage(body: String): Page<RavelryVolume> = page(body, "volumes") { volume ->
+        volume.number("id")?.toLong()?.let { id ->
+            RavelryVolume(
+                id = id,
+                title = volume.text("title"),
+                authorName = volume.text("author_name"),
+                patternId = volume.number("pattern_id")?.toLong()
+            )
+        }
+    }
+
+    private fun <T> page(body: String, key: String, read: (JSONObject) -> T?): Page<T> {
+        val root = JSONObject(body)
+        val array = root.optJSONArray(key)
+        val entries = (0 until (array?.length() ?: 0)).mapNotNull { index -> array?.optJSONObject(index)?.let(read) }
         val paginator = root.optJSONObject("paginator")
         val page = paginator?.number("page")
         val lastPage = paginator?.number("last_page") ?: paginator?.number("page_count")
-        return StashPage(entries, isLastPage = page == null || lastPage == null || page >= lastPage)
+        return Page(entries, isLastPage = page == null || lastPage == null || page >= lastPage)
     }
 
     private fun stashEntry(entry: JSONObject): RavelryStashEntry? {
