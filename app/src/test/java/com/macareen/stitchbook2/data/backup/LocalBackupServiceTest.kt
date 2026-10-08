@@ -21,6 +21,7 @@ import com.macareen.stitchbook2.domain.repository.ProjectRepository
 import com.macareen.stitchbook2.domain.repository.StashRepository
 import com.macareen.stitchbook2.domain.repository.ToolRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -466,19 +467,24 @@ private class FakeToolRepository(
         sets.value = sets.value.filterNot { it.id == set.id }
     }
 
-    override fun observeToolTemplates(): Flow<List<ToolTemplate>> =
-        throw UnsupportedOperationException("Not used by LocalBackupService")
-    override suspend fun saveToolTemplate(template: ToolTemplate) =
-        throw UnsupportedOperationException("Not used by LocalBackupService")
-    override suspend fun deleteToolTemplate(template: ToolTemplate) =
-        throw UnsupportedOperationException("Not used by LocalBackupService")
+    val templates = MutableStateFlow<List<ToolTemplate>>(emptyList())
+    val assignments = MutableStateFlow<Map<String, Set<String>>>(emptyMap())
+
+    override fun observeToolTemplates(): Flow<List<ToolTemplate>> = templates
+    override suspend fun saveToolTemplate(template: ToolTemplate) {
+        templates.value = templates.value.filterNot { it.id == template.id } + template
+    }
+    override suspend fun deleteToolTemplate(template: ToolTemplate) {
+        templates.value = templates.value.filterNot { it.id == template.id }
+    }
 
     override fun observeToolItemsForProject(projectId: String): Flow<List<ToolItem>> =
         throw UnsupportedOperationException("Not used by LocalBackupService")
     override fun observeProjectIdsForToolItem(toolItemId: String): Flow<List<String>> =
-        throw UnsupportedOperationException("Not used by LocalBackupService")
-    override suspend fun setProjectAssignments(toolItemId: String, projectIds: Set<String>) =
-        throw UnsupportedOperationException("Not used by LocalBackupService")
+        flowOf(assignments.value[toolItemId].orEmpty().toList())
+    override suspend fun setProjectAssignments(toolItemId: String, projectIds: Set<String>) {
+        assignments.value = assignments.value + (toolItemId to projectIds)
+    }
     override suspend fun unassignToolFromProject(toolItemId: String, projectId: String) =
         throw UnsupportedOperationException("Not used by LocalBackupService")
 }

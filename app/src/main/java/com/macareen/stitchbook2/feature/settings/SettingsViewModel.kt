@@ -95,7 +95,8 @@ class SettingsViewModel(
                         result.counterCount,
                         result.counterNoteCount
                     )
-                    BackupImportResult.InvalidFormat -> SettingsFeedback.ImportFailed
+                    BackupImportResult.InvalidFormat,
+                    is BackupImportResult.ValidationFailed -> SettingsFeedback.ImportFailed
                 }
             )
         }
