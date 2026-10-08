@@ -366,6 +366,15 @@ class LocalBackupServiceTest {
     }
 
     @Test
+    fun resetAllDataAlsoClearsGuidesThatBelongToNoProject() = runBlocking {
+        val store = FakeGuideBackupStore(GuideBackupFixtures.graph)
+
+        guideService(store).resetAllData()
+
+        assertEquals(GuideBackupGraph(), store.graph)
+    }
+
+    @Test
     fun importingMalformedJsonReturnsInvalidFormatWithoutTouchingAnyRepository() = runBlocking {
         val projects = FakeProjectRepository(listOf(project))
         val library = FakeLibraryRepository(listOf(libraryItem))
