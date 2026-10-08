@@ -47,18 +47,26 @@ interface ExecutionRepository {
      * Fails atomically, without side effects, if [guideId] or [revisionId]
      * does not exist, if [revisionId] does not belong to [guideId], if the
      * stored revision is not a valid executable definition, or if [guideId]
-     * already has an ACTIVE Execution.
+     * already has an ACTIVE Execution for the same [projectId].
+     *
+     * [projectId] is the project the knitting belongs to (null when the guide
+     * is opened on its own), so one guide used by two projects keeps a
+     * separate place in each.
      */
     suspend fun createExecution(
         guideId: GuideId,
-        revisionId: DefinitionRevisionId
+        revisionId: DefinitionRevisionId,
+        projectId: String? = null
     ): PersistedExecution
 
     /** Loads one Execution with its full persisted state, or null if absent. */
     suspend fun loadExecution(executionId: ExecutionId): PersistedExecution?
 
-    /** Loads the single ACTIVE Execution for [guideId], or null if none. */
-    suspend fun getActiveExecution(guideId: GuideId): PersistedExecution?
+    /** Loads the ACTIVE Execution for [guideId] in [projectId] (null: opened on its own), or null if none. */
+    suspend fun getActiveExecution(guideId: GuideId, projectId: String? = null): PersistedExecution?
+
+    /** Whether anyone, in any project or none, is part-way through [guideId]. */
+    suspend fun hasActiveExecutionAnywhere(guideId: GuideId): Boolean = getActiveExecution(guideId) != null
 
     /**
      * Lists every Execution ever created for [guideId] (ACTIVE and

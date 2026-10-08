@@ -22,7 +22,9 @@ import kotlinx.coroutines.flow.stateIn
 data class ResumeGuide(
     val guideId: String,
     val guideName: String,
-    val projectName: String
+    val projectName: String,
+    /** The project whose place to resume; one guide can be in progress in several projects. */
+    val projectId: String? = null
 )
 
 sealed interface HomeUiState {
@@ -78,7 +80,7 @@ class HomeViewModel(
             }
             for (guide in guides) {
                 val activeExecution = try {
-                    executionRepository.getActiveExecution(GuideId(guide.id.value))
+                    executionRepository.getActiveExecution(GuideId(guide.id.value), project.id)
                 } catch (error: CancellationException) {
                     throw error
                 } catch (_: Exception) {
@@ -88,6 +90,7 @@ class HomeViewModel(
                     resumeUpdatedAt = activeExecution.updatedAt
                     resumeGuide = ResumeGuide(
                         guideId = guide.id.value,
+                        projectId = project.id,
                         guideName = guide.name,
                         projectName = project.name
                     )

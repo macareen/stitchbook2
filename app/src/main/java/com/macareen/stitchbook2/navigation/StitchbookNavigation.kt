@@ -110,8 +110,8 @@ fun StitchbookNavHost(
                 onOpenStash = {
                     navController.navigateToTopLevelDestination(TopLevelDestination.Stash)
                 },
-                onResumeGuide = { guideId ->
-                    navController.navigate(GuideFocusDestination.route(guideId))
+                onResumeGuide = { resume ->
+                    navController.navigate(GuideFocusDestination.route(resume.guideId, resume.projectId))
                 },
                 onOpenStatistics = {
                     navController.navigate(ProjectDestination.STATISTICS_ROUTE)
@@ -173,7 +173,7 @@ fun StitchbookNavHost(
                 viewModel = viewModel,
                 onDraftCreated = { guideId ->
                     // The import screen has done its job; Back from the editor returns to the project.
-                    navController.navigate(DraftEditorDestination.route(guideId)) {
+                    navController.navigate(DraftEditorDestination.route(guideId, projectId)) {
                         popUpTo(ProjectDestination.ASSISTED_IMPORT_ROUTE) { inclusive = true }
                     }
                 }
@@ -379,10 +379,10 @@ fun StitchbookNavHost(
                     )
                 },
                 onOpenGuide = { guideId ->
-                    navController.navigate(GuideFocusDestination.route(guideId))
+                    navController.navigate(GuideFocusDestination.route(guideId, projectId))
                 },
                 onEditDraft = { guideId ->
-                    navController.navigate(DraftEditorDestination.route(guideId))
+                    navController.navigate(DraftEditorDestination.route(guideId, projectId))
                 },
                 onOpenSection = { section ->
                     navController.navigate(section.route(projectId))
@@ -459,6 +459,11 @@ fun StitchbookNavHost(
             arguments = listOf(
                 navArgument(DraftEditorDestination.GUIDE_ID_ARGUMENT) {
                     type = NavType.StringType
+                },
+                navArgument(DraftEditorDestination.PROJECT_ID_ARGUMENT) {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
                 }
             )
         ) { backStackEntry ->
@@ -466,18 +471,20 @@ fun StitchbookNavHost(
                 DraftEditorDestination.GUIDE_ID_ARGUMENT
             )
                 .orEmpty()
+            val projectId = backStackEntry.arguments?.getString(DraftEditorDestination.PROJECT_ID_ARGUMENT)
             val viewModel: DraftEditorViewModel = viewModel(
                 factory = DraftEditorViewModel.factory(
                     guideId = GuideId(guideId),
                     guideRepository = guideRepository,
-                    executionRepository = executionRepository
+                    executionRepository = executionRepository,
+                    projectId = projectId
                 )
             )
             DraftEditorRoute(
                 viewModel = viewModel,
                 onDone = navController::popBackStack,
                 onStartOrContinue = {
-                    navController.navigate(GuideFocusDestination.route(guideId))
+                    navController.navigate(GuideFocusDestination.route(guideId, projectId))
                 }
             )
         }
@@ -486,6 +493,11 @@ fun StitchbookNavHost(
             arguments = listOf(
                 navArgument(GuideFocusDestination.GUIDE_ID_ARGUMENT) {
                     type = NavType.StringType
+                },
+                navArgument(GuideFocusDestination.PROJECT_ID_ARGUMENT) {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
                 }
             )
         ) { backStackEntry ->
@@ -493,12 +505,14 @@ fun StitchbookNavHost(
                 GuideFocusDestination.GUIDE_ID_ARGUMENT
             )
                 .orEmpty()
+            val projectId = backStackEntry.arguments?.getString(GuideFocusDestination.PROJECT_ID_ARGUMENT)
             val viewModel: GuideFocusViewModel = viewModel(
                 factory = GuideFocusViewModel.factory(
                     guideId = GuideId(guideId),
                     guideRepository = guideRepository,
                     executionRepository = executionRepository,
-                    counterRepository = counterRepository
+                    counterRepository = counterRepository,
+                    projectId = projectId
                 )
             )
             GuideFocusRoute(viewModel = viewModel)

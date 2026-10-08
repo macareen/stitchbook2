@@ -55,7 +55,9 @@ data class ExecutionEntity(
     @ColumnInfo(name = "created_at") val createdAt: Long,
     @ColumnInfo(name = "updated_at") val updatedAt: Long,
     @ColumnInfo(name = "completed_at") val completedAt: Long?,
-    val version: Long
+    val version: Long,
+    /** The project this knitting belongs to; null when the guide was opened on its own. */
+    @ColumnInfo(name = "project_id") val projectId: String? = null
 )
 
 /**
@@ -152,7 +154,7 @@ data class ExecutionCompletedOccurrenceFrameEntity(
  */
 @Entity(
     tableName = "active_executions",
-    primaryKeys = ["guide_id"],
+    primaryKeys = ["guide_id", "project_key"],
     foreignKeys = [
         ForeignKey(
             entity = GuideEntity::class,
@@ -173,5 +175,10 @@ data class ExecutionCompletedOccurrenceFrameEntity(
 )
 data class ActiveExecutionEntity(
     @ColumnInfo(name = "guide_id") val guideId: String,
+    /**
+     * The project the progress belongs to, or "" for a guide opened on its
+     * own: one guide used by two projects keeps one place in each.
+     */
+    @ColumnInfo(name = "project_key") val projectKey: String,
     @ColumnInfo(name = "execution_id") val executionId: String
 )

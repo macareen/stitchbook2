@@ -67,7 +67,9 @@ class DraftEditorViewModel(
     private val guideRepository: GuideRepository,
     private val executionRepository: ExecutionRepository,
     externalScope: CoroutineScope? = null,
-    private val newNodeId: () -> String = { UUID.randomUUID().toString() }
+    private val newNodeId: () -> String = { UUID.randomUUID().toString() },
+    /** The project the editor was opened from, whose progress decides Start or Continue. */
+    private val projectId: String? = null
 ) : ViewModel() {
 
     private val scope: CoroutineScope = externalScope ?: viewModelScope
@@ -370,7 +372,7 @@ class DraftEditorViewModel(
             return
         }
         draft = reloaded
-        val hasActiveExecution = executionRepository.getActiveExecution(guideId) != null
+        val hasActiveExecution = executionRepository.getActiveExecution(guideId, projectId) != null
         _uiState.value = DraftEditorUiState.Content(
             guideName = guideName,
             rows = outlineRows(reloaded),
@@ -381,7 +383,7 @@ class DraftEditorViewModel(
 
     private suspend fun currentPublicationStatus(): Pair<Boolean, Boolean> {
         val isPublished = guideRepository.getLatestRevision(guideId) != null
-        val hasActiveExecution = executionRepository.getActiveExecution(guideId) != null
+        val hasActiveExecution = executionRepository.getActiveExecution(guideId, projectId) != null
         return isPublished to hasActiveExecution
     }
 
@@ -409,10 +411,11 @@ class DraftEditorViewModel(
         fun factory(
             guideId: GuideId,
             guideRepository: GuideRepository,
-            executionRepository: ExecutionRepository
+            executionRepository: ExecutionRepository,
+            projectId: String? = null
         ): ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                DraftEditorViewModel(guideId, guideRepository, executionRepository)
+                DraftEditorViewModel(guideId, guideRepository, executionRepository, projectId = projectId)
             }
         }
     }
