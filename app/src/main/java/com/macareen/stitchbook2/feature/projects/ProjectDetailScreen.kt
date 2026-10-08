@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.AlertDialog
@@ -73,7 +74,8 @@ fun ProjectDetailRoute(
     onEditProject: (String) -> Unit,
     onProjectDeleted: () -> Unit,
     onOpenGuide: (String) -> Unit,
-    onEditDraft: (String) -> Unit
+    onEditDraft: (String) -> Unit,
+    onOpenSection: (ProjectSection) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -97,7 +99,8 @@ fun ProjectDetailRoute(
         onEditDraft = onEditDraft,
         onCreateGuide = viewModel::createGuide,
         onCreateGuideFromPdf = viewModel::createGuideFromPdf,
-        onUnassignTool = viewModel::unassignTool
+        onUnassignTool = viewModel::unassignTool,
+        onOpenSection = onOpenSection
     )
 }
 
@@ -111,6 +114,7 @@ fun ProjectDetailScreen(
     onCreateGuide: (String) -> Unit,
     onCreateGuideFromPdf: (String, ByteArray) -> Unit,
     onUnassignTool: (ToolItem) -> Unit,
+    onOpenSection: (ProjectSection) -> Unit,
     modifier: Modifier = Modifier
 ) {
     when (uiState) {
@@ -150,6 +154,7 @@ fun ProjectDetailScreen(
                 onCreateGuide = onCreateGuide,
                 onCreateGuideFromPdf = onCreateGuideFromPdf,
                 onUnassignTool = onUnassignTool,
+                onOpenSection = onOpenSection,
                 modifier = modifier
             )
         }
@@ -166,6 +171,7 @@ private fun ProjectDetailContent(
     onCreateGuide: (String) -> Unit,
     onCreateGuideFromPdf: (String, ByteArray) -> Unit,
     onUnassignTool: (ToolItem) -> Unit,
+    onOpenSection: (ProjectSection) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showDeleteConfirmation by remember { mutableStateOf(false) }
@@ -243,6 +249,9 @@ private fun ProjectDetailContent(
         Spacer(modifier = Modifier.height(StitchbookSpacing.small))
 
         ProjectHeaderCard(project = project)
+
+        Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
+        ProjectSectionLinks(onOpenSection = onOpenSection)
 
         if (state.deleteFailed) {
             Text(
@@ -621,6 +630,56 @@ private fun GuideListItem(
 }
 
 @Composable
+private fun ProjectSectionLinks(onOpenSection: (ProjectSection) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
+        ProjectSection.entries.forEach { section ->
+            Surface(
+                onClick = { onOpenSection(section) },
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(StitchbookSpacing.medium)
+                ) {
+                    Surface(
+                        shape = MaterialTheme.shapes.medium,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    ) {
+                        Icon(
+                            imageVector = section.icon,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .padding(StitchbookSpacing.small)
+                                .size(20.dp)
+                        )
+                    }
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(start = StitchbookSpacing.medium)
+                    ) {
+                        Text(text = stringResource(section.title), style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            text = stringResource(section.description),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.textSecondary
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.textSecondary
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun ProjectHeaderCard(project: Project) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -794,7 +853,8 @@ private fun ProjectDetailPreview() {
             onEditDraft = {},
             onCreateGuide = {},
             onCreateGuideFromPdf = { _, _ -> },
-            onUnassignTool = {}
+            onUnassignTool = {},
+            onOpenSection = {}
         )
     }
 }

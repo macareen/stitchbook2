@@ -27,9 +27,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ToolTemplateEntity::class,
         ProjectToolAssignmentEntity::class,
         CounterEntity::class,
-        CounterNoteEntity::class
+        CounterNoteEntity::class,
+        YarnAllocationEntity::class,
+        ProjectPatternLinkEntity::class
     ],
-    version = 15,
+    version = 16,
     exportSchema = true
 )
 abstract class StitchbookDatabase : RoomDatabase() {
@@ -42,6 +44,7 @@ abstract class StitchbookDatabase : RoomDatabase() {
     abstract fun toolDao(): ToolDao
     abstract fun counterDao(): CounterDao
     abstract fun counterNoteDao(): CounterNoteDao
+    abstract fun materialsDao(): MaterialsDao
 
     companion object {
         private const val DATABASE_NAME = "stitchbook.db"
@@ -84,7 +87,8 @@ val ALL_MIGRATIONS: Array<Migration>
         MIGRATION_11_12,
         MIGRATION_12_13,
         MIGRATION_13_14,
-        MIGRATION_14_15
+        MIGRATION_14_15,
+        MIGRATION_15_16
     )
 
 val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -810,5 +814,57 @@ val MIGRATION_14_15 = object : Migration(14, 15) {
         db.execSQL("ALTER TABLE `projects` ADD COLUMN `start_date` TEXT")
         db.execSQL("ALTER TABLE `projects` ADD COLUMN `target_date` TEXT")
         db.execSQL("ALTER TABLE `projects` ADD COLUMN `completed_date` TEXT")
+    }
+}
+
+/**
+ * Phases 4 and 6 remainder: partial-skein weights on stash items, pattern
+ * metadata on library items (all plain nullable columns), plus two new
+ * join tables -- yarn allocations (with their own quantities and a
+ * surrogate id) and pure-membership project-pattern links. Purely
+ * additive; no existing table is recreated.
+ */
+val MIGRATION_15_16 = object : Migration(15, 16) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `stash_items` ADD COLUMN `weight_per_unit_grams` REAL")
+        db.execSQL("ALTER TABLE `stash_items` ADD COLUMN `remaining_weight_grams` REAL")
+        db.execSQL("ALTER TABLE `library_items` ADD COLUMN `gauge` TEXT")
+        db.execSQL("ALTER TABLE `library_items` ADD COLUMN `sizes` TEXT")
+        db.execSQL("ALTER TABLE `library_items` ADD COLUMN `yardage_required` REAL")
+        db.execSQL("ALTER TABLE `library_items` ADD COLUMN `recommended_tools` TEXT")
+        db.execSQL("ALTER TABLE `library_items` ADD COLUMN `ravelry_pattern_id` TEXT")
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `yarn_allocations` (
+                `id` TEXT NOT NULL,
+                `project_id` TEXT NOT NULL,
+                `stash_item_id` TEXT NOT NULL,
+                `quantity_reserved` REAL NOT NULL,
+                `quantity_used` REAL NOT NULL,
+                `notes` TEXT,
+                `created_at` INTEGER NOT NULL,
+                `updated_at` INTEGER NOT NULL,
+                PRIMARY KEY(`id`),
+                FOREIGN KEY(`project_id`) REFERENCES `projects`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                FOREIGN KEY(`stash_item_id`) REFERENCES `stash_items`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_yarn_allocations_project_id` ON `yarn_allocations` (`project_id`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_yarn_allocations_stash_item_id` ON `yarn_allocations` (`stash_item_id`)")
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `project_pattern_links` (
+                `project_id` TEXT NOT NULL,
+                `library_item_id` TEXT NOT NULL,
+                PRIMARY KEY(`project_id`, `library_item_id`),
+                FOREIGN KEY(`project_id`) REFERENCES `projects`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                FOREIGN KEY(`library_item_id`) REFERENCES `library_items`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_project_pattern_links_library_item_id` ON `project_pattern_links` (`library_item_id`)"
+        )
     }
 }

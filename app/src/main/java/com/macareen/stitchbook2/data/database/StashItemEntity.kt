@@ -27,7 +27,9 @@ data class StashItemEntity(
     @ColumnInfo(name = "purchase_price") val purchasePrice: Double?,
     @ColumnInfo(name = "purchase_date") val purchaseDate: String?,
     @ColumnInfo(name = "created_at") val createdAt: Long,
-    @ColumnInfo(name = "updated_at") val updatedAt: Long
+    @ColumnInfo(name = "updated_at") val updatedAt: Long,
+    @ColumnInfo(name = "weight_per_unit_grams") val weightPerUnitGrams: Double? = null,
+    @ColumnInfo(name = "remaining_weight_grams") val remainingWeightGrams: Double? = null
 )
 
 fun StashItemEntity.toDomain(): StashItem {
@@ -52,7 +54,9 @@ fun StashItemEntity.toDomain(): StashItem {
         purchasePrice = purchasePrice,
         purchaseDate = purchaseDate,
         createdAt = createdAt,
-        updatedAt = updatedAt
+        updatedAt = updatedAt,
+        weightPerUnitGrams = weightPerUnitGrams,
+        remainingWeightGrams = remainingWeightGrams
     )
 }
 
@@ -77,7 +81,9 @@ fun StashItem.toEntity(): StashItemEntity {
         purchasePrice = purchasePrice,
         purchaseDate = purchaseDate,
         createdAt = createdAt,
-        updatedAt = updatedAt
+        updatedAt = updatedAt,
+        weightPerUnitGrams = weightPerUnitGrams,
+        remainingWeightGrams = remainingWeightGrams
     )
 }
 

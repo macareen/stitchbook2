@@ -20,7 +20,12 @@ data class LibraryItemEntity(
     @ColumnInfo(name = "updated_at") val updatedAt: Long,
     @ColumnInfo(name = "pdf_uri") val pdfUri: String? = null,
     @ColumnInfo(name = "pdf_file_name") val pdfFileName: String? = null,
-    @ColumnInfo(name = "pdf_last_viewed_page") val pdfLastViewedPage: Int? = null
+    @ColumnInfo(name = "pdf_last_viewed_page") val pdfLastViewedPage: Int? = null,
+    val gauge: String? = null,
+    val sizes: String? = null,
+    @ColumnInfo(name = "yardage_required") val yardageRequired: Double? = null,
+    @ColumnInfo(name = "recommended_tools") val recommendedTools: String? = null,
+    @ColumnInfo(name = "ravelry_pattern_id") val ravelryPatternId: String? = null
 )
 
 // Tags are normalized on the way in (normalizedLibraryItemTags strips
@@ -47,7 +52,12 @@ fun LibraryItemEntity.toDomain(): LibraryItem {
         updatedAt = updatedAt,
         pdfUri = pdfUri,
         pdfFileName = pdfFileName,
-        pdfLastViewedPage = pdfLastViewedPage
+        pdfLastViewedPage = pdfLastViewedPage,
+        gauge = gauge,
+        sizes = sizes,
+        yardageRequired = yardageRequired,
+        recommendedTools = recommendedTools,
+        ravelryPatternId = ravelryPatternId
     )
 }
 
@@ -65,7 +75,12 @@ fun LibraryItem.toEntity(): LibraryItemEntity {
         updatedAt = updatedAt,
         pdfUri = pdfUri,
         pdfFileName = pdfFileName,
-        pdfLastViewedPage = pdfLastViewedPage
+        pdfLastViewedPage = pdfLastViewedPage,
+        gauge = gauge,
+        sizes = sizes,
+        yardageRequired = yardageRequired,
+        recommendedTools = recommendedTools,
+        ravelryPatternId = ravelryPatternId
     )
 }
 

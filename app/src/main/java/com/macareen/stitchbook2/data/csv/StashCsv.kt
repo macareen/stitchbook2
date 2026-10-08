@@ -215,7 +215,11 @@ fun parseStashCsv(
             purchasePrice = purchasePrice,
             purchaseDate = cell("purchaseDate").ifBlank { null },
             createdAt = existing?.createdAt ?: timestamp,
-            updatedAt = timestamp
+            updatedAt = timestamp,
+            // Not CSV columns (schema v2 predates them): an update by id
+            // keeps whatever weights the item already had.
+            weightPerUnitGrams = existing?.weightPerUnitGrams,
+            remainingWeightGrams = existing?.remainingWeightGrams
         )
     }
 

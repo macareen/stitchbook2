@@ -24,12 +24,15 @@ import com.macareen.stitchbook2.feature.library.LibraryRoute
 import com.macareen.stitchbook2.feature.library.PdfViewerRoute
 import com.macareen.stitchbook2.feature.library.PdfViewerViewModel
 import com.macareen.stitchbook2.feature.library.LibraryViewModel
+import com.macareen.stitchbook2.feature.materials.ProjectMaterialsRoute
+import com.macareen.stitchbook2.feature.materials.ProjectMaterialsViewModel
 import com.macareen.stitchbook2.feature.projects.ProjectDetailRoute
 import com.macareen.stitchbook2.feature.projects.ProjectDetailViewModel
 import com.macareen.stitchbook2.feature.projects.ProjectFormRoute
 import com.macareen.stitchbook2.feature.projects.ProjectFormViewModel
 import com.macareen.stitchbook2.feature.projects.ProjectsRoute
 import com.macareen.stitchbook2.feature.projects.ProjectsViewModel
+import com.macareen.stitchbook2.feature.projects.route
 import com.macareen.stitchbook2.feature.settings.SettingsRoute
 import com.macareen.stitchbook2.feature.settings.SettingsViewModel
 import com.macareen.stitchbook2.feature.stash.StashRoute
@@ -58,6 +61,7 @@ fun StitchbookNavHost(
     val backupService = application.container.backupService
     val createGuideFromPdfUseCase = application.container.createGuideFromPdfUseCase
     val userPreferencesRepository = application.container.userPreferencesRepository
+    val materialsRepository = application.container.materialsRepository
 
     NavHost(
         navController = navController,
@@ -141,7 +145,7 @@ fun StitchbookNavHost(
         }
         composable(TopLevelDestination.Stash.route) {
             val viewModel: StashViewModel = viewModel(
-                factory = StashViewModel.factory(stashRepository)
+                factory = StashViewModel.factory(stashRepository, materialsRepository)
             )
             StashRoute(viewModel = viewModel)
         }
@@ -241,8 +245,34 @@ fun StitchbookNavHost(
                 },
                 onEditDraft = { guideId ->
                     navController.navigate(DraftEditorDestination.route(guideId))
+                },
+                onOpenSection = { section ->
+                    navController.navigate(section.route(projectId))
                 }
             )
+        }
+        composable(
+            route = ProjectDestination.MATERIALS_ROUTE,
+            arguments = listOf(
+                navArgument(ProjectDestination.PROJECT_ID_ARGUMENT) {
+                    type = NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val projectId = backStackEntry.arguments?.getString(
+                ProjectDestination.PROJECT_ID_ARGUMENT
+            )
+                .orEmpty()
+            val viewModel: ProjectMaterialsViewModel = viewModel(
+                factory = ProjectMaterialsViewModel.factory(
+                    projectId = projectId,
+                    projectRepository = projectRepository,
+                    stashRepository = stashRepository,
+                    libraryRepository = libraryRepository,
+                    materialsRepository = materialsRepository
+                )
+            )
+            ProjectMaterialsRoute(viewModel = viewModel)
         }
         composable(
             route = DraftEditorDestination.ROUTE,

@@ -64,6 +64,8 @@ import com.macareen.stitchbook2.data.csv.StashCsvImportReport
 import com.macareen.stitchbook2.data.csv.stashCsvTemplate
 import com.macareen.stitchbook2.domain.model.StashCategory
 import com.macareen.stitchbook2.domain.model.StashItem
+import com.macareen.stitchbook2.domain.model.estimatedRemainingYards
+import com.macareen.stitchbook2.domain.model.roundQuantity
 import com.macareen.stitchbook2.ui.components.LabelPill
 import com.macareen.stitchbook2.ui.components.QuietText
 import com.macareen.stitchbook2.ui.theme.StitchbookSpacing
@@ -379,6 +381,7 @@ private fun StashContent(
             items(items = uiState.items, key = { it.id }) { stashItem ->
                 StashItemCard(
                     item = stashItem,
+                    reserved = uiState.reservedByItemId[stashItem.id] ?: 0.0,
                     onEdit = { onEditItem(stashItem) },
                     onDelete = { onDeleteRequested(stashItem) }
                 )
@@ -439,6 +442,7 @@ private fun CategoryFilterDropdown(
 @Composable
 private fun StashItemCard(
     item: StashItem,
+    reserved: Double,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -489,7 +493,30 @@ private fun StashItemCard(
                         stringResource(R.string.stash_yardage_per_unit, formatQuantity(it))
                     }
                 },
-                item.storageLocation
+                item.storageLocation,
+                item.remainingWeightGrams?.let {
+                    stringResource(R.string.stash_measured_remaining, formatQuantity(it))
+                },
+                item.estimatedRemainingYards()?.let { yards ->
+                    if (LocalMeasurementSystem.current == MeasurementSystem.METRIC) {
+                        stringResource(
+                            R.string.stash_estimated_remaining_meters,
+                            formatQuantity(Math.round(yardsToMeters(yards) * 10) / 10.0)
+                        )
+                    } else {
+                        stringResource(R.string.stash_estimated_remaining_yards, formatQuantity(yards))
+                    }
+                },
+                if (reserved > 0.0) {
+                    stringResource(
+                        R.string.stash_reserved_summary,
+                        formatQuantity(reserved),
+                        formatQuantity(roundQuantity((item.quantity - reserved).coerceAtLeast(0.0))),
+                        item.unitLabel
+                    )
+                } else {
+                    null
+                }
             )
             if (details.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(StitchbookSpacing.small))
@@ -557,6 +584,8 @@ private fun StashItemDialog(
     var quantityText by remember { mutableStateOf(original?.quantity?.toString() ?: "1") }
     var unitLabel by remember { mutableStateOf(original?.unitLabel ?: "skeins") }
     var yardageText by remember { mutableStateOf(original?.yardagePerUnit?.toString().orEmpty()) }
+    var weightPerUnitText by remember { mutableStateOf(original?.weightPerUnitGrams?.toString().orEmpty()) }
+    var remainingWeightText by remember { mutableStateOf(original?.remainingWeightGrams?.toString().orEmpty()) }
     var notes by remember { mutableStateOf(original?.notes.orEmpty()) }
     var storageLocation by remember { mutableStateOf(original?.storageLocation.orEmpty()) }
     var careInstructions by remember { mutableStateOf(original?.careInstructions.orEmpty()) }
@@ -660,6 +689,25 @@ private fun StashItemDialog(
                         )
                     }
                     Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+                    Row(horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
+                        OutlinedTextField(
+                            value = weightPerUnitText,
+                            onValueChange = { weightPerUnitText = it },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            label = { Text(text = stringResource(R.string.stash_field_weight_per_unit)) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = remainingWeightText,
+                            onValueChange = { remainingWeightText = it },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            label = { Text(text = stringResource(R.string.stash_field_remaining_weight)) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(StitchbookSpacing.small))
                     OutlinedTextField(
                         value = fiberContent,
                         onValueChange = { fiberContent = it },
@@ -753,7 +801,9 @@ private fun StashItemDialog(
                                 ravelryYarnId = ravelryYarnId,
                                 purchaseSource = purchaseSource,
                                 purchasePriceText = purchasePriceText,
-                                purchaseDate = purchaseDate
+                                purchaseDate = purchaseDate,
+                                weightPerUnitGramsText = weightPerUnitText,
+                                remainingWeightGramsText = remainingWeightText
                             )
                         )
                     }

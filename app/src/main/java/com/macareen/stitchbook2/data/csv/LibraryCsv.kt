@@ -157,7 +157,14 @@ fun parseLibraryCsv(
             updatedAt = timestamp,
             pdfUri = existing?.pdfUri,
             pdfFileName = existing?.pdfFileName,
-            pdfLastViewedPage = existing?.pdfLastViewedPage
+            pdfLastViewedPage = existing?.pdfLastViewedPage,
+            // Pattern metadata isn't a CSV column in schema v1, so an update
+            // by id keeps whatever the item already had.
+            gauge = existing?.gauge,
+            sizes = existing?.sizes,
+            yardageRequired = existing?.yardageRequired,
+            recommendedTools = existing?.recommendedTools,
+            ravelryPatternId = existing?.ravelryPatternId
         )
     }
 

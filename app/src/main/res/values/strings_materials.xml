@@ -1,0 +1,34 @@
+<resources>
+    <string name="dismiss">Dismiss</string>
+    <string name="materials_title">Materials</string>
+    <string name="materials_yarn_section">Yarn &amp; supplies</string>
+    <string name="materials_allocate">Allocate</string>
+    <string name="materials_yarn_empty_title">Nothing allocated yet</string>
+    <string name="materials_yarn_empty_description">Reserve yarn or supplies from your stash so you know what’s spoken for.</string>
+    <string name="materials_yarn_empty_no_stash">Add items to your stash first, then reserve them here.</string>
+    <string name="materials_patterns_section">Patterns</string>
+    <string name="materials_link_pattern">Link pattern</string>
+    <string name="materials_patterns_empty_title">No linked patterns</string>
+    <string name="materials_patterns_empty_description">Link patterns from your library. One pattern can be used by many projects.</string>
+    <string name="materials_reserved_used">Reserved %1$s · used %2$s %3$s</string>
+    <string name="materials_release">Release</string>
+    <string name="materials_record_use">Record use</string>
+    <string name="materials_record_use_title">Use %1$s</string>
+    <string name="materials_record_use_description">%1$s %2$s reserved. Using more draws on unreserved stock; the stash can never go below zero.</string>
+    <string name="materials_unlink">Unlink</string>
+    <string name="materials_stash_item">Stash item</string>
+    <string name="materials_stash_option">%1$s (%2$s %3$s free)</string>
+    <string name="materials_amount_label">Amount (%1$s)</string>
+    <string name="materials_notes_label">Notes (optional)</string>
+    <string name="materials_error_invalid_amount">Enter an amount greater than zero.</string>
+    <string name="materials_error_exceeds_unallocated">That’s more than the unreserved amount in your stash.</string>
+    <string name="materials_error_exceeds_available">That’s more than this project can draw from the stash.</string>
+    <string name="materials_error_save_failed">That change couldn’t be saved. Please try again.</string>
+    <string name="project_section_materials_description">Yarn reserved and used, and linked patterns</string>
+    <string name="stash_field_weight_per_unit">Grams / unit</string>
+    <string name="stash_field_remaining_weight">Weighed remaining (g)</string>
+    <string name="stash_measured_remaining">%1$s g left (weighed)</string>
+    <string name="stash_estimated_remaining_yards">≈ %1$s yds left (estimated)</string>
+    <string name="stash_estimated_remaining_meters">≈ %1$s m left (estimated)</string>
+    <string name="stash_reserved_summary">%1$s reserved · %2$s free %3$s</string>
+</resources>
