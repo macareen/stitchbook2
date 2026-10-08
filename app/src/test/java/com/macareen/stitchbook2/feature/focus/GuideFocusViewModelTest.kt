@@ -1,5 +1,6 @@
 package com.macareen.stitchbook2.feature.focus
 
+import com.macareen.stitchbook2.domain.execution.ProgressBasis
 import com.macareen.stitchbook2.domain.execution.AncestryFrame
 import com.macareen.stitchbook2.domain.execution.DefinitionRevisionId
 import com.macareen.stitchbook2.domain.execution.ExecutionAddress
@@ -67,6 +68,34 @@ class GuideFocusViewModelTest {
             listOf(StructuralPosition.RangePosition("round", 2, 1, 4)),
             state.positions
         )
+    }
+
+    @Test
+    fun progressOverviewAndPatternPageFollowTheCurrentStep() {
+        val definition = ExecutionEngineFixtures.definition(
+            roots = listOf(NodeId("range")),
+            Range(NodeId("range"), "round", 1, 4, listOf(NodeId("instruction"))),
+            Instruction(NodeId("instruction"), "Knit all stitches. (p.3)"),
+            revisionId = revisionId
+        )
+        val guides = FakeGuideRepository().withGuide(libraryItemId = "pattern-1").withRevision(definition)
+        val executions = FakeExecutionRepository(guides)
+        val execution = create(executions)
+        executions.complete(execution.state.executionId, 0)
+
+        val viewModel = viewModel(guides, executions)
+
+        val state = viewModel.uiState.value as GuideFocusUiState.InProgress
+        assertEquals(25, state.progress?.percent)
+        assertEquals(ProgressBasis.STEPS, state.progress?.basis)
+        assertEquals("Knit all stitches.", state.instructionText)
+        assertEquals(listOf("Rounds 1–4: Knit all stitches."), state.overview.map { it.text })
+        assertEquals(PatternPage("pattern-1", 3), state.pattern)
+
+        viewModel.onJumpTo(roundAddress(4))
+
+        val moved = viewModel.uiState.value as GuideFocusUiState.InProgress
+        assertEquals(listOf(StructuralPosition.RangePosition("round", 4, 1, 4)), moved.positions)
     }
 
     @Test
@@ -503,7 +532,8 @@ private class FakeGuideRepository : GuideRepository {
 
     fun withGuide(
         id: GuideId = ExecutionEngineFixtures.guideId,
-        projectId: String = "project"
+        projectId: String = "project",
+        libraryItemId: String? = null
     ): FakeGuideRepository {
         guides[id.value] = Guide(
             id = id,
@@ -511,7 +541,8 @@ private class FakeGuideRepository : GuideRepository {
             name = "Guide",
             notes = null,
             createdAt = 0,
-            updatedAt = 0
+            updatedAt = 0,
+            libraryItemId = libraryItemId
         )
         return this
     }

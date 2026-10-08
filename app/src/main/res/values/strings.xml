@@ -517,6 +517,17 @@
     <string name="focus_starting_action">Starting…</string>
     <string name="focus_start_error">This guide could not be started. Please try again.</string>
 
+    <string name="focus_overview_action">Overview</string>
+    <string name="focus_overview_title">The whole guide</string>
+    <string name="focus_overview_done">Done</string>
+    <string name="focus_overview_current">You are here</string>
+    <string name="focus_overview_to_do">To do</string>
+    <string name="focus_overview_count">%1$d/%2$d</string>
+    <string name="focus_open_pattern_action">Pattern</string>
+    <string name="focus_open_pattern_page_action">Pattern, p.%1$d</string>
+    <string name="focus_progress_stitches">%1$d%% done, by stitches</string>
+    <string name="focus_progress_stitches_estimated">About %1$d%% done, by stitches (some rows estimated)</string>
+    <string name="focus_progress_steps">%1$d%% done · %2$d of %3$d steps</string>
     <string name="focus_complete_action">Complete</string>
     <string name="focus_previous_action">Previous</string>
     <string name="focus_jump_to_incomplete_action">Resume at earliest incomplete step</string>

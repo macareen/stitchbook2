@@ -243,6 +243,10 @@ fun StitchbookNavHost(
             arguments = listOf(
                 navArgument(PdfViewerDestination.LIBRARY_ITEM_ID_ARGUMENT) {
                     type = NavType.StringType
+                },
+                navArgument(PdfViewerDestination.PAGE_ARGUMENT) {
+                    type = NavType.IntType
+                    defaultValue = 0
                 }
             )
         ) { backStackEntry ->
@@ -250,13 +254,14 @@ fun StitchbookNavHost(
                 PdfViewerDestination.LIBRARY_ITEM_ID_ARGUMENT
             )
                 .orEmpty()
+            val startPage = backStackEntry.arguments?.getInt(PdfViewerDestination.PAGE_ARGUMENT)?.takeIf { it >= 1 }
             val viewModel: PdfViewerViewModel = viewModel(
                 factory = PdfViewerViewModel.factory(
                     libraryItemId = libraryItemId,
                     repository = libraryRepository
                 )
             )
-            PdfViewerRoute(viewModel = viewModel)
+            PdfViewerRoute(viewModel = viewModel, startPage = startPage)
         }
         composable(
             route = PatternGuidesDestination.ROUTE,
@@ -527,10 +532,16 @@ fun StitchbookNavHost(
                     guideRepository = guideRepository,
                     executionRepository = executionRepository,
                     counterRepository = counterRepository,
-                    projectId = projectId
+                    projectId = projectId,
+                    materialsRepository = materialsRepository
                 )
             )
-            GuideFocusRoute(viewModel = viewModel)
+            GuideFocusRoute(
+                viewModel = viewModel,
+                onOpenPattern = { pattern ->
+                    navController.navigate(PdfViewerDestination.route(pattern.libraryItemId, pattern.page))
+                }
+            )
         }
         composable(
             route = ProjectDestination.EDIT_ROUTE,
