@@ -27,6 +27,8 @@ import com.macareen.stitchbook2.feature.home.HomeViewModel
 import com.macareen.stitchbook2.feature.journal.ProjectJournalRoute
 import com.macareen.stitchbook2.feature.journal.ProjectJournalViewModel
 import com.macareen.stitchbook2.feature.library.LibraryRoute
+import com.macareen.stitchbook2.feature.library.PatternGuidesRoute
+import com.macareen.stitchbook2.feature.library.PatternGuidesViewModel
 import com.macareen.stitchbook2.feature.library.PdfViewerRoute
 import com.macareen.stitchbook2.feature.library.PdfViewerViewModel
 import com.macareen.stitchbook2.feature.library.LibraryViewModel
@@ -225,6 +227,9 @@ fun StitchbookNavHost(
             )
             LibraryRoute(
                 viewModel = viewModel,
+                onOpenGuides = { libraryItemId ->
+                    navController.navigate(PatternGuidesDestination.route(libraryItemId))
+                },
                 onOpenPdf = { libraryItemId ->
                     navController.navigate(PdfViewerDestination.route(libraryItemId))
                 }
@@ -249,6 +254,22 @@ fun StitchbookNavHost(
                 )
             )
             PdfViewerRoute(viewModel = viewModel)
+        }
+        composable(
+            route = PatternGuidesDestination.ROUTE,
+            arguments = listOf(
+                navArgument(PdfViewerDestination.LIBRARY_ITEM_ID_ARGUMENT) { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val libraryItemId = backStackEntry.arguments?.getString(PdfViewerDestination.LIBRARY_ITEM_ID_ARGUMENT).orEmpty()
+            val viewModel: PatternGuidesViewModel = viewModel(
+                factory = PatternGuidesViewModel.factory(libraryItemId, libraryRepository, guideRepository)
+            )
+            PatternGuidesRoute(
+                viewModel = viewModel,
+                onOpenPdf = { navController.navigate(PdfViewerDestination.route(it)) },
+                onEditGuide = { navController.navigate(DraftEditorDestination.route(it)) }
+            )
         }
         composable(TopLevelDestination.Stash.route) {
             val stashViewModel: StashViewModel = viewModel(

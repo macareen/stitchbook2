@@ -47,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import com.macareen.stitchbook2.R
+import com.macareen.stitchbook2.domain.guide.Guide
 import com.macareen.stitchbook2.domain.model.Counter
 import com.macareen.stitchbook2.domain.model.Craft
 import com.macareen.stitchbook2.domain.model.Project
@@ -70,7 +71,9 @@ import com.macareen.stitchbook2.ui.theme.textSecondary
 data class ProjectHubState(
     val connections: ProjectConnections = ProjectConnections(),
     val counters: List<Counter> = emptyList(),
-    val toolbox: List<ToolItem> = emptyList()
+    val toolbox: List<ToolItem> = emptyList(),
+    /** Pattern guides (one per size) this project could use. */
+    val patternGuides: List<Guide> = emptyList()
 )
 
 /** Edits the hub's sheets can make; each writes to the shared toolbox or counters. */
@@ -79,7 +82,8 @@ data class ProjectHubActions(
     val onDecrementCounter: (Counter) -> Unit = {},
     val onAddCounter: (name: String, unitLabel: String, goal: Int?) -> Unit = { _, _, _ -> },
     val onAssignTool: (ToolItem) -> Unit = {},
-    val onAddNewTool: (name: String, category: ToolCategory) -> Unit = { _, _ -> }
+    val onAddNewTool: (name: String, category: ToolCategory) -> Unit = { _, _ -> },
+    val onUsePatternGuide: (Guide) -> Unit = {}
 )
 
 /** Which bottom sheet a node opened. */

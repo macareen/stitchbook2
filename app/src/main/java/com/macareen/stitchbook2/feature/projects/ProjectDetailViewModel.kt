@@ -296,6 +296,22 @@ class ProjectDetailViewModel(
             .catch { emit(emptyList()) }
             .stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** Pattern guides this project could use: every pattern's size guides it doesn't already show. */
+    val availablePatternGuides: StateFlow<List<Guide>> = combine(
+        guideRepository.observeAllPatternGuides(),
+        guideRepository.observeGuides(projectId)
+    ) { all, shown ->
+        val shownIds = shown.map { it.id }.toSet()
+        all.filterNot { it.id in shownIds }
+    }
+        .catch { emit(emptyList()) }
+        .stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Uses a pattern's size guide in this project; the guide stays the pattern's. */
+    fun usePatternGuide(guide: Guide) {
+        scope.launch { runCatchingWrite { guideRepository.useGuideInProject(projectId, guide.id) } }
+    }
+
     /** Every tool in the toolbox, so the Tools sheet can link one that already exists. */
     val toolbox: StateFlow<List<ToolItem>> = toolRepository.observeToolItems()
         .catch { emit(emptyList()) }

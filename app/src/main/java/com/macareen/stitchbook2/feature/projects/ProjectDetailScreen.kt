@@ -93,6 +93,7 @@ fun ProjectDetailRoute(
     val connections by viewModel.connections.collectAsStateWithLifecycle()
     val projectCounters by viewModel.projectCounters.collectAsStateWithLifecycle()
     val toolbox by viewModel.toolbox.collectAsStateWithLifecycle()
+    val patternGuides by viewModel.availablePatternGuides.collectAsStateWithLifecycle()
 
     // Coming back from Focus Mode or the Draft editor can change a guide's Start/Continue state.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
@@ -124,13 +125,19 @@ fun ProjectDetailRoute(
         exportFeedback = exportFeedback,
         onExportProject = viewModel::exportProject,
         onDismissExportFeedback = viewModel::dismissExportFeedback,
-        hubState = ProjectHubState(connections = connections, counters = projectCounters, toolbox = toolbox),
+        hubState = ProjectHubState(
+            connections = connections,
+            counters = projectCounters,
+            toolbox = toolbox,
+            patternGuides = patternGuides
+        ),
         hubActions = ProjectHubActions(
             onIncrementCounter = viewModel::incrementCounter,
             onDecrementCounter = viewModel::decrementCounter,
             onAddCounter = viewModel::addCounter,
             onAssignTool = viewModel::assignTool,
-            onAddNewTool = viewModel::addNewTool
+            onAddNewTool = viewModel::addNewTool,
+            onUsePatternGuide = viewModel::usePatternGuide
         )
     )
 }
@@ -354,7 +361,9 @@ private fun ProjectDetailContent(
                 onEditDraft = { openSheet = null; onEditDraft(it) },
                 onAddGuide = { showAddGuideDialog = true },
                 onCreateGuideFromPdf = { showCreateFromPdfDialog = true },
-                onImportWithAssistant = { openSheet = null; onOpenSection(ProjectSection.ASSISTED_IMPORT) }
+                onImportWithAssistant = { openSheet = null; onOpenSection(ProjectSection.ASSISTED_IMPORT) },
+                patternGuides = hubState.patternGuides,
+                onUsePatternGuide = hubActions.onUsePatternGuide
             )
         }
         HubSheet.TOOLS -> HubBottomSheet(onDismiss = { openSheet = null }) {
@@ -516,8 +525,21 @@ private fun GuidesSection(
     onEditDraft: (String) -> Unit,
     onAddGuide: () -> Unit,
     onCreateGuideFromPdf: () -> Unit,
-    onImportWithAssistant: () -> Unit
+    onImportWithAssistant: () -> Unit,
+    patternGuides: List<Guide> = emptyList(),
+    onUsePatternGuide: (Guide) -> Unit = {}
 ) {
+    var choosingPatternGuide by remember { mutableStateOf(false) }
+    if (choosingPatternGuide) {
+        PatternGuidePicker(
+            guides = patternGuides,
+            onChoose = {
+                choosingPatternGuide = false
+                onUsePatternGuide(it)
+            },
+            onDismiss = { choosingPatternGuide = false }
+        )
+    }
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -546,6 +568,11 @@ private fun GuidesSection(
     }
 
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+        if (patternGuides.isNotEmpty()) {
+            TextButton(onClick = { choosingPatternGuide = true }) {
+                Text(text = stringResource(R.string.project_use_pattern_guide), style = MaterialTheme.typography.labelLarge)
+            }
+        }
         TextButton(onClick = onImportWithAssistant, enabled = !isImportingPdf && !isCreatingGuide) {
             Text(text = stringResource(R.string.assist_section_title), style = MaterialTheme.typography.labelLarge)
         }
@@ -754,3 +781,28 @@ private fun previewGuide(id: String, name: String) = Guide(
     createdAt = 1_700_000_000_000,
     updatedAt = 1_700_100_000_000
 )
+
+/** Picks one of the patterns' size guides for this project to use. */
+@Composable
+private fun PatternGuidePicker(guides: List<Guide>, onChoose: (Guide) -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.project_use_pattern_guide)) },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                guides.forEach { guide ->
+                    TextButton(onClick = { onChoose(guide) }, modifier = Modifier.fillMaxWidth()) {
+                        val size = guide.sizeLabel?.takeUnless { guide.name.endsWith(it) }
+                        Text(
+                            text = listOfNotNull(guide.name, size?.let { stringResource(R.string.pattern_guides_size, it) })
+                                .joinToString(" · "),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } }
+    )
+}

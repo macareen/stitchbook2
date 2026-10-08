@@ -71,6 +71,9 @@ class LocalGuideRepository(
     override fun observePatternGuides(libraryItemId: String): Flow<List<Guide>> =
         guideDao.observeByLibraryItem(libraryItemId).map { guides -> guides.map { it.toDomain() } }
 
+    override fun observeAllPatternGuides(): Flow<List<Guide>> =
+        guideDao.observeAllPatternGuides().map { guides -> guides.map { it.toDomain() } }
+
     override suspend fun createPatternGuide(libraryItemId: String, sizeLabel: String, name: String): Guide {
         val normalizedName = name.trim()
         val normalizedSize = sizeLabel.trim()

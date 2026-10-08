@@ -42,6 +42,15 @@ abstract class GuideDao {
     )
     abstract fun observeByLibraryItem(libraryItemId: String): Flow<List<GuideEntity>>
 
+    @Query(
+        """
+        SELECT * FROM guides
+        WHERE library_item_id IS NOT NULL
+        ORDER BY name COLLATE NOCASE ASC, size_label COLLATE NOCASE ASC, id ASC
+        """
+    )
+    abstract fun observeAllPatternGuides(): Flow<List<GuideEntity>>
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     abstract suspend fun insertProjectGuideLink(link: ProjectGuideLinkEntity)
 

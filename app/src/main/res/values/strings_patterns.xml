@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pattern_guides_link">Guides</string>
+    <string name="pattern_guides_missing">This pattern is no longer in your Library.</string>
+    <string name="pattern_guides_sizes">Sizes: %1$s</string>
+    <string name="pattern_guides_open_pattern">Open the pattern</string>
+    <string name="pattern_guides_title">Guides by size</string>
+    <string name="pattern_guides_empty">No guides yet. Make one for the size you\'re knitting; any project can use it.</string>
+    <string name="pattern_guides_new">New guide for a size</string>
+    <string name="pattern_guides_size">Size %1$s</string>
+    <string name="pattern_guides_ready">Ready</string>
+    <string name="pattern_guides_draft">Draft</string>
+    <string name="pattern_guides_size_field">Size (as the pattern names it)</string>
+    <string name="pattern_guides_name_field">Guide name</string>
+    <string name="pattern_guides_create">Create and edit</string>
+    <string name="pattern_guides_create_failed">The guide couldn\'t be created. Try again.</string>
+    <string name="project_use_pattern_guide">Use a pattern guide</string>
+</resources>
