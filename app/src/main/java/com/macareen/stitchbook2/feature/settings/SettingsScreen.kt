@@ -43,12 +43,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.macareen.stitchbook2.R
+import com.macareen.stitchbook2.domain.backup.RestoreMode
 import com.macareen.stitchbook2.domain.preferences.MeasurementSystem
 import com.macareen.stitchbook2.domain.preferences.ThemeMode
 import com.macareen.stitchbook2.domain.preferences.UserPreferences
@@ -80,7 +82,9 @@ fun SettingsRoute(viewModel: SettingsViewModel) {
         onThemeModeChanged = viewModel::setThemeMode,
         onMeasurementSystemChanged = viewModel::setMeasurementSystem,
         onExport = viewModel::exportBackup,
-        onImport = viewModel::importBackup,
+        onImport = viewModel::previewImport,
+        onConfirmImport = viewModel::confirmImport,
+        onCancelImport = viewModel::cancelImport,
         onReset = viewModel::resetAllData,
         onDismissFeedback = viewModel::dismissFeedback
     )
@@ -94,6 +98,8 @@ fun SettingsScreen(
     onMeasurementSystemChanged: (MeasurementSystem) -> Unit,
     onExport: (suspend (String) -> Unit) -> Unit,
     onImport: (String) -> Unit,
+    onConfirmImport: (RestoreMode) -> Unit,
+    onCancelImport: () -> Unit,
     onReset: () -> Unit,
     onDismissFeedback: () -> Unit,
     modifier: Modifier = Modifier
@@ -186,6 +192,10 @@ fun SettingsScreen(
                 FeedbackBanner(feedback = feedback, onDismiss = onDismissFeedback)
             }
         }
+    }
+
+    uiState.importReview?.let { review ->
+        ImportReviewDialog(review = review, onConfirm = onConfirmImport, onDismiss = onCancelImport)
     }
 
     if (showResetConfirmation) {
@@ -457,17 +467,25 @@ private fun FeedbackBanner(
     feedback: SettingsFeedback,
     onDismiss: () -> Unit
 ) {
-    val (message, isError) = when (feedback) {
-        SettingsFeedback.ExportFailed ->
-            stringResource(R.string.settings_export_failed) to true
-        is SettingsFeedback.ImportSucceeded ->
-            stringResource(R.string.settings_import_succeeded) to false
-        SettingsFeedback.ImportFailed ->
-            stringResource(R.string.settings_import_failed) to true
-        SettingsFeedback.ResetCompleted ->
-            stringResource(R.string.settings_reset_completed) to false
-        SettingsFeedback.ResetFailed ->
-            stringResource(R.string.settings_reset_failed) to true
+    val isError = when (feedback) {
+        SettingsFeedback.ExportFailed,
+        SettingsFeedback.ImportUnreadable,
+        is SettingsFeedback.ImportInvalid,
+        SettingsFeedback.ImportFailed,
+        SettingsFeedback.ResetFailed -> true
+        is SettingsFeedback.ImportSucceeded,
+        SettingsFeedback.ResetCompleted -> false
+    }
+    val message = when (feedback) {
+        SettingsFeedback.ExportFailed -> stringResource(R.string.settings_export_failed)
+        is SettingsFeedback.ImportSucceeded -> stringResource(
+            if (feedback.mode == RestoreMode.MERGE) R.string.settings_import_done_merge else R.string.settings_import_done_replace
+        )
+        SettingsFeedback.ImportUnreadable -> stringResource(R.string.settings_import_failed)
+        is SettingsFeedback.ImportInvalid -> stringResource(R.string.settings_import_invalid_description)
+        SettingsFeedback.ImportFailed -> stringResource(R.string.settings_import_restore_failed)
+        SettingsFeedback.ResetCompleted -> stringResource(R.string.settings_reset_completed)
+        SettingsFeedback.ResetFailed -> stringResource(R.string.settings_reset_failed)
     }
 
     Card(
@@ -479,17 +497,54 @@ private fun FeedbackBanner(
             }
         )
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(StitchbookSpacing.medium),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)
         ) {
-            Text(text = message, style = MaterialTheme.typography.bodyMedium)
-            TextButton(onClick = onDismiss) {
-                Text(text = stringResource(R.string.cancel))
+            Text(text = message, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+            when (feedback) {
+                is SettingsFeedback.ImportSucceeded -> ImportSummary(feedback)
+                is SettingsFeedback.ImportInvalid -> IssueList(feedback.issues)
+                else -> Unit
             }
+            TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) {
+                Text(text = stringResource(R.string.settings_dismiss))
+            }
+        }
+    }
+}
+
+/** Everything a restore did or left undone: written counts, kept conflicts, and files to relink. */
+@Composable
+private fun ImportSummary(result: SettingsFeedback.ImportSucceeded) {
+    val written = result.written.filterValues { it > 0 }
+    if (written.isEmpty()) {
+        Text(text = stringResource(R.string.settings_import_nothing_written), style = MaterialTheme.typography.bodySmall)
+    } else {
+        Text(text = stringResource(R.string.settings_import_written_title), style = MaterialTheme.typography.bodySmall)
+        written.forEach { (type, count) ->
+            Text(
+                text = stringResource(R.string.settings_import_count_line, stringResource(type.labelResource()), count),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+    }
+    if (result.conflictsKept > 0) {
+        Text(
+            text = pluralStringResource(R.plurals.settings_import_conflicts_kept, result.conflictsKept, result.conflictsKept),
+            style = MaterialTheme.typography.bodySmall
+        )
+    }
+    if (result.missingFiles.isNotEmpty()) {
+        Text(
+            text = stringResource(R.string.settings_import_missing_files_title),
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold
+        )
+        result.missingFiles.forEach { name ->
+            Text(text = "• $name", style = MaterialTheme.typography.bodySmall)
         }
     }
 }
@@ -510,6 +565,8 @@ private fun SettingsScreenPreview() {
             onMeasurementSystemChanged = {},
             onExport = {},
             onImport = {},
+            onConfirmImport = {},
+            onCancelImport = {},
             onReset = {},
             onDismissFeedback = {}
         )
