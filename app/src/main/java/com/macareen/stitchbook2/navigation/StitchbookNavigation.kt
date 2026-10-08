@@ -217,7 +217,11 @@ fun StitchbookNavHost(
         }
         composable(TopLevelDestination.Library.route) {
             val viewModel: LibraryViewModel = viewModel(
-                factory = LibraryViewModel.factory(libraryRepository)
+                factory = LibraryViewModel.factory(
+                    libraryRepository,
+                    application.container.patternFolder,
+                    application.container.syncPatternFolder
+                )
             )
             LibraryRoute(
                 viewModel = viewModel,

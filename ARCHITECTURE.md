@@ -322,6 +322,13 @@ The Projects feature currently adds centralized create, detail, and edit routes.
 
 Early safety exports should use `ACTION_CREATE_DOCUMENT` so the user explicitly chooses each destination without requiring a permanent library setup. When the pattern library and portable library arrive, the user should select a library directory using `ACTION_OPEN_DOCUMENT_TREE`. Persist URI permissions when the provider grants them and verify access on startup or before work.
 
+**Current pattern folder (linked, read-only).**
+- The person picks one folder with `ACTION_OPEN_DOCUMENT_TREE` from Library's menu. `SafPatternFolder` (`data/library`) keeps the persisted grant: read and write when offered, so downloads can later be saved there, otherwise read only.
+- It walks the folder and its subfolders (up to 5 levels, 5,000 files) for PDFs. `SyncPatternFolder` (`domain/library`) adds a Library entry for each file not already there, matched by document URI or file name, so hand-attached PDFs aren't duplicated.
+- Files are never copied, moved, renamed, or deleted. Entries whose file has gone are counted and kept.
+- Opening Library re-checks the folder. A revoked or vanished folder is reported, never treated as empty.
+- Cloud folders work when the provider app supports folder access. Google Drive's provider often does not, so a phone-local folder kept in sync by a sync app is the fallback.
+
 Storage code should be isolated behind a `LibraryStorage`-style interface that can:
 
 - Create and enumerate library directories and documents
