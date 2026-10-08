@@ -5,11 +5,8 @@ package com.macareen.stitchbook2.domain.backup
  * documented in ARCHITECTURE.md "Backup format"). Covers Projects,
  * Library, Stash, Tools (sets, items, templates, project assignments),
  * Counters and notes, yarn allocations, pattern links, milestones, photo
- * references, journal entries, and crafting sessions.
- *
- * Guides/Drafts/Revisions/Executions are intentionally out of scope --
- * round-tripping that relational graph safely (immutable revisions, pinned
- * executions, optimistic-concurrency versions) needs its own design.
+ * references, journal entries, crafting sessions, and (from format 3) the
+ * guide graph: guides, drafts, revisions, progress, and project guide links.
  */
 interface BackupService {
     suspend fun exportJson(): String
@@ -46,7 +43,9 @@ sealed interface BackupImportResult {
         /** Records left untouched because the local copy differs (MERGE only). */
         val conflictsKept: Int = 0,
         /** Display names (or URIs) of referenced PDFs/photos this device can't open -- relink these. */
-        val missingFiles: List<String> = emptyList()
+        val missingFiles: List<String> = emptyList(),
+        /** Links cleared and records left out instead of failing (MERGE only). */
+        val notices: List<BackupNotice> = emptyList()
     ) : BackupImportResult
 
     data object InvalidFormat : BackupImportResult

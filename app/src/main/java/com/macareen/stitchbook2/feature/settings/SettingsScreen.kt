@@ -543,6 +543,14 @@ private fun ImportSummary(result: SettingsFeedback.ImportSucceeded) {
             style = MaterialTheme.typography.bodySmall
         )
     }
+    if (result.notices.isNotEmpty()) {
+        Text(
+            text = stringResource(R.string.settings_import_notices_title),
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold
+        )
+        NoticeList(result.notices)
+    }
     if (result.missingFiles.isNotEmpty()) {
         Text(
             text = stringResource(R.string.settings_import_missing_files_title),

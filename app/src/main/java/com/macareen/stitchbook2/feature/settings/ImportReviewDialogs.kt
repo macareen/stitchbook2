@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.macareen.stitchbook2.R
 import com.macareen.stitchbook2.domain.backup.BackupIssue
+import com.macareen.stitchbook2.domain.backup.BackupNotice
 import com.macareen.stitchbook2.domain.backup.BackupPreview
 import com.macareen.stitchbook2.domain.backup.BackupRecordType
 import com.macareen.stitchbook2.domain.backup.RestoreMode
@@ -85,6 +86,14 @@ private fun ReadyReviewDialog(
                     text = stringResource(R.string.settings_import_review_merge_note),
                     style = MaterialTheme.typography.bodySmall
                 )
+                if (preview.mergeNotices.isNotEmpty()) {
+                    Text(
+                        text = stringResource(R.string.settings_import_review_merge_notices),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    NoticeList(preview.mergeNotices)
+                }
                 Text(
                     text = stringResource(R.string.settings_import_review_replace_note),
                     style = MaterialTheme.typography.bodySmall
@@ -203,20 +212,32 @@ fun InvalidBackupDialog(issues: List<BackupIssue>, onDismiss: () -> Unit) {
 
 @Composable
 fun IssueList(issues: List<BackupIssue>) {
-    issues.take(MAX_ISSUES_SHOWN).forEach { issue ->
+    RecordLines(issues.map { Triple(it.type, it.recordKey, it.detail) })
+}
+
+/** Links a restore clears and records it leaves out, listed like issues so none is hidden. */
+@Composable
+fun NoticeList(notices: List<BackupNotice>) {
+    RecordLines(notices.map { Triple(it.type, it.recordKey, it.detail) })
+}
+
+/** One line per record: type label, quoted key, and detail; long lists end with a count. */
+@Composable
+private fun RecordLines(lines: List<Triple<BackupRecordType?, String?, String>>) {
+    lines.take(MAX_ISSUES_SHOWN).forEach { (type, key, detail) ->
         Text(
             text = stringResource(
                 R.string.settings_import_issue_line,
-                issue.type?.let { stringResource(it.labelResource()) }.orEmpty(),
-                issue.recordKey?.let { "\"$it\"" }.orEmpty(),
-                issue.detail
+                type?.let { stringResource(it.labelResource()) }.orEmpty(),
+                key?.let { "\"$it\"" }.orEmpty(),
+                detail
             ).trim(),
             style = MaterialTheme.typography.bodySmall
         )
     }
-    if (issues.size > MAX_ISSUES_SHOWN) {
+    if (lines.size > MAX_ISSUES_SHOWN) {
         Text(
-            text = stringResource(R.string.settings_import_invalid_more, issues.size - MAX_ISSUES_SHOWN),
+            text = stringResource(R.string.settings_import_invalid_more, lines.size - MAX_ISSUES_SHOWN),
             style = MaterialTheme.typography.bodySmall
         )
     }
@@ -251,4 +272,10 @@ fun BackupRecordType.labelResource(): Int = when (this) {
     BackupRecordType.PHOTOS -> R.string.backup_type_photos
     BackupRecordType.JOURNAL_ENTRIES -> R.string.backup_type_journal_entries
     BackupRecordType.SESSIONS -> R.string.backup_type_sessions
+    BackupRecordType.GUIDES -> R.string.backup_type_guides
+    BackupRecordType.GUIDE_DRAFTS -> R.string.backup_type_guide_drafts
+    BackupRecordType.GUIDE_REVISIONS -> R.string.backup_type_guide_revisions
+    BackupRecordType.EXECUTIONS -> R.string.backup_type_executions
+    BackupRecordType.ACTIVE_EXECUTIONS -> R.string.backup_type_active_executions
+    BackupRecordType.PROJECT_GUIDES -> R.string.backup_type_project_guides
 }

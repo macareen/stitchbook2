@@ -1,8 +1,18 @@
 package com.macareen.stitchbook2.data.backup
 
+import com.macareen.stitchbook2.domain.backup.ActiveExecutionRecord
+import com.macareen.stitchbook2.domain.backup.AddressFrameRecord
 import com.macareen.stitchbook2.domain.backup.BackupSnapshot
 import com.macareen.stitchbook2.domain.backup.CURRENT_BACKUP_FORMAT_VERSION
+import com.macareen.stitchbook2.domain.backup.CompletedOccurrenceRecord
+import com.macareen.stitchbook2.domain.backup.ExecutionRecord
+import com.macareen.stitchbook2.domain.backup.GuideDraftRecord
+import com.macareen.stitchbook2.domain.backup.GuideNodeRecord
+import com.macareen.stitchbook2.domain.backup.GuideRecord
+import com.macareen.stitchbook2.domain.backup.GuideRevisionRecord
+import com.macareen.stitchbook2.domain.backup.ProjectGuideLink
 import com.macareen.stitchbook2.domain.backup.ToolAssignment
+import com.macareen.stitchbook2.domain.backup.canonical
 import com.macareen.stitchbook2.domain.model.BulkSizeInputMode
 import com.macareen.stitchbook2.domain.model.Counter
 import com.macareen.stitchbook2.domain.model.CounterNote
@@ -36,6 +46,10 @@ import org.json.JSONObject
  * as "this file doesn't carry that type" and any absent field as null, so
  * version 1 files still restore.
  *
+ * Version 3 adds the guide graph ("guides", "guideDrafts", "guideRevisions",
+ * "executions", "activeExecutions", "projectGuides"). Version 1 and 2 files
+ * lack those keys, so they restore with guides left untouched.
+ *
  * Files (PDFs, photos) are *referenced*, never embedded: the user's
  * originals stay in their own storage, and the manifest lists each
  * reference with its display name so it can be relinked on a new device.
@@ -62,6 +76,12 @@ private const val KEY_MILESTONES = "milestones"
 private const val KEY_PHOTOS = "photos"
 private const val KEY_JOURNAL_ENTRIES = "journalEntries"
 private const val KEY_SESSIONS = "sessions"
+private const val KEY_GUIDES = "guides"
+private const val KEY_GUIDE_DRAFTS = "guideDrafts"
+private const val KEY_GUIDE_REVISIONS = "guideRevisions"
+private const val KEY_EXECUTIONS = "executions"
+private const val KEY_ACTIVE_EXECUTIONS = "activeExecutions"
+private const val KEY_PROJECT_GUIDES = "projectGuides"
 
 internal fun encodeBackup(snapshot: BackupSnapshot, exportedAt: Long): String {
     val root = JSONObject()
@@ -91,6 +111,16 @@ internal fun encodeBackup(snapshot: BackupSnapshot, exportedAt: Long): String {
     put(KEY_PHOTOS, snapshot.photos) { it.toJson() }
     put(KEY_JOURNAL_ENTRIES, snapshot.journalEntries) { it.toJson() }
     put(KEY_SESSIONS, snapshot.sessions) { it.toJson() }
+    put(KEY_GUIDES, snapshot.guides) { it.toJson() }
+    put(KEY_GUIDE_DRAFTS, snapshot.guideDrafts) { it.toJson() }
+    put(KEY_GUIDE_REVISIONS, snapshot.guideRevisions) { it.toJson() }
+    put(KEY_EXECUTIONS, snapshot.executions) { it.toJson() }
+    put(KEY_ACTIVE_EXECUTIONS, snapshot.activeExecutions) {
+        JSONObject().put("guideId", it.guideId).put("projectKey", it.projectKey).put("executionId", it.executionId)
+    }
+    put(KEY_PROJECT_GUIDES, snapshot.projectGuides) {
+        JSONObject().put("projectId", it.projectId).put("guideId", it.guideId)
+    }
     return root.toString(2)
 }
 
@@ -118,7 +148,15 @@ internal fun decodeBackup(json: String): BackupSnapshot {
         milestones = list(KEY_MILESTONES) { it.toMilestone() },
         photos = list(KEY_PHOTOS) { it.toPhoto() },
         journalEntries = list(KEY_JOURNAL_ENTRIES) { it.toJournalEntry() },
-        sessions = list(KEY_SESSIONS) { it.toSession() }
+        sessions = list(KEY_SESSIONS) { it.toSession() },
+        guides = list(KEY_GUIDES) { it.toGuideRecord() },
+        guideDrafts = list(KEY_GUIDE_DRAFTS) { it.toGuideDraftRecord() },
+        guideRevisions = list(KEY_GUIDE_REVISIONS) { it.toGuideRevisionRecord() },
+        executions = list(KEY_EXECUTIONS) { it.toExecutionRecord() },
+        activeExecutions = list(KEY_ACTIVE_EXECUTIONS) {
+            ActiveExecutionRecord(it.getString("guideId"), it.getString("projectKey"), it.getString("executionId"))
+        },
+        projectGuides = list(KEY_PROJECT_GUIDES) { ProjectGuideLink(it.getString("projectId"), it.getString("guideId")) }
     )
 }
 
@@ -564,3 +602,153 @@ internal fun JSONObject.toSession(): CraftingSession = CraftingSession(
     createdAt = getLong("createdAt"),
     updatedAt = getLong("updatedAt")
 )
+
+private fun JSONObject.optNullableInt(name: String): Int? = if (isNull(name)) null else getInt(name)
+
+private fun <T> JSONObject.objects(name: String, decode: (JSONObject) -> T): List<T> =
+    getJSONArray(name).toObjectList().map(decode)
+
+internal fun GuideRecord.toJson(): JSONObject = JSONObject().apply {
+    put("id", id)
+    put("projectId", projectId ?: JSONObject.NULL)
+    put("libraryItemId", libraryItemId ?: JSONObject.NULL)
+    put("sizeLabel", sizeLabel ?: JSONObject.NULL)
+    put("name", name)
+    put("notes", notes ?: JSONObject.NULL)
+    put("createdAt", createdAt)
+    put("updatedAt", updatedAt)
+}
+
+internal fun JSONObject.toGuideRecord(): GuideRecord = GuideRecord(
+    id = getString("id"),
+    projectId = optNullableString("projectId"),
+    libraryItemId = optNullableString("libraryItemId"),
+    sizeLabel = optNullableString("sizeLabel"),
+    name = getString("name"),
+    notes = optNullableString("notes"),
+    createdAt = getLong("createdAt"),
+    updatedAt = getLong("updatedAt")
+)
+
+private fun GuideNodeRecord.toJson(): JSONObject = JSONObject().apply {
+    put("nodeId", nodeId)
+    put("parentNodeId", parentNodeId ?: JSONObject.NULL)
+    put("childOrder", childOrder)
+    put("type", type)
+    put("title", title ?: JSONObject.NULL)
+    put("instructionText", instructionText ?: JSONObject.NULL)
+    put("rangeUnitLabel", rangeUnitLabel ?: JSONObject.NULL)
+    put("rangeStartInclusive", rangeStartInclusive ?: JSONObject.NULL)
+    put("rangeEndInclusive", rangeEndInclusive ?: JSONObject.NULL)
+    put("repeatCount", repeatCount ?: JSONObject.NULL)
+    put("repeatLabel", repeatLabel ?: JSONObject.NULL)
+}
+
+private fun JSONObject.toGuideNodeRecord(): GuideNodeRecord = GuideNodeRecord(
+    nodeId = getString("nodeId"),
+    parentNodeId = optNullableString("parentNodeId"),
+    childOrder = getInt("childOrder"),
+    type = getString("type"),
+    title = optNullableString("title"),
+    instructionText = optNullableString("instructionText"),
+    rangeUnitLabel = optNullableString("rangeUnitLabel"),
+    rangeStartInclusive = optNullableInt("rangeStartInclusive"),
+    rangeEndInclusive = optNullableInt("rangeEndInclusive"),
+    repeatCount = optNullableInt("repeatCount"),
+    repeatLabel = optNullableString("repeatLabel")
+)
+
+internal fun GuideDraftRecord.toJson(): JSONObject = JSONObject().apply {
+    put("id", id)
+    put("guideId", guideId)
+    put("baseRevisionId", baseRevisionId ?: JSONObject.NULL)
+    put("createdAt", createdAt)
+    put("updatedAt", updatedAt)
+    put("version", version)
+    put("nodes", JSONArray(nodes.map { it.toJson() }))
+}
+
+internal fun JSONObject.toGuideDraftRecord(): GuideDraftRecord = GuideDraftRecord(
+    id = getString("id"),
+    guideId = getString("guideId"),
+    baseRevisionId = optNullableString("baseRevisionId"),
+    createdAt = getLong("createdAt"),
+    updatedAt = getLong("updatedAt"),
+    version = getLong("version"),
+    nodes = objects("nodes") { it.toGuideNodeRecord() }
+).canonical()
+
+internal fun GuideRevisionRecord.toJson(): JSONObject = JSONObject().apply {
+    put("id", id)
+    put("guideId", guideId)
+    put("revisionNumber", revisionNumber)
+    put("createdAt", createdAt)
+    put("nodes", JSONArray(nodes.map { it.toJson() }))
+}
+
+internal fun JSONObject.toGuideRevisionRecord(): GuideRevisionRecord = GuideRevisionRecord(
+    id = getString("id"),
+    guideId = getString("guideId"),
+    revisionNumber = getInt("revisionNumber"),
+    createdAt = getLong("createdAt"),
+    nodes = objects("nodes") { it.toGuideNodeRecord() }
+).canonical()
+
+private fun AddressFrameRecord.toJson(): JSONObject = JSONObject()
+    .put("frameOrder", frameOrder)
+    .put("containerNodeId", containerNodeId)
+    .put("frameType", frameType)
+    .put("frameValue", frameValue)
+
+private fun JSONObject.toAddressFrameRecord(): AddressFrameRecord = AddressFrameRecord(
+    frameOrder = getInt("frameOrder"),
+    containerNodeId = getString("containerNodeId"),
+    frameType = getString("frameType"),
+    frameValue = getInt("frameValue")
+)
+
+internal fun ExecutionRecord.toJson(): JSONObject = JSONObject().apply {
+    put("id", id)
+    put("guideId", guideId)
+    put("definitionRevisionId", definitionRevisionId)
+    put("projectId", projectId ?: JSONObject.NULL)
+    put("status", status)
+    put("currentInstructionNodeId", currentInstructionNodeId ?: JSONObject.NULL)
+    put("createdAt", createdAt)
+    put("updatedAt", updatedAt)
+    put("completedAt", completedAt ?: JSONObject.NULL)
+    put("version", version)
+    put("currentFrames", JSONArray(currentFrames.map { it.toJson() }))
+    put(
+        "completedOccurrences",
+        JSONArray(
+            completedOccurrences.map { occurrence ->
+                JSONObject()
+                    .put("addressSignature", occurrence.addressSignature)
+                    .put("instructionNodeId", occurrence.instructionNodeId)
+                    .put("frames", JSONArray(occurrence.frames.map { it.toJson() }))
+            }
+        )
+    )
+}
+
+internal fun JSONObject.toExecutionRecord(): ExecutionRecord = ExecutionRecord(
+    id = getString("id"),
+    guideId = getString("guideId"),
+    definitionRevisionId = getString("definitionRevisionId"),
+    projectId = optNullableString("projectId"),
+    status = getString("status"),
+    currentInstructionNodeId = optNullableString("currentInstructionNodeId"),
+    createdAt = getLong("createdAt"),
+    updatedAt = getLong("updatedAt"),
+    completedAt = if (isNull("completedAt")) null else getLong("completedAt"),
+    version = getLong("version"),
+    currentFrames = objects("currentFrames") { it.toAddressFrameRecord() },
+    completedOccurrences = objects("completedOccurrences") { occurrence ->
+        CompletedOccurrenceRecord(
+            addressSignature = occurrence.getString("addressSignature"),
+            instructionNodeId = occurrence.getString("instructionNodeId"),
+            frames = occurrence.objects("frames") { it.toAddressFrameRecord() }
+        )
+    }
+).canonical()

@@ -304,6 +304,8 @@
     <string name="settings_import_review_only_local">%1$d only on this device</string>
     <string name="settings_import_review_empty">This file contains no records.</string>
     <string name="settings_import_review_merge_note">Merge adds only new records. Where a record differs, your current version is kept.</string>
+    <string name="settings_import_review_merge_notices">Merge would also make these changes:</string>
+    <string name="settings_import_notices_title">Restored with these changes:</string>
     <string name="settings_import_review_replace_note">Replace makes each record type in the file match it exactly. Types the file doesn\'t contain are left alone.</string>
     <string name="settings_import_merge_action">Merge (add new only)</string>
     <string name="settings_import_replace_action">Replace everything</string>
@@ -345,6 +347,12 @@
     <string name="backup_type_photos">Photo references</string>
     <string name="backup_type_journal_entries">Journal entries</string>
     <string name="backup_type_sessions">Crafting sessions</string>
+    <string name="backup_type_guides">Guides</string>
+    <string name="backup_type_guide_drafts">Guide drafts</string>
+    <string name="backup_type_guide_revisions">Published guide versions</string>
+    <string name="backup_type_executions">Guide progress</string>
+    <string name="backup_type_active_executions">Resume points</string>
+    <string name="backup_type_project_guides">Project pattern guides</string>
     <string name="projects_empty_title">No projects yet</string>
     <string name="projects_empty_description">Start one to keep its guide, yarn, needles and notes together.</string>
     <string name="projects_list_title">Your projects</string>
