@@ -1,5 +1,9 @@
 package com.macareen.stitchbook2.feature.projects
 
+import com.macareen.stitchbook2.domain.backup.BackupImportResult
+import com.macareen.stitchbook2.domain.backup.BackupPreview
+import com.macareen.stitchbook2.domain.backup.BackupService
+import com.macareen.stitchbook2.domain.backup.RestoreMode
 import com.macareen.stitchbook2.domain.execution.DefinitionRevisionId
 import com.macareen.stitchbook2.domain.execution.ExecutionAddress
 import com.macareen.stitchbook2.domain.execution.ExecutionId
@@ -205,6 +209,47 @@ class ProjectDetailViewModelTest {
         assertTrue(contentState(viewModel).assignedTools.isEmpty())
     }
 
+    @Test
+    fun exportingHandsTheGeneratedContentToTheWriterAndReportsSaved() {
+        val backup = FakeProjectBackupService(json = "{\"p\":1}", markdown = "# Project")
+        val viewModel = viewModel(FakeGuideRepository(guides = emptyList()), FakeExecutionRepository(), backupService = backup)
+        val written = mutableListOf<String>()
+
+        viewModel.exportProject(ProjectExportFormat.MARKDOWN) { written += it }
+
+        assertEquals(listOf("# Project"), written)
+        assertEquals(listOf(project.id), backup.requestedIds)
+        assertEquals(ProjectExportFeedback.SAVED, viewModel.exportFeedback.value)
+        viewModel.dismissExportFeedback()
+        assertEquals(null, viewModel.exportFeedback.value)
+    }
+
+    @Test
+    fun aMissingProjectOrAFailedWriteReportsFailed() {
+        val missing = viewModel(
+            FakeGuideRepository(guides = emptyList()),
+            FakeExecutionRepository(),
+            backupService = FakeProjectBackupService(json = null, markdown = null)
+        )
+        missing.exportProject(ProjectExportFormat.JSON) { error("must not write") }
+        assertEquals(ProjectExportFeedback.FAILED, missing.exportFeedback.value)
+
+        val failingWrite = viewModel(
+            FakeGuideRepository(guides = emptyList()),
+            FakeExecutionRepository(),
+            backupService = FakeProjectBackupService(json = "{}", markdown = null)
+        )
+        failingWrite.exportProject(ProjectExportFormat.JSON) { throw java.io.IOException("disk full") }
+        assertEquals(ProjectExportFeedback.FAILED, failingWrite.exportFeedback.value)
+    }
+
+    @Test
+    fun exportFileNamesAreFilesystemSafe() {
+        assertEquals("everyday-cardigan.md", projectExportFileName("  Everyday Cardigan! ", ProjectExportFormat.MARKDOWN))
+        assertEquals("pull-à-côtes.json", projectExportFileName("Pull à/côtes", ProjectExportFormat.JSON))
+        assertEquals("project.json", projectExportFileName("???", ProjectExportFormat.JSON))
+    }
+
     private fun contentState(viewModel: ProjectDetailViewModel): ProjectDetailUiState.Content {
         return viewModel.uiState.value as ProjectDetailUiState.Content
     }
@@ -223,7 +268,8 @@ class ProjectDetailViewModelTest {
     private fun viewModel(
         guides: FakeGuideRepository,
         executions: FakeExecutionRepository,
-        tools: FakeToolRepository = FakeToolRepository(emptyList())
+        tools: FakeToolRepository = FakeToolRepository(emptyList()),
+        backupService: BackupService? = null
     ): ProjectDetailViewModel {
         val viewModel = ProjectDetailViewModel(
             projectId = project.id,
@@ -236,6 +282,7 @@ class ProjectDetailViewModelTest {
                 guideRepository = guides,
                 newNodeId = { "unused" }
             ),
+            backupService = backupService,
             externalScope = scope
         )
         // uiState is built with SharingStarted.WhileSubscribed, so it only
@@ -246,6 +293,20 @@ class ProjectDetailViewModelTest {
         scope.launch { viewModel.uiState.collect {} }
         return viewModel
     }
+}
+
+private class FakeProjectBackupService(
+    private val json: String?,
+    private val markdown: String?
+) : BackupService {
+    val requestedIds = mutableListOf<String>()
+
+    override suspend fun exportJson(): String = error("not used")
+    override suspend fun exportProjectJson(projectId: String): String? = json.also { requestedIds += projectId }
+    override suspend fun exportProjectMarkdown(projectId: String): String? = markdown.also { requestedIds += projectId }
+    override suspend fun previewImport(json: String): BackupPreview = error("not used")
+    override suspend fun importJson(json: String, mode: RestoreMode): BackupImportResult = error("not used")
+    override suspend fun resetAllData() = error("not used")
 }
 
 /** This test suite never exercises PDF import; every call would be a test bug. */

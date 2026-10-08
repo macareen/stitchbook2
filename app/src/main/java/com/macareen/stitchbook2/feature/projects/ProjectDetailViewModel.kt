@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.macareen.stitchbook2.domain.backup.BackupService
 import com.macareen.stitchbook2.domain.guide.Guide
 import com.macareen.stitchbook2.domain.model.Project
 import com.macareen.stitchbook2.domain.model.ToolItem
@@ -21,6 +22,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
@@ -89,6 +91,7 @@ class ProjectDetailViewModel(
     private val executionRepository: ExecutionRepository,
     private val toolRepository: ToolRepository,
     private val createGuideFromPdfUseCase: CreateGuideFromPdfUseCase,
+    private val backupService: BackupService? = null,
     externalScope: CoroutineScope? = null
 ) : ViewModel() {
 
@@ -96,6 +99,10 @@ class ProjectDetailViewModel(
     private val deleteState = MutableStateFlow(DeleteState())
     private val createGuideState = MutableStateFlow(CreateGuideState())
     private val pdfImportState = MutableStateFlow(PdfImportState())
+    private val _exportFeedback = MutableStateFlow<ProjectExportFeedback?>(null)
+
+    /** Outcome of the last project export, kept apart from [uiState]'s already-wide combine. */
+    val exportFeedback: StateFlow<ProjectExportFeedback?> = _exportFeedback.asStateFlow()
 
     val uiState: StateFlow<ProjectDetailUiState> = combine(
         combine(
@@ -258,6 +265,37 @@ class ProjectDetailViewModel(
         }
     }
 
+    /**
+     * Generates this project's export in [format] and hands it to [write]
+     * (the screen's write to the SAF document the user just created). File
+     * I/O stays in the UI layer, as with the full-library backup.
+     */
+    fun exportProject(format: ProjectExportFormat, write: suspend (String) -> Unit) {
+        val service = backupService ?: return
+        scope.launch {
+            _exportFeedback.value = try {
+                val content = when (format) {
+                    ProjectExportFormat.JSON -> service.exportProjectJson(projectId)
+                    ProjectExportFormat.MARKDOWN -> service.exportProjectMarkdown(projectId)
+                }
+                if (content == null) {
+                    ProjectExportFeedback.FAILED
+                } else {
+                    write(content)
+                    ProjectExportFeedback.SAVED
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                ProjectExportFeedback.FAILED
+            }
+        }
+    }
+
+    fun dismissExportFeedback() {
+        _exportFeedback.value = null
+    }
+
     fun deleteProject() {
         val current = uiState.value as? ProjectDetailUiState.Content ?: return
         if (current.isDeleting) return
@@ -283,7 +321,8 @@ class ProjectDetailViewModel(
             guideRepository: GuideRepository,
             executionRepository: ExecutionRepository,
             toolRepository: ToolRepository,
-            createGuideFromPdfUseCase: CreateGuideFromPdfUseCase
+            createGuideFromPdfUseCase: CreateGuideFromPdfUseCase,
+            backupService: BackupService
         ): ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 ProjectDetailViewModel(
@@ -292,11 +331,35 @@ class ProjectDetailViewModel(
                     guideRepository,
                     executionRepository,
                     toolRepository,
-                    createGuideFromPdfUseCase
+                    createGuideFromPdfUseCase,
+                    backupService
                 )
             }
         }
     }
+}
+
+enum class ProjectExportFormat(val mimeType: String, val extension: String) {
+    /** Restorable: the project plus everything that hangs off it (Settings -> restore). */
+    JSON("application/json", "json"),
+
+    /** Human-readable, one-way. */
+    MARKDOWN("text/markdown", "md")
+}
+
+enum class ProjectExportFeedback {
+    SAVED,
+    FAILED
+}
+
+/** A filesystem-safe suggested name: "Everyday Cardigan!" -> "everyday-cardigan.md". */
+fun projectExportFileName(projectName: String, format: ProjectExportFormat): String {
+    val slug = projectName.lowercase()
+        .replace(Regex("[^\\p{L}\\p{N}]+"), "-")
+        .trim('-')
+        .take(60)
+        .ifEmpty { "project" }
+    return "$slug.${format.extension}"
 }
 
 private data class BaseState(

@@ -387,6 +387,12 @@
     <string name="project_updated_label">Last updated</string>
     <string name="project_save_error">The project could not be saved. Please try again.</string>
     <string name="project_delete_error">The project could not be deleted. Please try again.</string>
+    <string name="project_export_title">Export</string>
+    <string name="project_export_description">Save a copy of this project to your own storage. The JSON file can be restored from Settings; the Markdown file is for reading anywhere.</string>
+    <string name="project_export_json">Export project (JSON)</string>
+    <string name="project_export_markdown">Export as Markdown</string>
+    <string name="project_export_saved">Export saved.</string>
+    <string name="project_export_failed">The export could not be saved. Please try again.</string>
     <string name="project_not_found_title">Project not found</string>
     <string name="project_not_found_description">This project may have been deleted or is no longer available.</string>
     <string name="project_load_error_title">Project could not be loaded</string>

@@ -290,7 +290,8 @@ fun StitchbookNavHost(
                     guideRepository = guideRepository,
                     executionRepository = executionRepository,
                     toolRepository = toolRepository,
-                    createGuideFromPdfUseCase = createGuideFromPdfUseCase
+                    createGuideFromPdfUseCase = createGuideFromPdfUseCase,
+                    backupService = backupService
                 )
             )
             ProjectDetailRoute(

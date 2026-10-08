@@ -1,5 +1,6 @@
 package com.macareen.stitchbook2.feature.projects
 
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -39,6 +40,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -58,10 +60,13 @@ import com.macareen.stitchbook2.ui.components.LabelPill
 import com.macareen.stitchbook2.ui.components.PrimaryActionButton
 import com.macareen.stitchbook2.ui.components.QuietText
 import com.macareen.stitchbook2.ui.components.SecondaryActionButton
+import com.macareen.stitchbook2.ui.components.SectionHeader
 import com.macareen.stitchbook2.ui.theme.StitchbookSpacing
 import com.macareen.stitchbook2.ui.theme.StitchbookTheme
 import com.macareen.stitchbook2.ui.theme.cardTitle
 import com.macareen.stitchbook2.ui.theme.textSecondary
+import java.io.IOException
+import java.io.OutputStreamWriter
 import java.text.DateFormat
 import java.util.Date
 import kotlinx.coroutines.Dispatchers
@@ -78,6 +83,7 @@ fun ProjectDetailRoute(
     onOpenSection: (ProjectSection) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val exportFeedback by viewModel.exportFeedback.collectAsStateWithLifecycle()
 
     LaunchedEffect(viewModel) {
         viewModel.deletedEvents.collect {
@@ -100,7 +106,10 @@ fun ProjectDetailRoute(
         onCreateGuide = viewModel::createGuide,
         onCreateGuideFromPdf = viewModel::createGuideFromPdf,
         onUnassignTool = viewModel::unassignTool,
-        onOpenSection = onOpenSection
+        onOpenSection = onOpenSection,
+        exportFeedback = exportFeedback,
+        onExportProject = viewModel::exportProject,
+        onDismissExportFeedback = viewModel::dismissExportFeedback
     )
 }
 
@@ -115,7 +124,10 @@ fun ProjectDetailScreen(
     onCreateGuideFromPdf: (String, ByteArray) -> Unit,
     onUnassignTool: (ToolItem) -> Unit,
     onOpenSection: (ProjectSection) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    exportFeedback: ProjectExportFeedback? = null,
+    onExportProject: (ProjectExportFormat, suspend (String) -> Unit) -> Unit = { _, _ -> },
+    onDismissExportFeedback: () -> Unit = {}
 ) {
     when (uiState) {
         ProjectDetailUiState.Loading -> {
@@ -155,6 +167,9 @@ fun ProjectDetailScreen(
                 onCreateGuideFromPdf = onCreateGuideFromPdf,
                 onUnassignTool = onUnassignTool,
                 onOpenSection = onOpenSection,
+                exportFeedback = exportFeedback,
+                onExportProject = onExportProject,
+                onDismissExportFeedback = onDismissExportFeedback,
                 modifier = modifier
             )
         }
@@ -172,6 +187,9 @@ private fun ProjectDetailContent(
     onCreateGuideFromPdf: (String, ByteArray) -> Unit,
     onUnassignTool: (ToolItem) -> Unit,
     onOpenSection: (ProjectSection) -> Unit,
+    exportFeedback: ProjectExportFeedback?,
+    onExportProject: (ProjectExportFormat, suspend (String) -> Unit) -> Unit,
+    onDismissExportFeedback: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showDeleteConfirmation by remember { mutableStateOf(false) }
@@ -198,6 +216,27 @@ private fun ProjectDetailContent(
             }
         }
     }
+
+    // One launcher per format, since CreateDocument fixes its MIME type up front.
+    fun exportTo(format: ProjectExportFormat): (Uri?) -> Unit = { uri ->
+        if (uri != null) {
+            onExportProject(format) { content ->
+                withContext(Dispatchers.IO) {
+                    val stream = context.contentResolver.openOutputStream(uri)
+                        ?: throw IOException("Could not open the chosen document for writing.")
+                    stream.use { OutputStreamWriter(it, Charsets.UTF_8).use { writer -> writer.write(content) } }
+                }
+            }
+        }
+    }
+    val exportJsonLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument(ProjectExportFormat.JSON.mimeType),
+        onResult = exportTo(ProjectExportFormat.JSON)
+    )
+    val exportMarkdownLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument(ProjectExportFormat.MARKDOWN.mimeType),
+        onResult = exportTo(ProjectExportFormat.MARKDOWN)
+    )
 
     Column(
         modifier = modifier
@@ -279,6 +318,14 @@ private fun ProjectDetailContent(
         ToolsSection(
             assignedTools = state.assignedTools,
             onUnassignTool = onUnassignTool
+        )
+
+        Spacer(modifier = Modifier.height(StitchbookSpacing.large))
+        ExportSection(
+            feedback = exportFeedback,
+            onExportJson = { exportJsonLauncher.launch(projectExportFileName(project.name, ProjectExportFormat.JSON)) },
+            onExportMarkdown = { exportMarkdownLauncher.launch(projectExportFileName(project.name, ProjectExportFormat.MARKDOWN)) },
+            onDismissFeedback = onDismissExportFeedback
         )
     }
 
@@ -508,6 +555,52 @@ private fun GuidesSection(
  * there is deliberately no "add tool" action in this section -- only a way
  * to remove this project's side of an existing assignment.
  */
+/** Per-project exports into the user's own storage: restorable JSON and readable Markdown. */
+@Composable
+private fun ExportSection(
+    feedback: ProjectExportFeedback?,
+    onExportJson: () -> Unit,
+    onExportMarkdown: () -> Unit,
+    onDismissFeedback: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
+        SectionHeader(title = stringResource(R.string.project_export_title))
+        QuietText(text = stringResource(R.string.project_export_description))
+        SecondaryActionButton(
+            text = stringResource(R.string.project_export_json),
+            onClick = onExportJson,
+            modifier = Modifier.fillMaxWidth()
+        )
+        SecondaryActionButton(
+            text = stringResource(R.string.project_export_markdown),
+            onClick = onExportMarkdown,
+            modifier = Modifier.fillMaxWidth()
+        )
+        if (feedback != null) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(
+                        when (feedback) {
+                            ProjectExportFeedback.SAVED -> R.string.project_export_saved
+                            ProjectExportFeedback.FAILED -> R.string.project_export_failed
+                        }
+                    ),
+                    color = if (feedback == ProjectExportFeedback.FAILED) MaterialTheme.colorScheme.error else Color.Unspecified,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = onDismissFeedback) {
+                    Text(text = stringResource(R.string.settings_dismiss))
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun ToolsSection(
     assignedTools: List<ToolItem>,
