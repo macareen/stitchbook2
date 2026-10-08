@@ -35,13 +35,39 @@ package com.macareen.stitchbook2.domain.parsing
  */
 object PatternTextParser {
 
+    private const val UNIT = """(rows?|rounds?|rnds?|rds?|r)"""
+    private const val SIDE = """(\s*\([^)]{1,24}\))?"""
+    private const val SEPARATOR = """\s*[:.\u2013\u2014-]\s*"""
+    private const val SPAN = """\s*(?:-|\u2013|\u2014|to|through)\s*"""
+
     private val SECTION_LINE = Regex("""^Section:\s*(.+)$""", RegexOption.IGNORE_CASE)
-    private val ROW_RANGE_LINE = Regex("""^(Rows?|Rounds?)\s+(\d+)\s*-\s*(\d+):\s*(.+)$""", RegexOption.IGNORE_CASE)
-    private val ROW_SINGLE_LINE = Regex("""^(Rows?|Rounds?)\s+(\d+):\s*(.+)$""", RegexOption.IGNORE_CASE)
+    private val ROW_RANGE_LINE = Regex("""^$UNIT\s*(\d+)$SPAN(\d+)$SIDE$SEPARATOR(.+)$""", RegexOption.IGNORE_CASE)
+    private val ROW_SINGLE_LINE = Regex("""^$UNIT\s*(\d+)$SIDE$SEPARATOR(.+)$""", RegexOption.IGNORE_CASE)
     private val REPEAT_LINE = Regex(
-        """^Repeat\s+(Rows?|Rounds?)\s+(\d+)(?:(?:\s*-\s*|\s+and\s+)(\d+))?\s+(\d+)\s+times\.?$""",
+        """^Rep(?:eat)?\s+$UNIT\s*(\d+)(?:(?:$SPAN|\s+(?:and|&)\s+)(\d+))?\s+(\d+)\s+times\.?$""",
         RegexOption.IGNORE_CASE
     )
+    private val BULLET = Regex("""^[\u2022*\u25AA\u25CF-]\s""")
+    private const val MAX_HEADING_LENGTH = 40
+
+    /** A line that begins its own step, so a wrapped line is never glued onto it from above. */
+    internal fun startsNewLine(text: String): Boolean =
+        SECTION_LINE.matches(text) || REPEAT_LINE.matches(text) || ROW_RANGE_LINE.matches(text) ||
+            ROW_SINGLE_LINE.matches(text) || BULLET.containsMatchIn(text) || headingTitle(text) != null
+
+    /**
+     * A short title such as "BODY", "FINISHING", or "Sleeves (make 2):".
+     * All-capital words (with no digits, so "K2TOG" stays an instruction)
+     * or a short phrase ending in a colon; never a sentence.
+     */
+    internal fun headingTitle(text: String): String? {
+        val trimmed = text.trim()
+        if (trimmed.length !in 3..MAX_HEADING_LENGTH || trimmed.endsWith(".")) return null
+        val letters = trimmed.filter { it.isLetter() }
+        val shouting = letters.length >= 4 && letters.all { it.isUpperCase() } && trimmed.none { it.isDigit() }
+        val labelled = trimmed.endsWith(":") && trimmed.count { it == ':' } == 1 && trimmed.split(' ').size <= 5
+        return if (shouting || labelled) trimmed.removeSuffix(":").trim() else null
+    }
 
     private data class RowMarker(val unit: String, val start: Int, val end: Int, val node: ParsedNode)
 
@@ -68,14 +94,15 @@ object PatternTextParser {
 
         fun active(): Container = currentSection ?: root
 
-        for (line in document.lines) {
+        val lines = PatternTextCleanup.clean(document, ::startsNewLine) { headingTitle(it) != null }
+        for (line in lines) {
             val text = line.text
             val source = line.source
 
-            val sectionMatch = SECTION_LINE.matchEntire(text)
-            if (sectionMatch != null) {
+            val sectionTitle = SECTION_LINE.matchEntire(text)?.groupValues?.get(1)?.trim() ?: headingTitle(text)
+            if (sectionTitle != null) {
                 closeCurrentSection()
-                currentSectionTitle = sectionMatch.groupValues[1].trim()
+                currentSectionTitle = sectionTitle
                 currentSectionSource = source
                 currentSection = Container()
                 continue
@@ -116,7 +143,7 @@ object PatternTextParser {
         val unit = normalizeUnit(match.groupValues[1])
         val start = match.groupValues[2].toInt()
         val end = match.groupValues[3].toInt()
-        val instructionText = match.groupValues[4].trim()
+        val instructionText = withSide(match.groupValues[4], match.groupValues[5].trim())
         if (end < start || instructionText.isEmpty()) {
             issues += ParsingIssue("Unrecognized row/round range: \"$rawText\"", source)
             container.children += ParsedInstruction(rawText, source)
@@ -142,13 +169,15 @@ object PatternTextParser {
     ) {
         val unit = normalizeUnit(match.groupValues[1])
         val number = match.groupValues[2].toInt()
-        val instructionText = match.groupValues[3].trim()
+        val instructionText = match.groupValues[4].trim()
         if (instructionText.isEmpty()) {
             issues += ParsingIssue("Unrecognized row/round line: \"$rawText\"", source)
             container.children += ParsedInstruction(rawText, source)
             return
         }
-        val node = ParsedInstruction(instructionText, source)
+        // A single row stays one instruction, so it keeps its number in its text.
+        val label = unit.replaceFirstChar { it.uppercase() } + " " + number + match.groupValues[3].trimEnd()
+        val node = ParsedInstruction("$label: $instructionText", source)
         container.children += node
         container.rowMarkers += RowMarker(unit, number, number, node)
     }
@@ -218,5 +247,12 @@ object PatternTextParser {
         return if (matches) trailing.map { it.node } to span else null
     }
 
-    private fun normalizeUnit(rawUnit: String): String = rawUnit.lowercase().removeSuffix("s")
+    private fun normalizeUnit(rawUnit: String): String = when (rawUnit.lowercase().removeSuffix("s")) {
+        "round", "rnd", "rd" -> "round"
+        else -> "row"
+    }
+
+    /** Keeps a side or note such as "(RS)" with the instruction it qualifies. */
+    private fun withSide(side: String, text: String): String =
+        if (side.isBlank()) text else "${side.trim()} $text"
 }

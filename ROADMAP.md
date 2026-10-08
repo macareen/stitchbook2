@@ -365,6 +365,17 @@ Guide-definition persistence follows these v1 constraints: a Guide belongs to on
 
 **Status: the PDF-parsing prototype (all four planned increments) is complete; deterministic step generation for real-world phrasing beyond this prototype's scope remains open.** PDF digital-text extraction with page/line source references is implemented (see ARCHITECTURE.md's "Current PDF text extraction"): `domain/parsing`'s `ExtractedDocument`/`ExtractedLine`/`SourceReference` model and `PdfTextExtractor` contract, backed by a PdfBox-Android implementation in `data/parsing`. Deterministic parsing of that extracted text into sections, row/round ranges, and repeats -- with an issue list for anything ambiguous -- is also implemented (`domain/parsing/PatternTextParser.kt`/`ParsedPattern.kt`), for a small explicit subset of pattern-text phrasing. Mapping that parsed output into a real, editable `GuideDraft` is implemented too (`domain/parsing/ParsedPatternMapper.kt`, `domain/usecase/CreateGuideFromPdfUseCase.kt`), reachable from a Project's guide list via a "Create from PDF" action -- provenance and ambiguity are kept visible as annotated/flagged text directly in the existing Draft editor rather than a new schema field or review screen, and nothing is ever auto-published. A page with no digital text layer at all now falls back to on-device OCR (`data/parsing/PdfPageOcr.kt`/`MlKitPdfPageOcr.kt`, ML Kit's bundled Latin recognizer, no network dependency) before being reported as unreadable. Abbreviations, simultaneous/conditional instructions, sizes, size selection, and step generation for phrasing beyond this prototype's small explicit grammar remain later Phase 12 work.
 
+**Real-world clean-up (done).** `PatternTextCleanup` runs before parsing:
+- It drops bare page numbers, and headers or footers repeated at the top or bottom of at least half the pages. Lines that look like pattern structure are never dropped.
+- It rejoins sentences a PDF wrapped across lines, including hyphenated words.
+
+The parser now also recognises:
+- `R1`, `Rnd`/`Rd`, en-dash and "to" ranges, and sides such as "(RS)"/"(WS)".
+- "Rep" lines.
+- Headings, either all-capital titles or short phrases ending in a colon, which become sections.
+
+Single rows keep their number in the step text ("Row 3 (RS): Knit."), and generated steps show their page as "(p.N)" instead of a page and line. For hard patterns, the assistant round trip (Phase 13) produces the same draft format.
+
 **Goal:** Create a reviewable structured guide from supported PDFs using deterministic techniques first.
 
 **Scope:**
