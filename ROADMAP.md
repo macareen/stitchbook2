@@ -402,6 +402,8 @@ The parser now also recognises:
 
 Single rows keep their number in the step text ("Row 3 (RS): Knit."), and generated steps show their page as "(p.N)" instead of a page and line. For hard patterns, the assistant round trip (Phase 13) produces the same draft format.
 
+**Front matter (done).** `PatternMetadataSplitter` separates what a pattern says about itself from how to make it. The intro, a "by Name" byline, and blocks such as Materials, Gauge, Needles, Sizes and Abbreviations never become steps. Copyright and web lines are dropped. Instructions start at the first row or round, a cast-on or chain, or a heading that isn't a details block. Each details block is kept whole as one paragraph. When a pattern guide is filled from the PDF, the Library entry's empty fields get this text: the intro and yarn go to the description, plus designer, gauge, suggested tools, sizes, and yardage (only a stated total, never a per-skein amount). Fields the user already wrote are never overwritten. Parsed headings, ranges or repeats left with no steps are dropped, so drafts publish. Save and publish failures show a plain sentence instead of raw validation text.
+
 **Size selection (done).** `PatternSizes` reads the size list from the PDF's "Sizes:" line, or else from the Library entry's sizes. A pattern guide made with *Fill from the pattern* keeps only its size's numbers: "Cast on 60 (66, 72) sts" becomes "Cast on 66 sts" for the second size. Only a group with exactly one value per size is resolved, so "(24 sts)" and "(RS)" stay as written. A size the pattern doesn't list keeps every number and adds a "Review needed" step.
 
 **Goal:** Create a reviewable structured guide from supported PDFs using deterministic techniques first.

@@ -12,7 +12,10 @@ import com.macareen.stitchbook2.domain.parsing.ExtractedLine
 import com.macareen.stitchbook2.domain.parsing.PdfTextExtractionException
 import com.macareen.stitchbook2.domain.parsing.PdfTextExtractor
 import com.macareen.stitchbook2.domain.parsing.SourceReference
+import com.macareen.stitchbook2.domain.model.Craft
+import com.macareen.stitchbook2.domain.model.LibraryItem
 import com.macareen.stitchbook2.domain.repository.GuideRepository
+import com.macareen.stitchbook2.domain.repository.LibraryRepository
 import java.io.ByteArrayInputStream
 import java.io.InputStream
 import kotlinx.coroutines.flow.Flow
@@ -52,6 +55,47 @@ class CreateGuideFromPdfUseCaseTest {
         val savedDraft = repository.lastSavedDraft
         assertTrue(savedDraft != null)
         assertEquals(2, savedDraft!!.rootNodeIds.size)
+    }
+
+    @Test
+    fun `a pattern guide fills the pattern's empty details but keeps what the user wrote`() = runBlocking {
+        val lines = listOf(
+            "A cosy hat by Ana Example",
+            "A quick weekend knit for chilly mornings.",
+            "Gauge: 20 sts = 10 cm",
+            "Needles: 4.5 mm circular",
+            "Yarn: approx. 200 yds of worsted",
+            "Cast on 88 sts.",
+            "Rounds 1-10: K2, p2."
+        )
+        val document = ExtractedDocument(
+            pageCount = 1,
+            lines = lines.mapIndexed { index, text -> ExtractedLine(text, SourceReference(1, index + 1)) }
+        )
+        val pattern = LibraryItem(
+            id = "pattern-1", title = "Cosy hat", craft = Craft.KNITTING, author = null, sourceUrl = null,
+            tags = emptyList(), notes = null, bookmarked = false, createdAt = 0, updatedAt = 0,
+            gauge = "My own gauge note"
+        )
+        val library = FakeLibraryRepository(pattern)
+        val repository = FakeGuideRepository()
+        val useCase = CreateGuideFromPdfUseCase(
+            textExtractor = FakePdfTextExtractor(document),
+            guideRepository = repository,
+            newNodeId = idGenerator(),
+            libraryRepository = library
+        )
+
+        useCase.forPattern("pattern-1", "M", null, "Cosy hat · M", ByteArrayInputStream(ByteArray(0)))
+
+        val saved = library.item!!
+        assertEquals("Ana Example", saved.author)
+        assertEquals("A quick weekend knit for chilly mornings.\n\nYarn: approx. 200 yds of worsted", saved.notes)
+        assertEquals("My own gauge note", saved.gauge)
+        assertEquals("4.5 mm circular", saved.recommendedTools)
+        assertEquals(200.0, saved.yardageRequired!!, 0.0)
+        // Only the knitting became steps (the cast-on and the range), plus the note that no size list was found.
+        assertEquals(3, repository.lastSavedDraft!!.rootNodeIds.size)
     }
 
     @Test
@@ -239,4 +283,15 @@ private class FakeGuideRepository : GuideRepository {
 
     override suspend fun publishDraft(guideId: GuideId): DefinitionRevision =
         throw UnsupportedOperationException("Not used by CreateGuideFromPdfUseCase")
+}
+
+private class FakeLibraryRepository(var item: LibraryItem?) : LibraryRepository {
+    override fun observeLibraryItems(): Flow<List<LibraryItem>> = flowOf(listOfNotNull(item))
+    override fun observeLibraryItem(id: String): Flow<LibraryItem?> = flowOf(item?.takeIf { it.id == id })
+    override suspend fun saveLibraryItem(item: LibraryItem) {
+        this.item = item
+    }
+    override suspend fun deleteLibraryItem(item: LibraryItem) {
+        this.item = null
+    }
 }

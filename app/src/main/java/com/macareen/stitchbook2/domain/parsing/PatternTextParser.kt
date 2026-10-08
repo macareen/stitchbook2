@@ -76,7 +76,26 @@ object PatternTextParser {
         val rowMarkers = mutableListOf<RowMarker>()
     }
 
-    fun parse(document: ExtractedDocument): ParsedPattern {
+    fun parse(document: ExtractedDocument): ParsedPattern = parseWithDetails(document).first
+
+    /**
+     * Parses the instructions into a [ParsedPattern] and returns the pattern's
+     * front matter (intro, designer, gauge, materials) as [PatternDetails]
+     * instead of turning it into steps; see [PatternMetadataSplitter].
+     */
+    fun parseWithDetails(document: ExtractedDocument): Pair<ParsedPattern, PatternDetails> {
+        val cleaned = PatternTextCleanup.clean(document, ::startsNewLine) { headingTitle(it) != null }
+        val split = PatternMetadataSplitter.split(cleaned, ::isRowLine, ::anyHeading)
+        return parseLines(split.instructions) to split.details
+    }
+
+    private fun anyHeading(text: String): String? =
+        SECTION_LINE.matchEntire(text)?.groupValues?.get(1)?.trim() ?: headingTitle(text)
+
+    private fun isRowLine(text: String): Boolean =
+        ROW_RANGE_LINE.matches(text) || ROW_SINGLE_LINE.matches(text) || REPEAT_LINE.matches(text)
+
+    private fun parseLines(lines: List<ExtractedLine>): ParsedPattern {
         val issues = mutableListOf<ParsingIssue>()
         val root = Container()
         var currentSection: Container? = null
@@ -94,7 +113,6 @@ object PatternTextParser {
 
         fun active(): Container = currentSection ?: root
 
-        val lines = PatternTextCleanup.clean(document, ::startsNewLine) { headingTitle(it) != null }
         for (line in lines) {
             val text = line.text
             val source = line.source

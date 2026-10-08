@@ -93,8 +93,9 @@ class PatternTextCleanupTest {
             "Rep rnd 1 2 times."
         )
 
+        // MATERIALS describes the pattern, so it leaves the steps (see PatternMetadataSplitter).
         assertEquals(
-            listOf("# MATERIALS", "worsted yarn, 5 mm hook", "# Body", "x2", "Round 1: magic ring, 6 sc."),
+            listOf("# Body", "x2", "Round 1: magic ring, 6 sc."),
             texts(parse(1, lines).rootNodes)
         )
     }
