@@ -1,5 +1,18 @@
 package com.macareen.stitchbook2.feature.stash
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.ui.graphics.Color
+import com.macareen.stitchbook2.ui.components.SkeinArt
+import com.macareen.stitchbook2.ui.theme.CozyPastels
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -14,8 +27,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
@@ -379,55 +390,72 @@ private fun StashContent(
     onImportCsvClick: () -> Unit,
     onTemplateCsvClick: () -> Unit
 ) {
-    LazyColumn(
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
         contentPadding = PaddingValues(
             start = StitchbookSpacing.medium,
             top = StitchbookSpacing.medium,
             end = StitchbookSpacing.medium,
             bottom = 104.dp
         ),
-        verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)
+        verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.medium),
+        horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.medium)
     ) {
-        item {
-            ScreenHeader(
-                title = null,
-                subtitle = stringResource(R.string.stash_header_subtitle),
-                menuDescription = stringResource(R.string.inventory_more_actions),
-                actions = listOf(
-                    HeaderAction(stringResource(R.string.stash_export_csv_action), onExportCsvClick),
-                    HeaderAction(stringResource(R.string.stash_import_csv_action), onImportCsvClick),
-                    HeaderAction(stringResource(R.string.stash_download_csv_template_action), onTemplateCsvClick)
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            Column {
+                ScreenHeader(
+                    title = null,
+                    subtitle = stringResource(R.string.stash_header_subtitle),
+                    menuDescription = stringResource(R.string.inventory_more_actions),
+                    actions = listOf(
+                        HeaderAction(stringResource(R.string.stash_export_csv_action), onExportCsvClick),
+                        HeaderAction(stringResource(R.string.stash_import_csv_action), onImportCsvClick),
+                        HeaderAction(stringResource(R.string.stash_download_csv_template_action), onTemplateCsvClick)
+                    )
                 )
-            )
-            Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+            }
         }
 
-        item {
-            OutlinedTextField(
-                value = uiState.filter.searchQuery,
-                onValueChange = onSearchQueryChanged,
-                singleLine = true,
-                label = { Text(text = stringResource(R.string.stash_search_placeholder)) },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            Column {
+                OutlinedTextField(
+                    value = uiState.filter.searchQuery,
+                    onValueChange = onSearchQueryChanged,
+                    singleLine = true,
+                    placeholder = { Text(text = stringResource(R.string.stash_search_placeholder)) },
+                    leadingIcon = { Icon(imageVector = Icons.Outlined.Search, contentDescription = null) },
+                    shape = CircleShape,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                        unfocusedBorderColor = Color.Transparent
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+            }
         }
 
-        item {
-            CategoryFilterDropdown(
-                selected = uiState.filter.categoryFilter,
-                onSelected = onCategoryFilterChanged,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            Column {
+                CategoryFilterDropdown(
+                    selected = uiState.filter.categoryFilter,
+                    onSelected = onCategoryFilterChanged,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
+            }
         }
 
         if (uiState.items.isEmpty()) {
-            item {
-                MessageState(
-                    title = stringResource(R.string.stash_empty_title),
-                    description = stringResource(R.string.stash_empty_description)
-                )
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Column {
+                    MessageState(
+                        title = stringResource(R.string.stash_empty_title),
+                        description = stringResource(R.string.stash_empty_description)
+                    )
+                }
             }
         } else {
             items(items = uiState.items, key = { it.id }) { stashItem ->
@@ -504,147 +532,138 @@ private fun StashItemCard(
     onAddPhoto: () -> Unit,
     onPhotoClicked: (Photo) -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
+    val pastel = CozyPastels.forKey(item.colorway ?: item.id)
+    var menuOpen by remember { mutableStateOf(false) }
+    // The whole card opens the item for editing; the photo is the yarn's face.
+    Surface(
+        onClick = onEdit,
         shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
+        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(StitchbookSpacing.medium)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+        Column {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(132.dp)
+                    .background(pastel.tile)
             ) {
-                LabelPill(
-                    text = stringResource(item.category.labelResource()),
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-                LabelPill(
-                    text = "${formatQuantity(item.quantity)} ${item.unitLabel}",
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    contentColor = MaterialTheme.colorScheme.textSecondary
-                )
-            }
-
-            Spacer(modifier = Modifier.height(StitchbookSpacing.small))
-            Text(
-                text = item.name,
-                style = MaterialTheme.typography.cardTitle,
-                fontWeight = FontWeight.SemiBold
-            )
-            item.brand?.let { QuietText(text = it) }
-
-            val details = listOfNotNull(
-                item.colorway?.let { colorway ->
-                    if (item.dyeLot != null) "$colorway (${item.dyeLot})" else colorway
-                },
-                item.weightCategory,
-                item.fiberContent,
-                item.yardagePerUnit?.let {
-                    if (LocalMeasurementSystem.current == MeasurementSystem.METRIC) {
-                        stringResource(
-                            R.string.stash_meterage_per_unit,
-                            formatQuantity(Math.round(yardsToMeters(it) * 10) / 10.0)
-                        )
-                    } else {
-                        stringResource(R.string.stash_yardage_per_unit, formatQuantity(it))
-                    }
-                },
-                item.storageLocation,
-                item.remainingWeightGrams?.let {
-                    stringResource(R.string.stash_measured_remaining, formatQuantity(it))
-                },
-                item.estimatedRemainingYards()?.let { yards ->
-                    if (LocalMeasurementSystem.current == MeasurementSystem.METRIC) {
-                        stringResource(
-                            R.string.stash_estimated_remaining_meters,
-                            formatQuantity(Math.round(yardsToMeters(yards) * 10) / 10.0)
-                        )
-                    } else {
-                        stringResource(R.string.stash_estimated_remaining_yards, formatQuantity(yards))
-                    }
-                },
-                if (reserved > 0.0) {
-                    stringResource(
-                        R.string.stash_reserved_summary,
-                        formatQuantity(reserved),
-                        formatQuantity(roundQuantity((item.quantity - reserved).coerceAtLeast(0.0))),
-                        item.unitLabel
+                val cover = photos.firstOrNull()
+                if (cover != null) {
+                    PhotoThumbnail(
+                        uri = cover.uri,
+                        contentDescription = cover.displayName,
+                        maxSizePx = 512,
+                        modifier = Modifier.fillMaxSize()
                     )
                 } else {
-                    null
+                    SkeinArt(pastel = pastel, width = 52.dp)
                 }
-            )
-            if (details.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
-                Surface(
-                    shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.surfaceContainer
-                ) {
-                    Column(
-                        modifier = Modifier.padding(StitchbookSpacing.small),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                if (reserved > 0.0) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White.copy(alpha = 0.92f),
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(8.dp)
                     ) {
-                        details.forEach { detail ->
-                            QuietText(text = detail)
-                        }
-                    }
-                }
-            }
-
-            item.notes?.let { notes ->
-                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
-                Text(
-                    text = notes,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.textSecondary,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            if (photos.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
-                Row(horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
-                    photos.take(4).forEach { photo ->
-                        PhotoThumbnail(
-                            uri = photo.uri,
-                            contentDescription = photo.displayName,
-                            maxSizePx = 256,
-                            modifier = Modifier
-                                .size(64.dp)
-                                .clickable(
-                                    onClickLabel = stringResource(R.string.stash_photo_remove),
-                                    onClick = { onPhotoClicked(photo) }
-                                )
+                        Text(
+                            text = stringResource(R.string.stash_card_reserved, formatQuantity(reserved)),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = pastel.ink,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                         )
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.height(StitchbookSpacing.small))
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
+                verticalAlignment = Alignment.Top,
+                modifier = Modifier.padding(start = 12.dp, top = 10.dp, bottom = 10.dp)
             ) {
-                IconButton(onClick = onAddPhoto) {
-                    Icon(
-                        imageVector = Icons.Outlined.AddAPhoto,
-                        contentDescription = stringResource(R.string.stash_photo_add)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = item.name,
+                        style = MaterialTheme.typography.titleSmall,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
+                    val subtitle = listOfNotNull(item.brand, item.colorway).joinToString(" · ")
+                    if (subtitle.isNotEmpty()) {
+                        Text(
+                            text = subtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Text(
+                        text = if (reserved > 0.0) {
+                            stringResource(
+                                R.string.stash_reserved_summary,
+                                formatQuantity(reserved),
+                                formatQuantity(roundQuantity((item.quantity - reserved).coerceAtLeast(0.0))),
+                                item.unitLabel
+                            )
+                        } else {
+                            "${formatQuantity(item.quantity)} ${item.unitLabel}"
+                        },
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    val details = listOfNotNull(
+                        item.weightCategory,
+                        item.estimatedRemainingYards()?.let { yards ->
+                            if (LocalMeasurementSystem.current == MeasurementSystem.METRIC) {
+                                stringResource(
+                                    R.string.stash_estimated_remaining_meters,
+                                    formatQuantity(Math.round(yardsToMeters(yards) * 10) / 10.0)
+                                )
+                            } else {
+                                stringResource(R.string.stash_estimated_remaining_yards, formatQuantity(yards))
+                            }
+                        }
+                    )
+                    if (details.isNotEmpty()) {
+                        Text(
+                            text = details.joinToString(" · "),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
-                IconButton(onClick = onEdit) {
-                    Icon(
-                        imageVector = Icons.Outlined.Edit,
-                        contentDescription = stringResource(R.string.edit_stash_item)
-                    )
-                }
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        imageVector = Icons.Outlined.Delete,
-                        contentDescription = stringResource(R.string.delete_stash_item)
-                    )
+                Box {
+                    IconButton(onClick = { menuOpen = true }) {
+                        Icon(
+                            imageVector = Icons.Filled.MoreVert,
+                            contentDescription = stringResource(R.string.stash_card_more_actions)
+                        )
+                    }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.stash_photo_add)) },
+                            onClick = { menuOpen = false; onAddPhoto() }
+                        )
+                        photos.firstOrNull()?.let { photo ->
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.stash_photo_remove)) },
+                                onClick = { menuOpen = false; onPhotoClicked(photo) }
+                            )
+                        }
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.edit_stash_item)) },
+                            onClick = { menuOpen = false; onEdit() }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.delete_stash_item)) },
+                            onClick = { menuOpen = false; onDelete() }
+                        )
+                    }
                 }
             }
         }

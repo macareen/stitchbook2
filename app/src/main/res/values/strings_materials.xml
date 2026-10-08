@@ -31,4 +31,17 @@
     <string name="stash_estimated_remaining_yards">≈ %1$s yds left (estimated)</string>
     <string name="stash_estimated_remaining_meters">≈ %1$s m left (estimated)</string>
     <string name="stash_reserved_summary">%1$s reserved · %2$s free %3$s</string>
+    <string name="stash_card_reserved">%1$s set aside</string>
+    <string name="stash_card_more_actions">More for this yarn</string>
+    <string name="needle_grid_title">Needles at a glance</string>
+    <string name="needle_grid_subtitle">A dot for each size you own; an empty ring is a gap.</string>
+    <string name="needle_grid_size_heading">mm</string>
+    <string name="needle_grid_us">US %1$s</string>
+    <string name="needle_grid_owned">%1$d owned</string>
+    <string name="needle_grid_missing">none</string>
+    <string name="needle_grid_straight">Straight</string>
+    <string name="needle_grid_circular">Circular</string>
+    <string name="needle_grid_dpn">DPN</string>
+    <string name="needle_grid_interchangeable">Tips</string>
+    <string name="needle_grid_hook">Hook</string>
 </resources>
