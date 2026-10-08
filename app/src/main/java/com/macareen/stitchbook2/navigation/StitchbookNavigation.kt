@@ -533,7 +533,8 @@ fun StitchbookNavHost(
                     executionRepository = executionRepository,
                     counterRepository = counterRepository,
                     projectId = projectId,
-                    materialsRepository = materialsRepository
+                    materialsRepository = materialsRepository,
+                    sessionRepository = sessionRepository
                 )
             )
             GuideFocusRoute(
