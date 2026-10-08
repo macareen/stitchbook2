@@ -382,6 +382,8 @@ The parser now also recognises:
 
 Single rows keep their number in the step text ("Row 3 (RS): Knit."), and generated steps show their page as "(p.N)" instead of a page and line. For hard patterns, the assistant round trip (Phase 13) produces the same draft format.
 
+**Size selection (done).** `PatternSizes` reads the size list from the PDF's "Sizes:" line, or else from the Library entry's sizes. A pattern guide made with *Fill from the pattern* keeps only its size's numbers: "Cast on 60 (66, 72) sts" becomes "Cast on 66 sts" for the second size. Only a group with exactly one value per size is resolved, so "(24 sts)" and "(RS)" stay as written. A size the pattern doesn't list keeps every number and adds a "Review needed" step.
+
 **Goal:** Create a reviewable structured guide from supported PDFs using deterministic techniques first.
 
 **Scope:**

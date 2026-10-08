@@ -7,8 +7,11 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.macareen.stitchbook2.domain.guide.Guide
 import com.macareen.stitchbook2.domain.model.LibraryItem
+import com.macareen.stitchbook2.domain.parsing.PatternSizes
 import com.macareen.stitchbook2.domain.repository.GuideRepository
 import com.macareen.stitchbook2.domain.repository.LibraryRepository
+import com.macareen.stitchbook2.domain.usecase.CreateGuideFromPdfUseCase
+import java.io.ByteArrayInputStream
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +24,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+enum class PatternPdfProblem { UNREADABLE, NO_TEXT }
+
 /** One size's guide on a pattern, and whether it can be knitted yet. */
 data class PatternGuideEntry(val guide: Guide, val isPublished: Boolean)
 
@@ -31,19 +36,28 @@ sealed interface PatternGuidesUiState {
         val pattern: LibraryItem,
         val guides: List<PatternGuideEntry>,
         val isCreating: Boolean,
-        val createFailed: Boolean
-    ) : PatternGuidesUiState
+        val createFailed: Boolean,
+        /** Why filling a guide from the pattern's PDF failed, if it did. */
+        val pdfProblem: PatternPdfProblem? = null
+    ) : PatternGuidesUiState {
+        /** The sizes the Library entry names, offered as choices for a new guide. */
+        val sizeChoices: List<String> get() = PatternSizes.labelsFrom(pattern.sizes.orEmpty())
+    }
 }
 
 /**
  * A pattern's own screen: its original file and its guides, one per size.
- * A new size guide starts as an empty draft and opens in the Draft editor.
+ * A new size guide starts as a draft, empty or filled from the pattern's PDF
+ * with only that size's numbers, and opens in the Draft editor.
  */
 class PatternGuidesViewModel(
     private val libraryItemId: String,
     libraryRepository: LibraryRepository,
     private val guideRepository: GuideRepository,
-    externalScope: CoroutineScope? = null
+    externalScope: CoroutineScope? = null,
+    private val createGuideFromPdf: CreateGuideFromPdfUseCase? = null,
+    /** Reads the pattern's file by its stored address; null when it can't be opened. */
+    private val readPatternFile: suspend (String) -> ByteArray? = { null }
 ) : ViewModel() {
 
     private val scope: CoroutineScope = externalScope ?: viewModelScope
@@ -53,7 +67,11 @@ class PatternGuidesViewModel(
     /** The new guide's id once created; the screen opens it in the Draft editor. */
     val createdGuideId: StateFlow<String?> = created.asStateFlow()
 
-    private data class CreationState(val isCreating: Boolean = false, val failed: Boolean = false)
+    private data class CreationState(
+        val isCreating: Boolean = false,
+        val failed: Boolean = false,
+        val pdfProblem: PatternPdfProblem? = null
+    )
 
     val uiState: StateFlow<PatternGuidesUiState> = combine(
         libraryRepository.observeLibraryItem(libraryItemId),
@@ -65,26 +83,55 @@ class PatternGuidesViewModel(
         if (pattern == null) {
             PatternGuidesUiState.Missing
         } else {
-            PatternGuidesUiState.Content(pattern, guides, creationState.isCreating, creationState.failed)
+            PatternGuidesUiState.Content(pattern, guides, creationState.isCreating, creationState.failed, creationState.pdfProblem)
         }
     }
         .catch { emit(PatternGuidesUiState.Missing) }
         .stateIn(scope, SharingStarted.WhileSubscribed(5_000), PatternGuidesUiState.Loading)
 
-    fun createGuide(sizeLabel: String, name: String) {
+    /** Creates the guide for [sizeLabel]; with [fromPattern], filled from the pattern's PDF for that size. */
+    fun createGuide(sizeLabel: String, name: String, fromPattern: Boolean = false) {
         val content = uiState.value as? PatternGuidesUiState.Content ?: return
         if (content.isCreating || sizeLabel.isBlank()) return
         creation.value = CreationState(isCreating = true)
         scope.launch {
             try {
                 val guideName = name.trim().ifEmpty { "${content.pattern.title} · ${sizeLabel.trim()}" }
-                created.value = guideRepository.createPatternGuide(libraryItemId, sizeLabel, guideName).id.value
+                val pdfUri = content.pattern.pdfUri
+                val useCase = createGuideFromPdf
+                if (fromPattern && pdfUri != null && useCase != null) {
+                    val problem = fillFromPattern(useCase, pdfUri, sizeLabel.trim(), content.pattern.sizes, guideName)
+                    if (problem != null) {
+                        creation.value = CreationState(pdfProblem = problem)
+                        return@launch
+                    }
+                } else {
+                    created.value = guideRepository.createPatternGuide(libraryItemId, sizeLabel, guideName).id.value
+                }
                 creation.value = CreationState()
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Exception) {
                 creation.value = CreationState(failed = true)
             }
+        }
+    }
+
+    private suspend fun fillFromPattern(
+        useCase: CreateGuideFromPdfUseCase,
+        pdfUri: String,
+        sizeLabel: String,
+        knownSizes: String?,
+        guideName: String
+    ): PatternPdfProblem? {
+        val bytes = readPatternFile(pdfUri) ?: return PatternPdfProblem.UNREADABLE
+        return when (val result = useCase.forPattern(libraryItemId, sizeLabel, knownSizes, guideName, ByteArrayInputStream(bytes))) {
+            is CreateGuideFromPdfUseCase.Result.Success -> {
+                created.value = result.guideId.value
+                null
+            }
+            CreateGuideFromPdfUseCase.Result.NoExtractableText -> PatternPdfProblem.NO_TEXT
+            is CreateGuideFromPdfUseCase.Result.ExtractionFailed -> PatternPdfProblem.UNREADABLE
         }
     }
 
@@ -96,9 +143,19 @@ class PatternGuidesViewModel(
         fun factory(
             libraryItemId: String,
             libraryRepository: LibraryRepository,
-            guideRepository: GuideRepository
+            guideRepository: GuideRepository,
+            createGuideFromPdf: CreateGuideFromPdfUseCase,
+            readPatternFile: suspend (String) -> ByteArray?
         ): ViewModelProvider.Factory = viewModelFactory {
-            initializer { PatternGuidesViewModel(libraryItemId, libraryRepository, guideRepository) }
+            initializer {
+                PatternGuidesViewModel(
+                    libraryItemId,
+                    libraryRepository,
+                    guideRepository,
+                    createGuideFromPdf = createGuideFromPdf,
+                    readPatternFile = readPatternFile
+                )
+            }
         }
     }
 }

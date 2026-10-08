@@ -1,5 +1,8 @@
 package com.macareen.stitchbook2.navigation
 
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -263,7 +266,19 @@ fun StitchbookNavHost(
         ) { backStackEntry ->
             val libraryItemId = backStackEntry.arguments?.getString(PdfViewerDestination.LIBRARY_ITEM_ID_ARGUMENT).orEmpty()
             val viewModel: PatternGuidesViewModel = viewModel(
-                factory = PatternGuidesViewModel.factory(libraryItemId, libraryRepository, guideRepository)
+                factory = PatternGuidesViewModel.factory(
+                    libraryItemId,
+                    libraryRepository,
+                    guideRepository,
+                    createGuideFromPdfUseCase,
+                    readPatternFile = { uri ->
+                        withContext(Dispatchers.IO) {
+                            runCatching {
+                                application.contentResolver.openInputStream(Uri.parse(uri))?.use { it.readBytes() }
+                            }.getOrNull()
+                        }
+                    }
+                )
             )
             PatternGuidesRoute(
                 viewModel = viewModel,

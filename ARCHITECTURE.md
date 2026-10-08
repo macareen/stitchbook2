@@ -123,7 +123,7 @@ Version 19 lets a guide belong to a pattern and size as well as to a project:
 - `project_guides` records which pattern guides a project uses.
 - `observeGuides(projectId)` returns a project's own guides plus the guides it uses.
 - Deleting a project removes only its own guides; deleting a Library entry keeps its guides and clears their pattern.
-- Each Library card has a **Guides** link to the pattern's own screen (`feature/library/PatternGuidesScreen.kt`). It shows the original file and the guides by size; *New guide for a size* creates an empty draft and opens it in the Draft editor.
+- Each Library card has a **Guides** link to the pattern's own screen (`feature/library/PatternGuidesScreen.kt`). It shows the original file and the guides by size; *New guide for a size* creates a draft and opens it in the Draft editor. The draft is empty, or, with *Fill from the pattern*, parsed from the pattern's PDF with only that size's numbers kept (`domain/parsing/PatternSizes.kt`, `CreateGuideFromPdfUseCase.forPattern`).
 - In a project's Guides sheet, *Use a pattern guide* links one of those guides to the project.
 - Relaxing `NOT NULL` needs SQLite's rename-and-copy rebuild. `legacy_alter_table` keeps child tables pointing at the name `guides`, so the rebuild can't cascade, and a `foreign_key_check` ends the migration.
 
