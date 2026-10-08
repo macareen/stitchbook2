@@ -1,0 +1,12 @@
+<resources>
+    <string name="settings_preferences_title">Display Preferences</string>
+    <string name="settings_theme_label">Appearance</string>
+    <string name="settings_theme_system">Match device</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_measurement_label">Lengths</string>
+    <string name="settings_measurement_metric">Metres</string>
+    <string name="settings_measurement_imperial">Yards</string>
+    <string name="settings_measurement_description">Only changes how yarn lengths are shown. Your records keep their original units.</string>
+    <string name="stash_meterage_per_unit">%1$s m / unit</string>
+</resources>

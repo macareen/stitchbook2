@@ -7,6 +7,10 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.macareen.stitchbook2.domain.backup.BackupImportResult
 import com.macareen.stitchbook2.domain.backup.BackupService
+import com.macareen.stitchbook2.domain.preferences.MeasurementSystem
+import com.macareen.stitchbook2.domain.preferences.ThemeMode
+import com.macareen.stitchbook2.domain.preferences.UserPreferences
+import com.macareen.stitchbook2.domain.preferences.UserPreferencesRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,12 +41,19 @@ data class SettingsUiState(
 
 class SettingsViewModel(
     private val backupService: BackupService,
+    private val preferencesRepository: UserPreferencesRepository,
     externalScope: CoroutineScope? = null
 ) : ViewModel() {
 
     private val scope: CoroutineScope = externalScope ?: viewModelScope
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+
+    val preferences: StateFlow<UserPreferences> = preferencesRepository.preferences
+
+    fun setThemeMode(mode: ThemeMode) = preferencesRepository.setThemeMode(mode)
+
+    fun setMeasurementSystem(system: MeasurementSystem) = preferencesRepository.setMeasurementSystem(system)
 
     /**
      * Generates the backup JSON and hands it to [onReady] (a caller-supplied
@@ -111,9 +122,12 @@ class SettingsViewModel(
     }
 
     companion object {
-        fun factory(backupService: BackupService): ViewModelProvider.Factory = viewModelFactory {
+        fun factory(
+            backupService: BackupService,
+            preferencesRepository: UserPreferencesRepository
+        ): ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                SettingsViewModel(backupService)
+                SettingsViewModel(backupService, preferencesRepository)
             }
         }
     }

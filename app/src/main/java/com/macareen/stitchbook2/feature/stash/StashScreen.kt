@@ -57,6 +57,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.macareen.stitchbook2.R
+import com.macareen.stitchbook2.domain.preferences.MeasurementSystem
+import com.macareen.stitchbook2.domain.preferences.yardsToMeters
+import com.macareen.stitchbook2.ui.components.LocalMeasurementSystem
 import com.macareen.stitchbook2.data.csv.StashCsvImportReport
 import com.macareen.stitchbook2.data.csv.stashCsvTemplate
 import com.macareen.stitchbook2.domain.model.StashCategory
@@ -477,7 +480,14 @@ private fun StashItemCard(
                 item.weightCategory,
                 item.fiberContent,
                 item.yardagePerUnit?.let {
-                    stringResource(R.string.stash_yardage_per_unit, formatQuantity(it))
+                    if (LocalMeasurementSystem.current == MeasurementSystem.METRIC) {
+                        stringResource(
+                            R.string.stash_meterage_per_unit,
+                            formatQuantity(Math.round(yardsToMeters(it) * 10) / 10.0)
+                        )
+                    } else {
+                        stringResource(R.string.stash_yardage_per_unit, formatQuantity(it))
+                    }
                 },
                 item.storageLocation
             )

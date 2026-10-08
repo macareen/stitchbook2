@@ -57,6 +57,7 @@ fun StitchbookNavHost(
     val counterNoteRepository = application.container.counterNoteRepository
     val backupService = application.container.backupService
     val createGuideFromPdfUseCase = application.container.createGuideFromPdfUseCase
+    val userPreferencesRepository = application.container.userPreferencesRepository
 
     NavHost(
         navController = navController,
@@ -185,7 +186,7 @@ fun StitchbookNavHost(
         }
         composable(TopLevelDestination.Settings.route) {
             val viewModel: SettingsViewModel = viewModel(
-                factory = SettingsViewModel.factory(backupService)
+                factory = SettingsViewModel.factory(backupService, userPreferencesRepository)
             )
             SettingsRoute(viewModel = viewModel)
         }

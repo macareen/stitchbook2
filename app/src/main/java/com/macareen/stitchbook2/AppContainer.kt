@@ -5,6 +5,7 @@ import com.macareen.stitchbook2.data.backup.LocalBackupService
 import com.macareen.stitchbook2.data.database.StitchbookDatabase
 import com.macareen.stitchbook2.data.parsing.MlKitPdfPageOcr
 import com.macareen.stitchbook2.data.parsing.PdfBoxTextExtractor
+import com.macareen.stitchbook2.data.preferences.SharedPreferencesUserPreferencesRepository
 import com.macareen.stitchbook2.data.repository.LocalCounterNoteRepository
 import com.macareen.stitchbook2.data.repository.LocalCounterRepository
 import com.macareen.stitchbook2.data.repository.LocalExecutionRepository
@@ -15,6 +16,7 @@ import com.macareen.stitchbook2.data.repository.LocalStashRepository
 import com.macareen.stitchbook2.data.repository.LocalToolRepository
 import com.macareen.stitchbook2.domain.backup.BackupService
 import com.macareen.stitchbook2.domain.parsing.PdfTextExtractor
+import com.macareen.stitchbook2.domain.preferences.UserPreferencesRepository
 import com.macareen.stitchbook2.domain.repository.CounterNoteRepository
 import com.macareen.stitchbook2.domain.repository.CounterRepository
 import com.macareen.stitchbook2.domain.repository.ExecutionRepository
@@ -38,6 +40,7 @@ interface AppContainer {
     val backupService: BackupService
     val pdfTextExtractor: PdfTextExtractor
     val createGuideFromPdfUseCase: CreateGuideFromPdfUseCase
+    val userPreferencesRepository: UserPreferencesRepository
 }
 
 class DefaultAppContainer(context: Context) : AppContainer {
@@ -85,4 +88,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
             guideRepository = guideRepository,
             newNodeId = { UUID.randomUUID().toString() }
         )
+
+    override val userPreferencesRepository: UserPreferencesRepository =
+        SharedPreferencesUserPreferencesRepository(context)
 }

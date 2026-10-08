@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
@@ -48,6 +49,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.macareen.stitchbook2.R
+import com.macareen.stitchbook2.domain.preferences.MeasurementSystem
+import com.macareen.stitchbook2.domain.preferences.ThemeMode
+import com.macareen.stitchbook2.domain.preferences.UserPreferences
+import com.macareen.stitchbook2.ui.components.ChoiceChipRow
 import com.macareen.stitchbook2.ui.components.PrimaryActionButton
 import com.macareen.stitchbook2.ui.components.QuietText
 import com.macareen.stitchbook2.ui.theme.StitchbookSpacing
@@ -67,9 +72,13 @@ import kotlinx.coroutines.withContext
 @Composable
 fun SettingsRoute(viewModel: SettingsViewModel) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val preferences by viewModel.preferences.collectAsStateWithLifecycle()
 
     SettingsScreen(
         uiState = uiState,
+        preferences = preferences,
+        onThemeModeChanged = viewModel::setThemeMode,
+        onMeasurementSystemChanged = viewModel::setMeasurementSystem,
         onExport = viewModel::exportBackup,
         onImport = viewModel::importBackup,
         onReset = viewModel::resetAllData,
@@ -80,6 +89,9 @@ fun SettingsRoute(viewModel: SettingsViewModel) {
 @Composable
 fun SettingsScreen(
     uiState: SettingsUiState,
+    preferences: UserPreferences,
+    onThemeModeChanged: (ThemeMode) -> Unit,
+    onMeasurementSystemChanged: (MeasurementSystem) -> Unit,
     onExport: (suspend (String) -> Unit) -> Unit,
     onImport: (String) -> Unit,
     onReset: () -> Unit,
@@ -137,6 +149,14 @@ fun SettingsScreen(
 
         item {
             GuardrailsCard()
+        }
+
+        item {
+            PreferencesCard(
+                preferences = preferences,
+                onThemeModeChanged = onThemeModeChanged,
+                onMeasurementSystemChanged = onMeasurementSystemChanged
+            )
         }
 
         item {
@@ -222,6 +242,66 @@ private fun GuardrailsCard() {
             )
         }
     }
+}
+
+@Composable
+private fun PreferencesCard(
+    preferences: UserPreferences,
+    onThemeModeChanged: (ThemeMode) -> Unit,
+    onMeasurementSystemChanged: (MeasurementSystem) -> Unit
+) {
+    Card(
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
+    ) {
+        Column(modifier = Modifier.padding(StitchbookSpacing.large)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Outlined.Palette,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(StitchbookSpacing.small))
+                Text(
+                    text = stringResource(R.string.settings_preferences_title),
+                    style = MaterialTheme.typography.cardTitle,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
+            QuietText(text = stringResource(R.string.settings_theme_label))
+            Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+            ChoiceChipRow(
+                options = ThemeMode.entries,
+                selected = preferences.themeMode,
+                optionLabel = { stringResource(it.labelResource()) },
+                onSelected = onThemeModeChanged
+            )
+            Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
+            QuietText(text = stringResource(R.string.settings_measurement_label))
+            Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+            ChoiceChipRow(
+                options = MeasurementSystem.entries,
+                selected = preferences.measurementSystem,
+                optionLabel = { stringResource(it.labelResource()) },
+                onSelected = onMeasurementSystemChanged
+            )
+            Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+            QuietText(text = stringResource(R.string.settings_measurement_description))
+        }
+    }
+}
+
+private fun ThemeMode.labelResource(): Int = when (this) {
+    ThemeMode.SYSTEM -> R.string.settings_theme_system
+    ThemeMode.LIGHT -> R.string.settings_theme_light
+    ThemeMode.DARK -> R.string.settings_theme_dark
+}
+
+private fun MeasurementSystem.labelResource(): Int = when (this) {
+    MeasurementSystem.METRIC -> R.string.settings_measurement_metric
+    MeasurementSystem.IMPERIAL -> R.string.settings_measurement_imperial
 }
 
 @Composable
@@ -425,6 +505,9 @@ private fun SettingsScreenPreview() {
     StitchbookTheme {
         SettingsScreen(
             uiState = SettingsUiState(),
+            preferences = UserPreferences(),
+            onThemeModeChanged = {},
+            onMeasurementSystemChanged = {},
             onExport = {},
             onImport = {},
             onReset = {},
