@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Decorative heart-shaped yarn ball, the app icon's motif without the needles. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <path
+        android:fillColor="#EE8F94"
+        android:pathData="M50,88 C20,68 8,52 8,36 C8,22 19,12 32,12 C41,12 47,17 50,23 C53,17 59,12 68,12 C81,12 92,22 92,36 C92,52 80,68 50,88Z" />
+    <group>
+        <clip-path android:pathData="M50,88 C20,68 8,52 8,36 C8,22 19,12 32,12 C41,12 47,17 50,23 C53,17 59,12 68,12 C81,12 92,22 92,36 C92,52 80,68 50,88Z" />
+        <path android:pathData="M10,30 Q50,50 92,26" android:strokeColor="#C9606A" android:strokeWidth="2.4" android:strokeLineCap="round" />
+        <path android:pathData="M8,44 Q50,64 94,40" android:strokeColor="#C9606A" android:strokeWidth="2.4" android:strokeLineCap="round" />
+        <path android:pathData="M14,58 Q50,78 90,54" android:strokeColor="#C9606A" android:strokeWidth="2.4" android:strokeLineCap="round" />
+        <path android:pathData="M36,8 Q58,46 40,92" android:strokeColor="#C9606A" android:strokeWidth="2.4" android:strokeLineCap="round" />
+        <path android:pathData="M58,8 Q78,46 60,92" android:strokeColor="#C9606A" android:strokeWidth="2.4" android:strokeLineCap="round" />
+    </group>
+</vector>
