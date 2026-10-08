@@ -3,15 +3,14 @@ package com.macareen.stitchbook2.navigation
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
-import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Inventory2
-import androidx.compose.material.icons.outlined.Numbers
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.macareen.stitchbook2.R
 
+/** The five bottom-bar places. Tools live inside Stash; the Counters list opens from Home. */
 enum class TopLevelDestination(
     val route: String,
     @get:StringRes val title: Int,
@@ -41,18 +40,6 @@ enum class TopLevelDestination(
         title = R.string.destination_stash,
         iconContentDescription = R.string.stash_icon_description,
         icon = Icons.Outlined.Inventory2
-    ),
-    Tools(
-        route = "tools",
-        title = R.string.destination_tools,
-        iconContentDescription = R.string.tools_icon_description,
-        icon = Icons.Outlined.Build
-    ),
-    Counters(
-        route = "counters",
-        title = R.string.destination_counters,
-        iconContentDescription = R.string.counters_icon_description,
-        icon = Icons.Outlined.Numbers
     ),
     Settings(
         route = "settings",
