@@ -6,10 +6,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -24,6 +21,8 @@ import androidx.navigation.compose.rememberNavController
 import com.macareen.stitchbook2.navigation.StitchbookNavHost
 import com.macareen.stitchbook2.navigation.TopLevelDestination
 import com.macareen.stitchbook2.navigation.navigateToTopLevelDestination
+import com.macareen.stitchbook2.ui.components.BottomBarItem
+import com.macareen.stitchbook2.ui.components.StitchbookBottomBar
 
 /**
  * Top-level destinations (Home/Projects/Library/Stash/Tools/Settings) each already
@@ -71,31 +70,25 @@ fun StitchbookApp(
         },
         bottomBar = {
             if (isTopLevelDestination) {
-                NavigationBar {
-                    TopLevelDestination.entries.forEach { destination ->
-                        val selected = currentDestination
-                            ?.hierarchy
-                            ?.any { it.route == destination.route } == true
-
-                        NavigationBarItem(
-                            selected = selected,
-                            onClick = {
-                                navController.navigateToTopLevelDestination(destination)
-                            },
-                            icon = {
-                                Icon(
-                                    imageVector = destination.icon,
-                                    contentDescription = stringResource(
-                                        destination.iconContentDescription
-                                    )
-                                )
-                            },
-                            label = {
-                                Text(text = stringResource(destination.title))
-                            }
-                        )
-                    }
+                val items = TopLevelDestination.entries.map { destination ->
+                    BottomBarItem(
+                        key = destination.route,
+                        label = stringResource(destination.title),
+                        icon = destination.icon
+                    )
                 }
+                val selectedKey = TopLevelDestination.entries.firstOrNull { destination ->
+                    currentDestination?.hierarchy?.any { it.route == destination.route } == true
+                }?.route
+                StitchbookBottomBar(
+                    items = items,
+                    selectedKey = selectedKey,
+                    onSelect = { item ->
+                        TopLevelDestination.entries
+                            .first { it.route == item.key }
+                            .let(navController::navigateToTopLevelDestination)
+                    }
+                )
             }
         }
     ) { innerPadding ->

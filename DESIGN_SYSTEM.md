@@ -66,7 +66,7 @@ Typography roles are defined in `ui/theme/Type.kt` as Material3 `Typography` slo
 | `metadata` | `bodyMedium` | Range/repeat position, breadcrumbs, transient feedback |
 | `buttonLabel` | `labelLarge` | Primary/secondary button text |
 
-Headline/title roles use `FontFamily.Serif`; body/label roles use `FontFamily.Default` (system sans). Both are Compose's built-in generic font families resolved by the platform — no font file is bundled and no licensing decision was needed. This intentionally leaves room to swap in a specific licensed serif later by changing the two family constants at the top of `Type.kt`; no call site references a font family directly.
+Headline/title roles use **Fraunces**, a soft old-style serif; body/label roles use **Nunito**, a rounded sans. Both are bundled variable fonts in `res/font` (SIL Open Font License; licence texts ship in `assets/licenses`), so the look works offline. Labels and small titles use Bold/ExtraBold because Nunito reads light at Medium. No call site references a font family directly; the two family constants live at the top of `Type.kt`.
 
 The `instruction` role is the one most exercised by accessibility settings: it uses `sp` units throughout (so it scales with the system font size setting) and is rendered inside a scrolling container with no fixed height, so it never clips at large font scales — see §7.
 
@@ -179,14 +179,14 @@ A project screen leads with the work, not with buttons:
 
 ## 16. Calm navigation and Home
 
-- **Five places:** the bottom bar holds Home, Projects, Library, Stash, and Settings. Tools sit inside Stash behind a two-segment `SingleChoiceSegmentedButtonRow` (Yarn & materials | Tools); Counters is a back-arrow child screen reached from Home; project counters stay in the hub sheet.
+- **Five places:** the bottom bar holds Home, Projects, Library, Stash, and Settings. It is a floating white pill (`StitchbookBottomBar`) with drawn stroke icons (`res/drawable/ic_nav_*.xml`); the selected place grows into a rose pill that also shows its name, and every item carries its name as a content description. Tools sit inside Stash behind a two-segment `SingleChoiceSegmentedButtonRow` (Yarn & materials | Tools); Counters is a back-arrow child screen reached from Home; project counters stay in the hub sheet.
 - **Home** is the app name with a single + action, a `primaryContainer` *Continue* card only when a guide is in progress, the active projects as plain `surfaceContainerLowest` rows (name, then "craft · updated date"), and two quiet text links (Counters, Statistics). No hero banner, stat tiles, or feature tour: Home answers "what was I doing?" and nothing else.
 - **Review lists show only non-zero counts.** A restore review row reads "3 new", not "3 new · 0 identical · 0 conflicting · 0 only on this device".
 - **Occasional actions live in an overflow menu.** Inventory screens (Stash, Tools) open on their content: `ScreenHeader` (`ui/components/ScreenHeader.kt`) puts the title beside one ⋮ menu holding bulk creation, sets, and CSV import, export, and template. Rows of text buttons above the content are avoided.
 
 ## 17. App icon
 
-The launcher icon is an adaptive icon drawn as vectors (`res/drawable/ic_launcher_*.xml`): a berry yarn ball (primary `#9C3A56`, with rose strands) on two crossed wooden needles over the cream light surface (`#F6F0EA`). The whole drawing is scaled to 84% about the centre, so round, squircle and square masks never clip the needles or the loose end. A separate monochrome layer gives Android 13+ themed icons the same silhouette. The app name is plain "Stitchbook".
+The launcher icon is an adaptive icon drawn as vectors (`res/drawable/ic_launcher_*.xml`): a heart-shaped rose yarn ball (`#EE8F94`, with deeper rose strands) on two crossed wooden needles with rose tips, over blush cream (`#FBEFE9`). It is drawn on a 120-unit grid and scaled to 60% about the centre, so round, squircle and square masks never clip the needle tips. A separate monochrome layer gives Android 13+ themed icons the same silhouette. The app name is plain "Stitchbook".
 
 ## 18. Screen headers and voice
 

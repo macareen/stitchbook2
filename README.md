@@ -33,7 +33,7 @@ See [PRODUCT_SPEC.md](PRODUCT_SPEC.md) for structured requirements and [ROADMAP.
 
 ## Currently implemented
 
-- A warm, editorial Material 3 light/dark theme (ivory/rose/serif-headline palette) ported from the approved webapp design reference, with an adaptive yarn-ball launcher icon (themed-icon ready) -- see [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)
+- A cozy pastel Material 3 light/dark theme (blush cream, rose, sky and sage; Fraunces and Nunito fonts bundled offline) with a floating pill bottom bar and an adaptive heart yarn-ball launcher icon (themed-icon ready) -- see [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)
 - Navigation Compose with Home, Projects, Library, Stash, Tools, Counters, and Settings destinations, each with real content (not placeholders) and a header-less mobile shell matching the design reference
 - Guides by size: each pattern has its own screen (tap its Library card) with one guide per size, and any project can use one of them; using it also links the pattern to the project. *Fill from the pattern* builds the draft from the PDF with only that size's numbers, and says so in the draft when the size isn't one the pattern lists.
 - The knitting view (Focus Mode) shows a stitch-weighted progress bar, labelled as an estimate when some rows don't state a count; total time and time on this step from the project's crafting sessions, with a Pause/Resume timer that starts on your first Complete; an *Overview* of the whole guide where tapping a line jumps there; and *Pattern, p.N*, which opens the PDF at the current step's page. Knitting in a *Planned* project makes it *Active*, and progress is kept separately per project when two projects use one guide.
