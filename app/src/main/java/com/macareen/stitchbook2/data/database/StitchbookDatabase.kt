@@ -29,9 +29,12 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CounterEntity::class,
         CounterNoteEntity::class,
         YarnAllocationEntity::class,
-        ProjectPatternLinkEntity::class
+        ProjectPatternLinkEntity::class,
+        MilestoneEntity::class,
+        PhotoEntity::class,
+        JournalEntryEntity::class
     ],
-    version = 16,
+    version = 17,
     exportSchema = true
 )
 abstract class StitchbookDatabase : RoomDatabase() {
@@ -45,6 +48,7 @@ abstract class StitchbookDatabase : RoomDatabase() {
     abstract fun counterDao(): CounterDao
     abstract fun counterNoteDao(): CounterNoteDao
     abstract fun materialsDao(): MaterialsDao
+    abstract fun journalDao(): JournalDao
 
     companion object {
         private const val DATABASE_NAME = "stitchbook.db"
@@ -88,7 +92,8 @@ val ALL_MIGRATIONS: Array<Migration>
         MIGRATION_12_13,
         MIGRATION_13_14,
         MIGRATION_14_15,
-        MIGRATION_15_16
+        MIGRATION_15_16,
+        MIGRATION_16_17
     )
 
 val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -866,5 +871,73 @@ val MIGRATION_15_16 = object : Migration(15, 16) {
         db.execSQL(
             "CREATE INDEX IF NOT EXISTS `index_project_pattern_links_library_item_id` ON `project_pattern_links` (`library_item_id`)"
         )
+    }
+}
+
+/**
+ * Phase 7: milestones, photo references, and journal entries. Three new
+ * tables, nothing existing touched. Milestones are created before photos
+ * because `photos.milestone_id` references them (ON DELETE SET NULL -- a
+ * removed milestone detaches its photos rather than deleting them).
+ */
+val MIGRATION_16_17 = object : Migration(16, 17) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `milestones` (
+                `id` TEXT NOT NULL,
+                `project_id` TEXT NOT NULL,
+                `title` TEXT NOT NULL,
+                `reached_date` TEXT,
+                `notes` TEXT,
+                `position` INTEGER NOT NULL,
+                `created_at` INTEGER NOT NULL,
+                `updated_at` INTEGER NOT NULL,
+                PRIMARY KEY(`id`),
+                FOREIGN KEY(`project_id`) REFERENCES `projects`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_milestones_project_id` ON `milestones` (`project_id`)")
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `photos` (
+                `id` TEXT NOT NULL,
+                `project_id` TEXT,
+                `stash_item_id` TEXT,
+                `uri` TEXT NOT NULL,
+                `display_name` TEXT,
+                `caption` TEXT,
+                `taken_date` TEXT,
+                `milestone_id` TEXT,
+                `role` TEXT NOT NULL,
+                `created_at` INTEGER NOT NULL,
+                `updated_at` INTEGER NOT NULL,
+                PRIMARY KEY(`id`),
+                FOREIGN KEY(`project_id`) REFERENCES `projects`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                FOREIGN KEY(`stash_item_id`) REFERENCES `stash_items`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                FOREIGN KEY(`milestone_id`) REFERENCES `milestones`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_photos_project_id` ON `photos` (`project_id`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_photos_stash_item_id` ON `photos` (`stash_item_id`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_photos_milestone_id` ON `photos` (`milestone_id`)")
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `journal_entries` (
+                `id` TEXT NOT NULL,
+                `project_id` TEXT NOT NULL,
+                `entry_date` TEXT NOT NULL,
+                `title` TEXT,
+                `body` TEXT NOT NULL,
+                `created_at` INTEGER NOT NULL,
+                `updated_at` INTEGER NOT NULL,
+                PRIMARY KEY(`id`),
+                FOREIGN KEY(`project_id`) REFERENCES `projects`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_journal_entries_project_id` ON `journal_entries` (`project_id`)")
     }
 }

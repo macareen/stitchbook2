@@ -2,6 +2,7 @@ package com.macareen.stitchbook2.feature.projects
 
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.macareen.stitchbook2.R
@@ -20,9 +21,15 @@ enum class ProjectSection(
         title = R.string.materials_title,
         description = R.string.project_section_materials_description,
         icon = Icons.Outlined.Inventory2
+    ),
+    JOURNAL(
+        title = R.string.journal_title,
+        description = R.string.project_section_journal_description,
+        icon = Icons.Outlined.AutoStories
     )
 }
 
 fun ProjectSection.route(projectId: String): String = when (this) {
     ProjectSection.MATERIALS -> ProjectDestination.materialsRoute(projectId)
+    ProjectSection.JOURNAL -> ProjectDestination.journalRoute(projectId)
 }

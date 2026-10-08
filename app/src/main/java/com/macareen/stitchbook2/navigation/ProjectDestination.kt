@@ -8,6 +8,7 @@ object ProjectDestination {
     const val DETAIL_ROUTE = "projects/{$PROJECT_ID_ARGUMENT}"
     const val EDIT_ROUTE = "projects/{$PROJECT_ID_ARGUMENT}/edit"
     const val MATERIALS_ROUTE = "projects/{$PROJECT_ID_ARGUMENT}/materials"
+    const val JOURNAL_ROUTE = "projects/{$PROJECT_ID_ARGUMENT}/journal"
 
     fun detailRoute(projectId: String): String {
         return "projects/${Uri.encode(projectId)}"
@@ -19,5 +20,9 @@ object ProjectDestination {
 
     fun materialsRoute(projectId: String): String {
         return "projects/${Uri.encode(projectId)}/materials"
+    }
+
+    fun journalRoute(projectId: String): String {
+        return "projects/${Uri.encode(projectId)}/journal"
     }
 }

@@ -9,10 +9,14 @@ import com.macareen.stitchbook2.data.csv.StashCsvImportReport
 import com.macareen.stitchbook2.data.csv.StashCsvRowError
 import com.macareen.stitchbook2.data.csv.parseStashCsv
 import com.macareen.stitchbook2.data.csv.stashItemsToCsv
+import com.macareen.stitchbook2.domain.model.Photo
+import com.macareen.stitchbook2.domain.model.PhotoRole
+import com.macareen.stitchbook2.domain.model.PickedDocument
 import com.macareen.stitchbook2.domain.model.StashCategory
 import com.macareen.stitchbook2.domain.model.StashItem
 import com.macareen.stitchbook2.domain.model.normalizedStashItemName
 import com.macareen.stitchbook2.domain.model.roundQuantity
+import com.macareen.stitchbook2.domain.repository.JournalRepository
 import com.macareen.stitchbook2.domain.repository.MaterialsRepository
 import com.macareen.stitchbook2.domain.repository.StashRepository
 import java.util.UUID
@@ -41,7 +45,9 @@ sealed interface StashUiState {
         val filter: StashFilterState,
         val hasAnyItems: Boolean,
         /** Quantity reserved by project allocations, keyed by stash item id. */
-        val reservedByItemId: Map<String, Double> = emptyMap()
+        val reservedByItemId: Map<String, Double> = emptyMap(),
+        /** Photo references per stash item (same never-copy policy as project photos). */
+        val photosByItemId: Map<String, List<Photo>> = emptyMap()
     ) : StashUiState
 }
 
@@ -76,7 +82,8 @@ data class StashItemFormInput(
 class StashViewModel(
     private val repository: StashRepository,
     externalScope: CoroutineScope? = null,
-    materialsRepository: MaterialsRepository? = null
+    materialsRepository: MaterialsRepository? = null,
+    private val journalRepository: JournalRepository? = null
 ) : ViewModel() {
 
     private val scope: CoroutineScope = externalScope ?: viewModelScope
@@ -88,15 +95,17 @@ class StashViewModel(
     val uiState = combine(
         repository.observeStashItems(),
         filterState,
-        materialsRepository?.observeAllocations() ?: flowOf(emptyList())
-    ) { items, filter, allocations ->
+        materialsRepository?.observeAllocations() ?: flowOf(emptyList()),
+        journalRepository?.observePhotos() ?: flowOf(emptyList())
+    ) { items, filter, allocations, photos ->
         StashUiState.Content(
             items = items.filter { matchesFilter(it, filter) },
             filter = filter,
             hasAnyItems = items.isNotEmpty(),
             reservedByItemId = allocations
                 .groupBy { it.stashItemId }
-                .mapValues { (_, rows) -> roundQuantity(rows.sumOf { it.quantityReserved }) }
+                .mapValues { (_, rows) -> roundQuantity(rows.sumOf { it.quantityReserved }) },
+            photosByItemId = photos.filter { it.stashItemId != null }.groupBy { it.stashItemId!! }
         ) as StashUiState
     }
         .catch { emit(StashUiState.Error) }
@@ -206,6 +215,47 @@ class StashViewModel(
         _importReport.value = null
     }
 
+    fun addPhoto(stashItemId: String, document: PickedDocument) {
+        val repository = journalRepository ?: return
+        scope.launch {
+            val now = System.currentTimeMillis()
+            try {
+                repository.savePhoto(
+                    Photo(
+                        id = UUID.randomUUID().toString(),
+                        projectId = null,
+                        stashItemId = stashItemId,
+                        uri = document.uri,
+                        displayName = document.displayName,
+                        caption = null,
+                        takenDate = null,
+                        milestoneId = null,
+                        role = PhotoRole.NONE,
+                        createdAt = now,
+                        updatedAt = now
+                    )
+                )
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                // The list reflects whatever was actually persisted.
+            }
+        }
+    }
+
+    /** Forgets the reference only; the photo file itself is never deleted. */
+    fun removePhoto(photo: Photo) {
+        val repository = journalRepository ?: return
+        scope.launch {
+            try {
+                repository.deletePhoto(photo)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+            }
+        }
+    }
+
     fun deleteItem(item: StashItem) {
         scope.launch {
             try {
@@ -231,10 +281,15 @@ class StashViewModel(
     companion object {
         fun factory(
             repository: StashRepository,
-            materialsRepository: MaterialsRepository
+            materialsRepository: MaterialsRepository,
+            journalRepository: JournalRepository
         ): ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                StashViewModel(repository, materialsRepository = materialsRepository)
+                StashViewModel(
+                    repository,
+                    materialsRepository = materialsRepository,
+                    journalRepository = journalRepository
+                )
             }
         }
     }

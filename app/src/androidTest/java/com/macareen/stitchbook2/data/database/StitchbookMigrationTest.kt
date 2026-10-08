@@ -22,7 +22,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Bump alongside `StitchbookDatabase.version`; every migration chain below must reach it. */
-private const val CURRENT_SCHEMA_VERSION = 16
+private const val CURRENT_SCHEMA_VERSION = 17
 
 @RunWith(AndroidJUnit4::class)
 class StitchbookMigrationTest {
@@ -114,7 +114,8 @@ class StitchbookMigrationTest {
                 MIGRATION_12_13,
                 MIGRATION_13_14,
                 MIGRATION_14_15,
-                MIGRATION_15_16
+                MIGRATION_15_16,
+                MIGRATION_16_17
             )
                 .build()
 
@@ -223,7 +224,8 @@ class StitchbookMigrationTest {
                 MIGRATION_12_13,
                 MIGRATION_13_14,
                 MIGRATION_14_15,
-                MIGRATION_15_16
+                MIGRATION_15_16,
+                MIGRATION_16_17
             ).build()
 
             val existingProject = database.projectDao()
@@ -309,7 +311,8 @@ class StitchbookMigrationTest {
                 MIGRATION_12_13,
                 MIGRATION_13_14,
                 MIGRATION_14_15,
-                MIGRATION_15_16
+                MIGRATION_15_16,
+                MIGRATION_16_17
             ).build()
 
             val existingProject = database.projectDao()
@@ -351,7 +354,8 @@ class StitchbookMigrationTest {
                 MIGRATION_12_13,
                 MIGRATION_13_14,
                 MIGRATION_14_15,
-                MIGRATION_15_16
+                MIGRATION_15_16,
+                MIGRATION_16_17
             ).build()
             seedDatabase.libraryDao().upsert(
                 LibraryItemEntity(
@@ -388,7 +392,8 @@ class StitchbookMigrationTest {
                 MIGRATION_12_13,
                 MIGRATION_13_14,
                 MIGRATION_14_15,
-                MIGRATION_15_16
+                MIGRATION_15_16,
+                MIGRATION_16_17
             ).build()
 
             val migrated = database.libraryDao().observeById("existing-pattern").first()
@@ -429,7 +434,8 @@ class StitchbookMigrationTest {
                 MIGRATION_12_13,
                 MIGRATION_13_14,
                 MIGRATION_14_15,
-                MIGRATION_15_16
+                MIGRATION_15_16,
+                MIGRATION_16_17
             ).build()
 
             val existingProject = database.projectDao()
@@ -482,7 +488,8 @@ class StitchbookMigrationTest {
                 MIGRATION_12_13,
                 MIGRATION_13_14,
                 MIGRATION_14_15,
-                MIGRATION_15_16
+                MIGRATION_15_16,
+                MIGRATION_16_17
             ).build()
 
             val existingProject = database.projectDao()
@@ -553,7 +560,8 @@ class StitchbookMigrationTest {
                 MIGRATION_12_13,
                 MIGRATION_13_14,
                 MIGRATION_14_15,
-                MIGRATION_15_16
+                MIGRATION_15_16,
+                MIGRATION_16_17
             ).build()
 
             val existingCounter = database.counterDao().observeById("existing-counter").first()
@@ -638,7 +646,8 @@ class StitchbookMigrationTest {
                 MIGRATION_12_13,
                 MIGRATION_13_14,
                 MIGRATION_14_15,
-                MIGRATION_15_16
+                MIGRATION_15_16,
+                MIGRATION_16_17
             ).build()
 
             val existingCounter = database.counterDao().observeById("existing-counter").first()
@@ -716,7 +725,8 @@ class StitchbookMigrationTest {
                 MIGRATION_12_13,
                 MIGRATION_13_14,
                 MIGRATION_14_15,
-                MIGRATION_15_16
+                MIGRATION_15_16,
+                MIGRATION_16_17
             ).build()
 
             val existingCounter = database.counterDao().observeById("existing-counter").first()
@@ -785,7 +795,8 @@ class StitchbookMigrationTest {
                 MIGRATION_12_13,
                 MIGRATION_13_14,
                 MIGRATION_14_15,
-                MIGRATION_15_16
+                MIGRATION_15_16,
+                MIGRATION_16_17
             ).build()
 
             val existingCounter = database.counterDao().observeById("existing-counter").first()
@@ -837,7 +848,8 @@ class StitchbookMigrationTest {
                 MIGRATION_12_13,
                 MIGRATION_13_14,
                 MIGRATION_14_15,
-                MIGRATION_15_16
+                MIGRATION_15_16,
+                MIGRATION_16_17
             ).build()
 
             val existingProject = database.projectDao()
@@ -892,7 +904,8 @@ class StitchbookMigrationTest {
                 MIGRATION_12_13,
                 MIGRATION_13_14,
                 MIGRATION_14_15,
-                MIGRATION_15_16
+                MIGRATION_15_16,
+                MIGRATION_16_17
             ).build()
 
             val existingProject = database.projectDao()
@@ -971,7 +984,8 @@ class StitchbookMigrationTest {
                 MIGRATION_12_13,
                 MIGRATION_13_14,
                 MIGRATION_14_15,
-                MIGRATION_15_16
+                MIGRATION_15_16,
+                MIGRATION_16_17
             ).build()
 
             val migrated = database.stashDao().observeById("existing-stash-item").first()

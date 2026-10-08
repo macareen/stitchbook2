@@ -3,6 +3,7 @@ package com.macareen.stitchbook2.feature.stash
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.AddAPhoto
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Inventory2
@@ -62,11 +64,16 @@ import com.macareen.stitchbook2.domain.preferences.yardsToMeters
 import com.macareen.stitchbook2.ui.components.LocalMeasurementSystem
 import com.macareen.stitchbook2.data.csv.StashCsvImportReport
 import com.macareen.stitchbook2.data.csv.stashCsvTemplate
+import com.macareen.stitchbook2.data.photos.documentDisplayName
+import com.macareen.stitchbook2.data.photos.persistReadAccess
+import com.macareen.stitchbook2.domain.model.Photo
+import com.macareen.stitchbook2.domain.model.PickedDocument
 import com.macareen.stitchbook2.domain.model.StashCategory
 import com.macareen.stitchbook2.domain.model.StashItem
 import com.macareen.stitchbook2.domain.model.estimatedRemainingYards
 import com.macareen.stitchbook2.domain.model.roundQuantity
 import com.macareen.stitchbook2.ui.components.LabelPill
+import com.macareen.stitchbook2.ui.components.PhotoThumbnail
 import com.macareen.stitchbook2.ui.components.QuietText
 import com.macareen.stitchbook2.ui.theme.StitchbookSpacing
 import com.macareen.stitchbook2.ui.theme.StitchbookTheme
@@ -96,7 +103,9 @@ fun StashRoute(viewModel: StashViewModel) {
         onExportCsv = viewModel::exportCsv,
         onImportCsv = viewModel::importCsv,
         importReport = importReport,
-        onDismissImportReport = viewModel::dismissImportReport
+        onDismissImportReport = viewModel::dismissImportReport,
+        onAddPhoto = viewModel::addPhoto,
+        onRemovePhoto = viewModel::removePhoto
     )
 }
 
@@ -111,14 +120,29 @@ fun StashScreen(
     onImportCsv: (String) -> Unit,
     importReport: StashCsvImportReport?,
     onDismissImportReport: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onAddPhoto: (String, PickedDocument) -> Unit = { _, _ -> },
+    onRemovePhoto: (Photo) -> Unit = {}
 ) {
     var editingItem by remember { mutableStateOf<StashItem?>(null) }
+    var photoTargetItemId by remember { mutableStateOf<String?>(null) }
+    var removingPhoto by remember { mutableStateOf<Photo?>(null) }
     var isAddingItem by remember { mutableStateOf(false) }
     var deletingItem by remember { mutableStateOf<StashItem?>(null) }
 
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+
+    val addPhotoLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        val itemId = photoTargetItemId
+        photoTargetItemId = null
+        if (uri != null && itemId != null) {
+            persistReadAccess(context, uri)
+            onAddPhoto(itemId, PickedDocument(uri.toString(), documentDisplayName(context, uri)))
+        }
+    }
 
     val exportCsvLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/csv")
@@ -188,6 +212,11 @@ fun StashScreen(
                     onCategoryFilterChanged = onCategoryFilterChanged,
                     onEditItem = { editingItem = it },
                     onDeleteRequested = { deletingItem = it },
+                    onAddPhotoRequested = { item ->
+                        photoTargetItemId = item.id
+                        addPhotoLauncher.launch(arrayOf("image/*"))
+                    },
+                    onPhotoClicked = { removingPhoto = it },
                     onExportCsvClick = { exportCsvLauncher.launch(stashCsvFileName()) },
                     onImportCsvClick = { importCsvLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "*/*")) },
                     onTemplateCsvClick = { templateCsvLauncher.launch(STASH_CSV_TEMPLATE_FILE_NAME) }
@@ -228,6 +257,32 @@ fun StashScreen(
             onSave = { form ->
                 onSaveItem(item, form)
                 editingItem = null
+            }
+        )
+    }
+
+    removingPhoto?.let { photo ->
+        AlertDialog(
+            onDismissRequest = { removingPhoto = null },
+            title = { Text(text = stringResource(R.string.stash_photo_remove)) },
+            text = {
+                Text(
+                    text = stringResource(
+                        R.string.journal_remove_photo_message,
+                        photo.displayName ?: stringResource(R.string.journal_photo_unnamed)
+                    )
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        removingPhoto = null
+                        onRemovePhoto(photo)
+                    }
+                ) { Text(text = stringResource(R.string.stash_photo_remove)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { removingPhoto = null }) { Text(text = stringResource(R.string.cancel)) }
             }
         )
     }
@@ -316,6 +371,8 @@ private fun StashContent(
     onCategoryFilterChanged: (StashCategory?) -> Unit,
     onEditItem: (StashItem) -> Unit,
     onDeleteRequested: (StashItem) -> Unit,
+    onAddPhotoRequested: (StashItem) -> Unit,
+    onPhotoClicked: (Photo) -> Unit,
     onExportCsvClick: () -> Unit,
     onImportCsvClick: () -> Unit,
     onTemplateCsvClick: () -> Unit
@@ -382,8 +439,11 @@ private fun StashContent(
                 StashItemCard(
                     item = stashItem,
                     reserved = uiState.reservedByItemId[stashItem.id] ?: 0.0,
+                    photos = uiState.photosByItemId[stashItem.id].orEmpty(),
                     onEdit = { onEditItem(stashItem) },
-                    onDelete = { onDeleteRequested(stashItem) }
+                    onDelete = { onDeleteRequested(stashItem) },
+                    onAddPhoto = { onAddPhotoRequested(stashItem) },
+                    onPhotoClicked = onPhotoClicked
                 )
             }
         }
@@ -443,8 +503,11 @@ private fun CategoryFilterDropdown(
 private fun StashItemCard(
     item: StashItem,
     reserved: Double,
+    photos: List<Photo>,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onAddPhoto: () -> Unit,
+    onPhotoClicked: (Photo) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -546,11 +609,36 @@ private fun StashItemCard(
                 )
             }
 
+            if (photos.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+                Row(horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
+                    photos.take(4).forEach { photo ->
+                        PhotoThumbnail(
+                            uri = photo.uri,
+                            contentDescription = photo.displayName,
+                            maxSizePx = 256,
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clickable(
+                                    onClickLabel = stringResource(R.string.stash_photo_remove),
+                                    onClick = { onPhotoClicked(photo) }
+                                )
+                        )
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(StitchbookSpacing.small))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
+                IconButton(onClick = onAddPhoto) {
+                    Icon(
+                        imageVector = Icons.Outlined.AddAPhoto,
+                        contentDescription = stringResource(R.string.stash_photo_add)
+                    )
+                }
                 IconButton(onClick = onEdit) {
                     Icon(
                         imageVector = Icons.Outlined.Edit,

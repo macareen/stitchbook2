@@ -20,6 +20,8 @@ import com.macareen.stitchbook2.feature.focus.GuideFocusRoute
 import com.macareen.stitchbook2.feature.focus.GuideFocusViewModel
 import com.macareen.stitchbook2.feature.home.HomeRoute
 import com.macareen.stitchbook2.feature.home.HomeViewModel
+import com.macareen.stitchbook2.feature.journal.ProjectJournalRoute
+import com.macareen.stitchbook2.feature.journal.ProjectJournalViewModel
 import com.macareen.stitchbook2.feature.library.LibraryRoute
 import com.macareen.stitchbook2.feature.library.PdfViewerRoute
 import com.macareen.stitchbook2.feature.library.PdfViewerViewModel
@@ -62,6 +64,7 @@ fun StitchbookNavHost(
     val createGuideFromPdfUseCase = application.container.createGuideFromPdfUseCase
     val userPreferencesRepository = application.container.userPreferencesRepository
     val materialsRepository = application.container.materialsRepository
+    val journalRepository = application.container.journalRepository
 
     NavHost(
         navController = navController,
@@ -145,7 +148,7 @@ fun StitchbookNavHost(
         }
         composable(TopLevelDestination.Stash.route) {
             val viewModel: StashViewModel = viewModel(
-                factory = StashViewModel.factory(stashRepository, materialsRepository)
+                factory = StashViewModel.factory(stashRepository, materialsRepository, journalRepository)
             )
             StashRoute(viewModel = viewModel)
         }
@@ -273,6 +276,27 @@ fun StitchbookNavHost(
                 )
             )
             ProjectMaterialsRoute(viewModel = viewModel)
+        }
+        composable(
+            route = ProjectDestination.JOURNAL_ROUTE,
+            arguments = listOf(
+                navArgument(ProjectDestination.PROJECT_ID_ARGUMENT) {
+                    type = NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val projectId = backStackEntry.arguments?.getString(
+                ProjectDestination.PROJECT_ID_ARGUMENT
+            )
+                .orEmpty()
+            val viewModel: ProjectJournalViewModel = viewModel(
+                factory = ProjectJournalViewModel.factory(
+                    projectId = projectId,
+                    projectRepository = projectRepository,
+                    journalRepository = journalRepository
+                )
+            )
+            ProjectJournalRoute(viewModel = viewModel)
         }
         composable(
             route = DraftEditorDestination.ROUTE,
