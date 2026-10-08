@@ -305,7 +305,7 @@ The implemented shell uses Navigation Compose with a single activity, one naviga
 - Stash (yarn and materials, plus the tool inventory behind a Yarn | Tools segmented switch in `feature/stash/StashHost.kt`)
 - Settings
 
-Counters is a normal child route (`CountersDestination`) with a back arrow, opened from Home and from a project's hub. Keeping the bottom bar to five places is a deliberate decluttering choice: tools are things you own, so they live with the stash, and counters are most useful inside a project.
+Counters is a normal child route (`CountersDestination`) with a back arrow, opened from Home (a project's own counters stay in its hub sheet). Keeping the bottom bar to five places is a deliberate decluttering choice: tools are things you own, so they live with the stash, and counters are most useful inside a project.
 
 The phone layout exposes these routes through a Material 3 bottom navigation bar. `Home` is the start destination. Top-level navigation uses single-top behavior plus saved/restored destination state, while the system Back action retains standard `NavController` behavior. Future detail destinations should be added within this graph only when their features exist.
 

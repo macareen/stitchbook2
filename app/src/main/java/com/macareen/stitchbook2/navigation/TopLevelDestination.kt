@@ -10,7 +10,7 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.macareen.stitchbook2.R
 
-/** The five bottom-bar places. Tools live inside Stash; Counters open from Home and project hubs. */
+/** The five bottom-bar places. Tools live inside Stash; the Counters list opens from Home. */
 enum class TopLevelDestination(
     val route: String,
     @get:StringRes val title: Int,

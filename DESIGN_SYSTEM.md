@@ -179,6 +179,6 @@ A project screen leads with the work, not with buttons:
 
 ## 16. Calm navigation and Home
 
-- **Five places:** the bottom bar holds Home, Projects, Library, Stash, and Settings. Tools sit inside Stash behind a two-segment `SingleChoiceSegmentedButtonRow` (Yarn & materials | Tools); Counters is a back-arrow child screen reached from Home and the project hub.
+- **Five places:** the bottom bar holds Home, Projects, Library, Stash, and Settings. Tools sit inside Stash behind a two-segment `SingleChoiceSegmentedButtonRow` (Yarn & materials | Tools); Counters is a back-arrow child screen reached from Home; project counters stay in the hub sheet.
 - **Home** is the app name with a single + action, a `primaryContainer` *Continue* card only when a guide is in progress, the active projects as plain `surfaceContainerLowest` rows (name, then "craft · updated date"), and two quiet text links (Counters, Statistics). No hero banner, stat tiles, or feature tour: Home answers "what was I doing?" and nothing else.
 - **Review lists show only non-zero counts.** A restore review row reads "3 new", not "3 new · 0 identical · 0 conflicting · 0 only on this device".
