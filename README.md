@@ -115,7 +115,7 @@ The debug APK is normally produced under `app/build/outputs/apk/debug/`.
 - Unsaved project-form input survives recomposition and ordinary configuration changes, but not full process death.
 - Automatic Android app backup is disabled for this private local milestone; uninstalling the app or clearing its data removes records not covered by a user-initiated JSON backup.
 - No Ravelry integration or AI assistance exists.
-- Instrumented tests (including the Room migration tests) need an emulator or device. Compose instrumented tests compile but don't execute successfully in this environment because of a pre-existing Espresso/emulator `InputManager.getInstance` incompatibility -- see [ARCHITECTURE.md](ARCHITECTURE.md).
+- Instrumented tests (including the Room migration tests) need an emulator or device; all of them pass on an API 36 emulator.
 - Larger-screen layouts are not adapted yet.
 - Data formats and UI designs are not yet stable.
 - Release signing and production distribution are not configured.
