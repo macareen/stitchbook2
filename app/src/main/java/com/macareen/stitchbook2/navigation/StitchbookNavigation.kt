@@ -282,13 +282,16 @@ fun StitchbookNavHost(
                                 application.contentResolver.openInputStream(Uri.parse(uri))?.use { it.readBytes() }
                             }.getOrNull()
                         }
-                    }
+                    },
+                    projectRepository = projectRepository,
+                    materialsRepository = materialsRepository
                 )
             )
             PatternGuidesRoute(
                 viewModel = viewModel,
                 onOpenPdf = { navController.navigate(PdfViewerDestination.route(it)) },
-                onEditGuide = { navController.navigate(DraftEditorDestination.route(it)) }
+                onEditGuide = { navController.navigate(DraftEditorDestination.route(it)) },
+                onOpenProject = { navController.navigate(ProjectDestination.detailRoute(it)) }
             )
         }
         composable(TopLevelDestination.Stash.route) {

@@ -1,5 +1,9 @@
 package com.macareen.stitchbook2.feature.library
 
+import com.macareen.stitchbook2.domain.model.Project
+import com.macareen.stitchbook2.domain.model.ProjectStatus
+import com.macareen.stitchbook2.domain.model.ProjectType
+import com.macareen.stitchbook2.domain.repository.ProjectRepository
 import com.macareen.stitchbook2.domain.execution.DefinitionRevisionId
 import com.macareen.stitchbook2.domain.execution.GuideDefinition
 import com.macareen.stitchbook2.domain.execution.GuideId
@@ -122,6 +126,29 @@ class PatternGuidesViewModelTest {
         assertTrue(viewModel.uiState.value is PatternGuidesUiState.Missing)
     }
 
+    @Test
+    fun startingAProjectFillsItFromThePatternAndOpensIt() {
+        val projects = SavedProjects()
+        val viewModel = PatternGuidesViewModel(
+            "pattern",
+            FakeLibrary(listOf(pattern.copy(notes = "A relaxed cardigan."))),
+            FakePatternGuides(),
+            scope,
+            projectRepository = projects,
+            newId = { "project-1" },
+            clock = { 7L }
+        )
+
+        viewModel.startProject()
+
+        val project = projects.saved.single()
+        assertEquals("Seaside Cardigan", project.name)
+        assertEquals(ProjectType.CARDIGAN, project.projectType)
+        assertEquals(ProjectStatus.PLANNED, project.status)
+        assertEquals("A relaxed cardigan.", project.description)
+        assertEquals("project-1", viewModel.startedProjectId.value)
+    }
+
     private fun viewModel(guides: FakePatternGuides): PatternGuidesViewModel =
         PatternGuidesViewModel("pattern", FakeLibrary(listOf(pattern)), guides, scope).also { vm ->
             scope.launch { vm.uiState.collect {} }
@@ -187,4 +214,16 @@ private class FakePatternGuides : GuideRepository {
 
 private class FixedText(private val document: ExtractedDocument) : PdfTextExtractor {
     override suspend fun extract(input: InputStream): ExtractedDocument = document
+}
+
+private class SavedProjects : ProjectRepository {
+    val saved = mutableListOf<Project>()
+    override fun observeProjects(): Flow<List<Project>> = flowOf(saved.toList())
+    override fun observeProject(id: String): Flow<Project?> = flowOf(saved.firstOrNull { it.id == id })
+    override suspend fun saveProject(project: Project) {
+        saved += project
+    }
+    override suspend fun deleteProject(project: Project) {
+        saved -= project
+    }
 }

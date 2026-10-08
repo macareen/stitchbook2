@@ -23,6 +23,13 @@ The product's centre, cutting across the phases below. Status as of 2026-10-08:
    - Home's Continue card shows progress.
    - The hub names the craft.
    - The per-project JSON export carries the project's guides and its own progress, and the Markdown export writes the guides out as plain steps.
+7. **Project from a pattern (done):** "Start a project with this pattern" on a pattern's page makes a Planned project with the pattern's title, craft, description, and a type read from the title or tags (`ProjectFromPattern`). It links the pattern and opens the project. The pattern page also shows the description, gauge, tools and yardage that *Fill from the pattern* found.
+8. **Cozy redesign (done):** the approved mockup across Home, Library, Stash, Tools and the knitting view, with a heart yarn-ball icon and bundled Fraunces and Nunito fonts (see DESIGN_SYSTEM.md).
+
+Still open from the first phone test:
+- Downloading purchased Ravelry PDFs into the pattern folder.
+- Ravelry yarn photos on stash cards.
+- Matching a pattern's suggested needles to the needles you own.
 
 ## Phase 0 — Working Compose app and repository setup
 
