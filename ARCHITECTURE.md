@@ -373,7 +373,7 @@ For a managed import, copy bytes into the selected accessible library while leav
 
 SAF providers have different capabilities. Do not assume filesystem paths, atomic rename, stable modification times, or random access. Store durable content URIs and provider document IDs only when useful, and handle re-selection or relinking.
 
-The app may use internal cache for thumbnails or temporary exports, but cached data must be reproducible and must never be the only copy.
+The app may use internal cache for thumbnails or temporary exports, but cached data must be reproducible and must never be the only copy. Library cards show each pattern PDF's first page as its cover: `data/library/PdfCoverCache` renders it with `PdfRenderer` into `cacheDir/pdf-covers` (JPEG, keyed by a hash of the URI), so covers can be deleted at any time and the PDF itself is never touched.
 
 ## 9. IDs and relationships
 
