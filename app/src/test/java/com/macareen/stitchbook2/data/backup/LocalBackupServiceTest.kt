@@ -3,6 +3,9 @@ package com.macareen.stitchbook2.data.backup
 import com.macareen.stitchbook2.domain.backup.BackupImportResult
 import com.macareen.stitchbook2.domain.backup.BackupPreview
 import com.macareen.stitchbook2.domain.backup.BackupRecordType
+import com.macareen.stitchbook2.domain.backup.BackupSnapshot
+import com.macareen.stitchbook2.domain.backup.CURRENT_BACKUP_FORMAT_VERSION
+import com.macareen.stitchbook2.domain.backup.GuideBackupGraph
 import com.macareen.stitchbook2.domain.backup.RestoreMode
 import com.macareen.stitchbook2.domain.model.Counter
 import com.macareen.stitchbook2.domain.model.CounterNote
@@ -536,6 +539,146 @@ class LocalBackupServiceTest {
         val result = importing.importJson(json, RestoreMode.MERGE) as BackupImportResult.Success
 
         assertEquals(listOf("Raglan Guide.pdf"), result.missingFiles)
+    }
+
+    private fun guideService(
+        store: FakeGuideBackupStore,
+        projects: List<Project> = listOf(project),
+        library: List<LibraryItem> = listOf(libraryItem)
+    ) = LocalBackupService(
+        FakeProjectRepository(projects),
+        FakeLibraryRepository(library),
+        FakeStashRepository(emptyList()),
+        FakeToolRepository(emptyList(), emptyList()),
+        FakeCounterRepository(emptyList()),
+        FakeCounterNoteRepository(emptyList()),
+        guideBackupStore = store
+    )
+
+    /** A file carrying only the guide graph, so its projects and patterns resolve against the device. */
+    private fun guideOnlyJson(graph: GuideBackupGraph = GuideBackupFixtures.graph): String =
+        encodeBackup(BackupSnapshot(formatVersion = CURRENT_BACKUP_FORMAT_VERSION).withGuideGraph(graph), exportedAt = 0)
+
+    @Test
+    fun guidesDraftsRevisionsAndProgressRoundTripThroughExportAndReplace() = runBlocking {
+        val json = guideService(FakeGuideBackupStore(GuideBackupFixtures.graph)).exportJson()
+        val destination = FakeGuideBackupStore()
+        val restoring = LocalBackupService(
+            FakeProjectRepository(emptyList()),
+            FakeLibraryRepository(emptyList()),
+            FakeStashRepository(emptyList()),
+            FakeToolRepository(emptyList(), emptyList()),
+            FakeCounterRepository(emptyList()),
+            FakeCounterNoteRepository(emptyList()),
+            guideBackupStore = destination
+        )
+
+        val result = restoring.importJson(json, RestoreMode.REPLACE) as BackupImportResult.Success
+
+        assertEquals(GuideBackupFixtures.graph, destination.graph)
+        assertEquals(2, result.written[BackupRecordType.GUIDES])
+        assertEquals(1, result.written[BackupRecordType.EXECUTIONS])
+        assertTrue(result.notices.isEmpty())
+    }
+
+    @Test
+    fun aFormat2FileRestoresWithoutTouchingGuides() = runBlocking {
+        val store = FakeGuideBackupStore(GuideBackupFixtures.graph)
+        val service = guideService(store)
+        val json = """{"format":"stitchbook-backup","version":2,"exportedAt":0,"projects":[${projectJson(project)}]}"""
+
+        val preview = service.previewImport(json) as BackupPreview.Ready
+        val result = service.importJson(json, RestoreMode.REPLACE)
+
+        assertEquals(setOf(BackupRecordType.PROJECTS), preview.comparison.keys)
+        assertTrue(result is BackupImportResult.Success)
+        assertEquals(0, store.replaceCalls)
+        assertEquals(GuideBackupFixtures.graph, store.graph)
+    }
+
+    @Test
+    fun mergeKeepsAGuideWhoseProjectAndPatternAreMissingAndReportsTheClearedLinks() = runBlocking {
+        val store = FakeGuideBackupStore()
+        val service = guideService(store, projects = emptyList(), library = emptyList())
+        val json = guideOnlyJson()
+
+        val preview = service.previewImport(json) as BackupPreview.Ready
+        val result = service.importJson(json, RestoreMode.MERGE) as BackupImportResult.Success
+
+        val guide = store.graph.guides.single { it.id == "guide-1" }
+        assertEquals(null, guide.projectId)
+        assertEquals(null, guide.libraryItemId)
+        assertEquals(null, store.graph.guides.single { it.id == "guide-2" }.libraryItemId)
+        // Progress moves to the guide on its own, and its resume point follows it.
+        assertEquals(null, store.graph.executions.single().projectId)
+        assertEquals(listOf(GuideBackupFixtures.active.copy(projectKey = "")), store.graph.activeExecutions)
+        assertTrue(store.graph.projectGuides.isEmpty())
+        assertEquals(GuideBackupFixtures.graph.drafts, store.graph.drafts)
+        assertEquals(GuideBackupFixtures.graph.revisions, store.graph.revisions)
+
+        val noticeTypes = result.notices.map { it.type }.toSet()
+        assertEquals(
+            setOf(BackupRecordType.GUIDES, BackupRecordType.EXECUTIONS, BackupRecordType.PROJECT_GUIDES),
+            noticeTypes
+        )
+        assertEquals(result.notices, preview.mergeNotices)
+    }
+
+    @Test
+    fun replaceRejectsAGuideWhoseProjectIsMissingInsteadOfClearingIt() = runBlocking {
+        val store = FakeGuideBackupStore()
+        val service = guideService(store, projects = emptyList(), library = emptyList())
+
+        val result = service.importJson(guideOnlyJson(), RestoreMode.REPLACE) as BackupImportResult.ValidationFailed
+
+        assertTrue(result.issues.any { it.type == BackupRecordType.GUIDES && it.recordKey == "guide-1" })
+        assertEquals(0, store.replaceCalls)
+    }
+
+    @Test
+    fun mergeLeavesAnExistingGuideAndItsProgressAsTheyAreAndReportsWhatItSkipped() = runBlocking {
+        val localGuide = GuideBackupFixtures.projectGuide.copy(name = "Edited on this device")
+        val store = FakeGuideBackupStore(GuideBackupGraph(guides = listOf(localGuide)))
+        val service = guideService(store)
+
+        val result = service.importJson(guideOnlyJson(), RestoreMode.MERGE) as BackupImportResult.Success
+
+        assertEquals(listOf(localGuide, GuideBackupFixtures.patternGuide), store.graph.guides)
+        assertTrue(store.graph.drafts.isEmpty())
+        assertTrue(store.graph.revisions.isEmpty())
+        assertTrue(store.graph.executions.isEmpty())
+        assertEquals(listOf(GuideBackupFixtures.link), store.graph.projectGuides)
+        assertEquals(1, result.conflictsKept)
+        assertEquals(
+            setOf("draft-1", "revision-1", "execution-1", "guide-1/project-1"),
+            result.notices.map { it.recordKey }.toSet()
+        )
+    }
+
+    @Test
+    fun aFileWithOnlyPartOfTheGuideGraphIsRejected() = runBlocking {
+        val store = FakeGuideBackupStore(GuideBackupFixtures.graph)
+        val json = """{"format":"stitchbook-backup","version":3,"exportedAt":0,"guides":[]}"""
+
+        val result = guideService(store).importJson(json, RestoreMode.REPLACE)
+
+        assertTrue(result is BackupImportResult.ValidationFailed)
+        assertEquals(GuideBackupFixtures.graph, store.graph)
+    }
+
+    @Test
+    fun progressPinnedToAnotherGuidesRevisionIsRejected() = runBlocking {
+        val store = FakeGuideBackupStore()
+        val otherRevision = GuideBackupFixtures.revision.copy(id = "revision-2", guideId = "guide-2")
+        val graph = GuideBackupFixtures.graph.copy(
+            revisions = GuideBackupFixtures.graph.revisions + otherRevision,
+            executions = listOf(GuideBackupFixtures.execution.copy(definitionRevisionId = "revision-2"))
+        )
+
+        val result = guideService(store).importJson(guideOnlyJson(graph), RestoreMode.MERGE) as BackupImportResult.ValidationFailed
+
+        assertEquals(listOf(BackupRecordType.EXECUTIONS to "execution-1"), result.issues.map { it.type to it.recordKey })
+        assertEquals(0, store.addCalls)
     }
 
     private fun journalEntry(id: String, projectId: String) = JournalEntry(

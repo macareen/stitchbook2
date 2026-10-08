@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.macareen.stitchbook2.domain.backup.BackupImportResult
 import com.macareen.stitchbook2.domain.backup.BackupIssue
+import com.macareen.stitchbook2.domain.backup.BackupNotice
 import com.macareen.stitchbook2.domain.backup.BackupPreview
 import com.macareen.stitchbook2.domain.backup.BackupRecordType
 import com.macareen.stitchbook2.domain.backup.BackupService
@@ -33,7 +34,9 @@ sealed interface SettingsFeedback {
         /** Records left as they are locally because the file's copy differs (MERGE only). */
         val conflictsKept: Int,
         /** Display names of referenced PDFs and photos this device can't open -- relink these. */
-        val missingFiles: List<String>
+        val missingFiles: List<String>,
+        /** Links cleared and records left out instead of failing (MERGE only). */
+        val notices: List<BackupNotice> = emptyList()
     ) : SettingsFeedback
 
     /** The file isn't a Stitchbook backup at all. */
@@ -134,7 +137,8 @@ class SettingsViewModel(
                         mode = mode,
                         written = result.written,
                         conflictsKept = result.conflictsKept,
-                        missingFiles = result.missingFiles
+                        missingFiles = result.missingFiles,
+                        notices = result.notices
                     )
                     BackupImportResult.InvalidFormat -> SettingsFeedback.ImportUnreadable
                     is BackupImportResult.ValidationFailed -> SettingsFeedback.ImportInvalid(result.issues)

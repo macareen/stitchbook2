@@ -6,7 +6,9 @@ import com.macareen.stitchbook2.domain.backup.BackupRecordType
 import com.macareen.stitchbook2.domain.backup.BackupService
 import com.macareen.stitchbook2.domain.backup.BackupSnapshot
 import com.macareen.stitchbook2.domain.backup.CURRENT_BACKUP_FORMAT_VERSION
+import com.macareen.stitchbook2.domain.backup.GuideBackupStore
 import com.macareen.stitchbook2.domain.backup.RestoreMode
+import com.macareen.stitchbook2.domain.backup.planGuideMerge
 import com.macareen.stitchbook2.domain.backup.ToolAssignment
 import com.macareen.stitchbook2.domain.backup.compareBackup
 import com.macareen.stitchbook2.domain.backup.mergeAdditions
@@ -30,8 +32,8 @@ import org.json.JSONException
  * repositories. JSON shape lives in BackupJsonCodec.kt; the rules
  * (validation, merge selection) are pure functions in domain/backup.
  *
- * The three newer repositories are optional so a partial service (as in
- * tests) simply doesn't carry those record types.
+ * The newer repositories and the guide store are optional so a partial
+ * service (as in tests) simply doesn't carry those record types.
  */
 class LocalBackupService(
     private val projectRepository: ProjectRepository,
@@ -43,6 +45,7 @@ class LocalBackupService(
     private val materialsRepository: MaterialsRepository? = null,
     private val journalRepository: JournalRepository? = null,
     private val sessionRepository: SessionRepository? = null,
+    private val guideBackupStore: GuideBackupStore? = null,
     /** Whether a referenced `content://` file can currently be opened; injected so tests need no Android. */
     private val isFileAccessible: suspend (String) -> Boolean = { true },
     private val clock: () -> Long = System::currentTimeMillis
@@ -101,7 +104,8 @@ class LocalBackupService(
         val issues = validateBackup(incoming, existing, RestoreMode.MERGE)
         if (issues.isNotEmpty()) return BackupPreview.Invalid(issues)
         val (comparison, conflicts) = compareBackup(incoming, existing)
-        return BackupPreview.Ready(incoming.formatVersion, comparison, conflicts)
+        val mergeNotices = planGuideMerge(incoming, existing)?.notices.orEmpty()
+        return BackupPreview.Ready(incoming.formatVersion, comparison, conflicts, mergeNotices)
     }
 
     override suspend fun importJson(json: String, mode: RestoreMode): BackupImportResult {
@@ -112,6 +116,7 @@ class LocalBackupService(
 
         val toWrite = if (mode == RestoreMode.MERGE) mergeAdditions(incoming, existing) else incoming
         val conflictsKept = if (mode == RestoreMode.MERGE) compareBackup(incoming, existing).second.size else 0
+        val notices = if (mode == RestoreMode.MERGE) planGuideMerge(incoming, existing)?.notices.orEmpty() else emptyList()
         write(toWrite, existing, mode)
 
         return BackupImportResult.Success(
@@ -124,7 +129,8 @@ class LocalBackupService(
             counterNoteCount = incoming.counterNotes?.size,
             written = toWrite.counts(),
             conflictsKept = conflictsKept,
-            missingFiles = missingFiles(incoming)
+            missingFiles = missingFiles(incoming),
+            notices = notices
         )
     }
 
@@ -173,7 +179,7 @@ class LocalBackupService(
             photos = journalRepository?.observePhotos()?.first(),
             journalEntries = journalRepository?.observeEntries()?.first(),
             sessions = sessionRepository?.observeSessions()?.first()
-        )
+        ).withGuideGraph(guideBackupStore?.load())
     }
 
     /**
@@ -245,6 +251,12 @@ class LocalBackupService(
         }
         sessionRepository?.let { sessions ->
             sync(toWrite.sessions, existing.sessions, { it.id }, sessions::deleteSession, sessions::saveSession)
+        }
+        // Last, because guides reference projects and library items written above.
+        // The store writes the whole graph in one transaction.
+        val guideGraph = toWrite.guideGraph()
+        if (guideBackupStore != null && guideGraph != null) {
+            if (replace) guideBackupStore.replace(guideGraph) else guideBackupStore.add(guideGraph)
         }
     }
 

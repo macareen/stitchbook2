@@ -52,6 +52,7 @@ abstract class StitchbookDatabase : RoomDatabase() {
     abstract fun materialsDao(): MaterialsDao
     abstract fun journalDao(): JournalDao
     abstract fun craftingSessionDao(): CraftingSessionDao
+    abstract fun guideBackupDao(): GuideBackupDao
 
     companion object {
         private const val DATABASE_NAME = "stitchbook.db"

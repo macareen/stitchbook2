@@ -3,6 +3,7 @@ package com.macareen.stitchbook2
 import android.content.Context
 import androidx.core.net.toUri
 import com.macareen.stitchbook2.data.backup.LocalBackupService
+import com.macareen.stitchbook2.data.backup.RoomGuideBackupStore
 import com.macareen.stitchbook2.data.database.StitchbookDatabase
 import com.macareen.stitchbook2.data.parsing.MlKitPdfPageOcr
 import com.macareen.stitchbook2.data.library.SafPatternFolder
@@ -118,6 +119,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
             materialsRepository = materialsRepository,
             journalRepository = journalRepository,
             sessionRepository = sessionRepository,
+            guideBackupStore = RoomGuideBackupStore(database.guideBackupDao()),
             isFileAccessible = { uri -> isContentAccessible(context.applicationContext, uri) }
         )
 

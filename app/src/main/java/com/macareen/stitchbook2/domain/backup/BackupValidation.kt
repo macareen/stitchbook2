@@ -1,6 +1,6 @@
 package com.macareen.stitchbook2.domain.backup
 
-const val CURRENT_BACKUP_FORMAT_VERSION = 2
+const val CURRENT_BACKUP_FORMAT_VERSION = 3
 
 /**
  * Checks a parsed backup *before* anything is written (PRODUCT_SPEC.md
@@ -90,6 +90,7 @@ fun validateBackup(incoming: BackupSnapshot, existing: BackupSnapshot, mode: Res
         requireRef(BackupRecordType.SESSIONS, it.id, "project", it.projectId, projects)
         if (it.endedAt != null && it.endedAt < it.startedAt) invalid(BackupRecordType.SESSIONS, it.id, "Ends before it starts.")
     }
+    issues += validateGuides(incoming, existing, mode, projects, library)
     return issues
 }
 
@@ -128,6 +129,7 @@ fun compareBackup(incoming: BackupSnapshot, existing: BackupSnapshot): Pair<Map<
  * The subset of [incoming] a MERGE writes: only records whose identity
  * doesn't exist locally. Identical records need no write and conflicting
  * ones are left exactly as they are locally ("never silently overwrite").
+ * The guide graph merges a whole guide at a time; see [planGuideMerge].
  */
 fun mergeAdditions(incoming: BackupSnapshot, existing: BackupSnapshot): BackupSnapshot {
     fun <T> List<T>?.onlyNew(type: BackupRecordType, key: (T) -> String): List<T>? {
@@ -151,5 +153,5 @@ fun mergeAdditions(incoming: BackupSnapshot, existing: BackupSnapshot): BackupSn
         photos = incoming.photos.onlyNew(BackupRecordType.PHOTOS) { it.id },
         journalEntries = incoming.journalEntries.onlyNew(BackupRecordType.JOURNAL_ENTRIES) { it.id },
         sessions = incoming.sessions.onlyNew(BackupRecordType.SESSIONS) { it.id }
-    )
+    ).withGuideGraph(planGuideMerge(incoming, existing)?.graph)
 }
