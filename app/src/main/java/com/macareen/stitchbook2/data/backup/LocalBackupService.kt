@@ -61,7 +61,10 @@ class LocalBackupService(
         val links = all.patternLinks?.filter { it.projectId == projectId }
         val assignments = all.toolAssignments?.filter { it.projectId == projectId }
         val stashIds = allocations.orEmpty().map { it.stashItemId }.toSet()
-        val libraryIds = links.orEmpty().map { it.libraryItemId }.toSet()
+        val guides = projectGuides(all.guideGraph(), projectId)
+        // A pattern guide's own pattern travels with it, so the guide restores with its link.
+        val libraryIds = links.orEmpty().map { it.libraryItemId }.toSet() +
+            guides?.guides.orEmpty().mapNotNull { it.libraryItemId }
         val toolIds = assignments.orEmpty().map { it.toolItemId }.toSet()
         val toolItems = all.toolItems?.filter { it.id in toolIds }
         val setIds = toolItems.orEmpty().mapNotNull { it.setId }.toSet()
@@ -88,8 +91,29 @@ class LocalBackupService(
             photos = all.photos?.filter { it.projectId == projectId },
             journalEntries = all.journalEntries?.filter { it.projectId == projectId },
             sessions = all.sessions?.filter { it.projectId == projectId }
-        )
+        ).withGuideGraph(guides)
         return encodeBackup(subset, clock())
+    }
+
+    /**
+     * The guides [projectId] knits from: its own and the pattern guides it
+     * uses, with their drafts and revisions, and only this project's progress.
+     * Another project's place in a shared guide stays out of this file.
+     */
+    private fun projectGuides(graph: GuideBackupGraph?, projectId: String): GuideBackupGraph? {
+        graph ?: return null
+        val used = graph.projectGuides.filter { it.projectId == projectId }
+        val guideIds = graph.guides.filter { it.projectId == projectId }.map { it.id }.toSet() + used.map { it.guideId }
+        val executions = graph.executions.filter { it.guideId in guideIds && it.projectId == projectId }
+        val executionIds = executions.map { it.id }.toSet()
+        return GuideBackupGraph(
+            guides = graph.guides.filter { it.id in guideIds },
+            drafts = graph.drafts.filter { it.guideId in guideIds },
+            revisions = graph.revisions.filter { it.guideId in guideIds },
+            executions = executions,
+            activeExecutions = graph.activeExecutions.filter { it.executionId in executionIds },
+            projectGuides = used
+        )
     }
 
     override suspend fun exportProjectMarkdown(projectId: String): String? {

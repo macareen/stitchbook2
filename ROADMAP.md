@@ -22,8 +22,7 @@ The product's centre, cutting across the phases below. Status as of 2026-10-08:
    - Knitting makes a planned project active.
    - Home's Continue card shows progress.
    - The hub names the craft.
-
-   Open: guides in the per-project export.
+   - The per-project JSON export carries the project's guides and its own progress, and the Markdown export writes the guides out as plain steps.
 
 ## Phase 0 — Working Compose app and repository setup
 
@@ -313,7 +312,7 @@ The product's centre, cutting across the phases below. Status as of 2026-10-08:
 
 ## Phase 10 — Backup, restore, and portable metadata
 
-**Status: Core complete; some exports and format guarantees remain open.** The version-3 JSON backup covers projects, library, stash, tool sets, items, templates, and project assignments, counters and notes, yarn allocations, pattern links, milestones, photo references, journal entries, sessions, and guides with their drafts, revisions, progress, and project links, with a manifest of record counts and referenced files. Version 1 and 2 files still restore. Restore is reviewed: Settings first previews per-type counts of new, identical, conflicting, and local-only records, or lists validation issues; nothing is written unless the whole file is valid. **Merge** adds only new records and never overwrites a conflict. **Replace** asks a second time, naming what it will remove, and upserts so a kept project's children survive. Afterwards Settings shows the records written, any conflicts kept, and files that can't be opened on this device and need relinking. Project detail exports one project as restorable JSON or readable Markdown. The format and its file-reference rule are documented in ARCHITECTURE.md. Covered by JVM tests for validation, comparison, merge selection, v1 compatibility, conflict safety, REPLACE child safety, and Markdown output. Still open: the per-project JSON export doesn't carry guides; unknown fields from a newer writer are dropped rather than preserved on re-export; new Stash and Library fields are not in their CSVs; and there are no PDF exports or SAF library-folder mirroring.
+**Status: Core complete; some exports and format guarantees remain open.** The version-3 JSON backup covers projects, library, stash, tool sets, items, templates, and project assignments, counters and notes, yarn allocations, pattern links, milestones, photo references, journal entries, sessions, and guides with their drafts, revisions, progress, and project links, with a manifest of record counts and referenced files. Version 1 and 2 files still restore. Restore is reviewed: Settings first previews per-type counts of new, identical, conflicting, and local-only records, or lists validation issues; nothing is written unless the whole file is valid. **Merge** adds only new records and never overwrites a conflict. **Replace** asks a second time, naming what it will remove, and upserts so a kept project's children survive. Afterwards Settings shows the records written, any conflicts kept, and files that can't be opened on this device and need relinking. Project detail exports one project as restorable JSON or readable Markdown. The format and its file-reference rule are documented in ARCHITECTURE.md. Covered by JVM tests for validation, comparison, merge selection, v1 compatibility, conflict safety, REPLACE child safety, and Markdown output. Still open: unknown fields from a newer writer are dropped rather than preserved on re-export; new Stash and Library fields are not in their CSVs; and there are no PDF exports or SAF library-folder mirroring.
 
 **Goal:** Extend the early per-feature safety exports into a complete, verifiable, and recoverable library format.
 

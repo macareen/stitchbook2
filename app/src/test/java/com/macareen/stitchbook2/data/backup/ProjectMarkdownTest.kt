@@ -100,4 +100,19 @@ class ProjectMarkdownTest {
         assertTrue(markdown.contains("- square-1.jpg — First one"))
         assertFalse(markdown.contains("content://"))
     }
+
+    @Test
+    fun `the guides a project knits from are written out as plain steps`() {
+        val graph = GuideBackupFixtures.graph
+        val snapshot = BackupSnapshot(formatVersion = CURRENT_BACKUP_FORMAT_VERSION).withGuideGraph(graph)
+        val fixtureProject = project.copy(id = "project-1")
+
+        val text = projectMarkdown(fixtureProject, snapshot, now = 0)
+
+        assertTrue(text, text.contains("## Guides"))
+        assertTrue(text, text.contains("### Body (size M)"))
+        assertTrue(text, text.contains("### Body (L) (size L)"))
+        assertTrue(text, text.contains("- **Body**\n  - repeat 4×:\n    - Knit to end."))
+        assertTrue(text, text.contains("Progress: "))
+    }
 }
