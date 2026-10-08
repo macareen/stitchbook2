@@ -1,5 +1,10 @@
 package com.macareen.stitchbook2.domain.ravelry
 
+import com.macareen.stitchbook2.domain.model.Craft
+import com.macareen.stitchbook2.domain.model.LibraryItem
+import com.macareen.stitchbook2.domain.model.Project
+import com.macareen.stitchbook2.domain.model.ProjectStatus
+import com.macareen.stitchbook2.domain.model.ProjectType
 import com.macareen.stitchbook2.domain.model.StashCategory
 import com.macareen.stitchbook2.domain.model.StashItem
 import com.macareen.stitchbook2.domain.model.ToolCategory
@@ -7,6 +12,13 @@ import com.macareen.stitchbook2.domain.model.ToolItem
 
 /** An item Ravelry has that this device already pulled before, but with different details now. */
 data class RavelryChange<T>(val local: T, val updated: T)
+
+/** New, changed, and unchanged records of one kind. */
+data class RavelryKindPlan<T>(val new: List<T> = emptyList(), val changed: List<RavelryChange<T>> = emptyList(), val unchanged: Int = 0) {
+    val isEmpty: Boolean get() = new.isEmpty() && changed.isEmpty()
+
+    fun toSave(includeChanges: Boolean): List<T> = new + if (includeChanges) changed.map { it.updated } else emptyList()
+}
 
 /**
  * What a pull from Ravelry would do, worked out before anything is saved so
@@ -21,16 +33,27 @@ data class RavelryImportPlan(
     val unchangedStashCount: Int,
     val newTools: List<ToolItem>,
     val changedTools: List<RavelryChange<ToolItem>>,
-    val unchangedToolCount: Int
+    val unchangedToolCount: Int,
+    val projects: RavelryKindPlan<Project> = RavelryKindPlan(),
+    val patterns: RavelryKindPlan<LibraryItem> = RavelryKindPlan()
 ) {
     val hasNothingToDo: Boolean
-        get() = newStash.isEmpty() && changedStash.isEmpty() && newTools.isEmpty() && changedTools.isEmpty()
+        get() = newStash.isEmpty() && changedStash.isEmpty() && newTools.isEmpty() && changedTools.isEmpty() &&
+            projects.isEmpty && patterns.isEmpty
+
+    val hasNew: Boolean
+        get() = newStash.isNotEmpty() || newTools.isNotEmpty() || projects.new.isNotEmpty() || patterns.new.isNotEmpty()
+
+    val changeCount: Int
+        get() = changedStash.size + changedTools.size + projects.changed.size + patterns.changed.size
 }
 
 object RavelryImportPlanner {
 
     const val STASH_ID_PREFIX = "ravelry-stash-"
     const val TOOL_ID_PREFIX = "ravelry-needle-"
+    const val PROJECT_ID_PREFIX = "ravelry-project-"
+    const val VOLUME_ID_PREFIX = "ravelry-volume-"
     private const val UNIT_SKEINS = "skeins"
 
     fun plan(
@@ -162,6 +185,113 @@ object RavelryImportPlanner {
             "cable" in type -> ToolCategory.CABLE_NEEDLE
             else -> null
         }
+    }
+
+    fun planProjects(remote: List<RavelryProject>, local: List<Project>, now: Long): RavelryKindPlan<Project> =
+        planKind(remote.map { PROJECT_ID_PREFIX + it.id to it }, local.associateBy { it.id }, now,
+            create = { id, project -> mergeProject(blankProject(id, now), project) },
+            merge = ::mergeProject,
+            touch = { item, time -> item.copy(updatedAt = time) })
+
+    fun planPatterns(remote: List<RavelryVolume>, local: List<LibraryItem>, now: Long): RavelryKindPlan<LibraryItem> =
+        planKind(remote.map { VOLUME_ID_PREFIX + it.id to it }, local.associateBy { it.id }, now,
+            create = { id, volume -> mergeVolume(blankLibraryItem(id, now), volume) },
+            merge = ::mergeVolume,
+            touch = { item, time -> item.copy(updatedAt = time) })
+
+    private fun <R, T> planKind(
+        remote: List<Pair<String, R>>,
+        localById: Map<String, T>,
+        now: Long,
+        create: (String, R) -> T,
+        merge: (T, R) -> T,
+        touch: (T, Long) -> T
+    ): RavelryKindPlan<T> {
+        val new = mutableListOf<T>()
+        val changed = mutableListOf<RavelryChange<T>>()
+        var unchanged = 0
+        for ((id, record) in remote) {
+            val existing = localById[id]
+            if (existing == null) {
+                new += create(id, record)
+            } else {
+                val updated = merge(existing, record)
+                if (updated == existing) unchanged++ else changed += RavelryChange(existing, touch(updated, now))
+            }
+        }
+        return RavelryKindPlan(new, changed, unchanged)
+    }
+
+    private fun blankProject(id: String, now: Long) = Project(
+        id = id,
+        name = "",
+        craft = Craft.OTHER,
+        projectType = ProjectType.OTHER,
+        status = ProjectStatus.PLANNED,
+        notes = null,
+        createdAt = now,
+        updatedAt = now
+    )
+
+    /** Ravelry's name, craft, status, and dates; the pattern name only fills an empty description. */
+    private fun mergeProject(local: Project, project: RavelryProject): Project = local.copy(
+        name = project.name.clean() ?: local.name.ifBlank { "Ravelry project ${project.id}" },
+        craft = craftFor(project.craftName) ?: local.craft,
+        status = statusFor(project.statusName) ?: local.status,
+        startDate = isoDate(project.started) ?: local.startDate,
+        targetDate = isoDate(project.finishBy) ?: local.targetDate,
+        completedDate = isoDate(project.completed) ?: local.completedDate,
+        description = local.description ?: project.patternName.clean()?.let { "Pattern: $it" }
+    )
+
+    private fun blankLibraryItem(id: String, now: Long) = LibraryItem(
+        id = id,
+        title = "",
+        craft = Craft.OTHER,
+        author = null,
+        sourceUrl = null,
+        tags = emptyList(),
+        notes = null,
+        bookmarked = false,
+        createdAt = now,
+        updatedAt = now
+    )
+
+    /** Ravelry volumes carry no craft, so a new entry starts as "Other" for the person to set. */
+    private fun mergeVolume(local: LibraryItem, volume: RavelryVolume): LibraryItem = local.copy(
+        title = volume.title.clean() ?: local.title.ifBlank { "Ravelry pattern ${volume.id}" },
+        author = volume.authorName.clean() ?: local.author,
+        ravelryPatternId = volume.patternId?.toString() ?: local.ravelryPatternId
+    )
+
+    internal fun craftFor(name: String?): Craft? {
+        val craft = name?.lowercase() ?: return null
+        return when {
+            "tunisian" in craft -> Craft.TUNISIAN_CROCHET
+            "loom" in craft -> Craft.LOOM_KNITTING
+            "crochet" in craft -> Craft.CROCHET
+            "knit" in craft -> Craft.KNITTING
+            else -> Craft.OTHER
+        }
+    }
+
+    internal fun statusFor(name: String?): ProjectStatus? {
+        val status = name?.lowercase() ?: return null
+        return when {
+            "finish" in status -> ProjectStatus.COMPLETED
+            "progress" in status -> ProjectStatus.ACTIVE
+            "hibernat" in status -> ProjectStatus.PAUSED
+            "frog" in status -> ProjectStatus.ABANDONED
+            "plan" in status || "queue" in status -> ProjectStatus.PLANNED
+            else -> null
+        }
+    }
+
+    /** "2024/03/15" or "2024-03-15" (optionally followed by a time) -> "2024-03-15". */
+    internal fun isoDate(text: String?): String? {
+        val match = Regex("""^\s*(\d{4})[/-](\d{1,2})[/-](\d{1,2})""").find(text ?: return null) ?: return null
+        val (year, month, day) = match.destructured
+        return "%s-%02d-%02d".format(year, month.toInt(), day.toInt())
     }
 
     /** "4.0 mm", "4mm", or "4" -> 4.0; anything else (US or letter sizes) -> null. */

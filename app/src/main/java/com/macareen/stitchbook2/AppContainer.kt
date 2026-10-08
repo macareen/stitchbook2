@@ -133,7 +133,9 @@ class DefaultAppContainer(context: Context) : AppContainer {
         api = HttpRavelryApi(),
         credentialStore = ravelryCredentialStore,
         stashRepository = stashRepository,
-        toolRepository = toolRepository
+        toolRepository = toolRepository,
+        projectRepository = projectRepository,
+        libraryRepository = libraryRepository
     )
 
     override val createGuideFromStructuredGuideUseCase: CreateGuideFromStructuredGuideUseCase =

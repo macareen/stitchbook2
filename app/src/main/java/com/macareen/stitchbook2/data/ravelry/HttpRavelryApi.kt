@@ -4,7 +4,9 @@ import com.macareen.stitchbook2.domain.ravelry.RavelryApi
 import com.macareen.stitchbook2.domain.ravelry.RavelryAuthException
 import com.macareen.stitchbook2.domain.ravelry.RavelryCredentials
 import com.macareen.stitchbook2.domain.ravelry.RavelryNeedle
+import com.macareen.stitchbook2.domain.ravelry.RavelryProject
 import com.macareen.stitchbook2.domain.ravelry.RavelryStashEntry
+import com.macareen.stitchbook2.domain.ravelry.RavelryVolume
 import com.macareen.stitchbook2.domain.ravelry.RavelryUnavailableException
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -29,12 +31,25 @@ class HttpRavelryApi(
     override suspend fun currentUsername(credentials: RavelryCredentials): String =
         parse { RavelryJson.username(get(credentials, "/current_user.json")) }
 
-    override suspend fun stash(credentials: RavelryCredentials, username: String): List<RavelryStashEntry> {
-        val entries = mutableListOf<RavelryStashEntry>()
+    override suspend fun stash(credentials: RavelryCredentials, username: String): List<RavelryStashEntry> =
+        allPages(credentials, "/people/${encode(username)}/stash/list.json", RavelryJson::stashPage)
+
+    override suspend fun projects(credentials: RavelryCredentials, username: String): List<RavelryProject> =
+        allPages(credentials, "/projects/${encode(username)}/list.json", RavelryJson::projectsPage)
+
+    override suspend fun library(credentials: RavelryCredentials, username: String): List<RavelryVolume> =
+        allPages(credentials, "/people/${encode(username)}/library/search.json", RavelryJson::volumesPage)
+
+    private suspend fun <T> allPages(
+        credentials: RavelryCredentials,
+        path: String,
+        read: (String) -> RavelryJson.Page<T>
+    ): List<T> {
+        val entries = mutableListOf<T>()
         var page = 1
         while (page <= MAX_PAGES) {
-            val body = get(credentials, "/people/${encode(username)}/stash/list.json?page=$page&page_size=$PAGE_SIZE")
-            val result = parse { RavelryJson.stashPage(body) }
+            val body = get(credentials, "$path?page=$page&page_size=$PAGE_SIZE")
+            val result = parse { read(body) }
             entries += result.entries
             if (result.isLastPage || result.entries.isEmpty()) break
             page++

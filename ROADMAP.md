@@ -320,9 +320,13 @@ Every phase that adds durable user records must also extend the current versione
 
 ## Phase 11 — Ravelry import and carefully controlled synchronization
 
-**Status: In progress.** Slice 1 (stash and needles pull) is done. Projects and the pattern library (purchased and downloaded patterns, as Library entries linked to Ravelry) are next. PDF downloads into a folder the person chooses come later.
+**Status: In progress.** One-way pull of stash, needles, projects, and the pattern library is done. Still to come: downloading library PDFs into a folder the person chooses (Ravelry's `generate_download_link`), photos, project–yarn links, and any write-back, which would need explicit consent per operation.
 
 - **Slice 1, stash and needles pull (done).** Connect from Settings → Ravelry with a "Basic Auth: personal account access" key. The read-only key cannot call Ravelry's authenticated stash, needle, or project methods. The key is typed on the phone, encrypted with an Android Keystore key, and kept out of every backup. *Check Ravelry* reads `current_user`, all pages of `stash/list`, and `needles/list` (GET only), then shows a review: new items, and items changed on Ravelry. *Add new only* or *Add new and update changed* saves exactly that. Records use stable ids, so repeat pulls are idempotent. Updates replace only Ravelry's fields (name, maker, colourway, dye lot, weight, skeins and per-skein measures, location, Ravelry yarn ID). Local notes, purchase details, care, and weighed remainders are kept. Nothing local is ever deleted, and nothing is written to Ravelry. Forgetting the key leaves everything pulled in place.
+- **Slice 2, projects and library (done).**
+  - `projects/list` becomes Projects (`ravelry-project-<id>`), with craft, status (In progress → Active, Hibernating → Paused, Frogged → Abandoned, Finished → Completed), and start, target, and finish dates. The pattern name fills an empty description.
+  - Every volume in `library/search` (purchases, downloads, books) becomes a Library entry (`ravelry-volume-<id>`) with title, author, and Ravelry pattern ID. Craft starts as Other, because volumes don't carry one.
+  - Updates keep the local project type, description, notes, and any PDF the person attached.
 
 **Goal:** Offer optional interoperability without surrendering local authority.
 
