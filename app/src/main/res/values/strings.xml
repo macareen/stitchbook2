@@ -462,7 +462,7 @@
 
     <string name="guides_section_title">Guides</string>
     <string name="guides_empty_description">No guides yet. Add one to start writing a pattern.</string>
-    <string name="project_tools_empty_description">No tools assigned yet. Assign one from the Tools screen.</string>
+    <string name="project_tools_empty_description">No tools for this project yet. Add one below; it also joins your toolbox.</string>
     <string name="project_unassign_tool_action">Unassign</string>
     <string name="guide_continue_action">Continue</string>
     <string name="guide_edit_draft_action">Edit draft</string>
@@ -525,6 +525,7 @@
     <string name="focus_starting_action">Starting…</string>
     <string name="focus_start_error">This guide could not be started. Please try again.</string>
 
+    <string name="home_resume_project_progress">%1$s · %2$d%% done</string>
     <string name="focus_overview_action">Overview</string>
     <string name="focus_overview_title">The whole guide</string>
     <string name="focus_overview_done">Done</string>

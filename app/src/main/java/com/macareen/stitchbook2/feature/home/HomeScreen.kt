@@ -222,7 +222,11 @@ private fun ContinueCard(resume: ResumeGuide, onClick: () -> Unit) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = stringResource(R.string.home_continue_label), style = MaterialTheme.typography.labelLarge)
                 Text(text = resume.guideName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                Text(text = resume.projectName, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    text = resume.percentDone?.let { stringResource(R.string.home_resume_project_progress, resume.projectName, it) }
+                        ?: resume.projectName,
+                    style = MaterialTheme.typography.bodyMedium
+                )
             }
             Icon(imageVector = Icons.Filled.PlayArrow, contentDescription = null)
         }

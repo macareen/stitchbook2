@@ -586,7 +586,9 @@ private fun LibraryItemCard(
     onOpenPdf: () -> Unit,
     onOpenGuides: () -> Unit = {}
 ) {
+    // The whole card opens the pattern's own screen: its file and its guides by size.
     Card(
+        onClick = onOpenGuides,
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
