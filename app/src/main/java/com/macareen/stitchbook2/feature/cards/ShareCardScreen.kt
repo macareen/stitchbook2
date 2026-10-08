@@ -233,13 +233,14 @@ fun ShareCardScreen(
             QuietText(text = stringResource(R.string.card_before_after_missing))
         }
 
-        SectionHeader(title = stringResource(R.string.card_description_title))
+        val descriptionTitle = stringResource(R.string.card_description_title)
+        SectionHeader(title = descriptionTitle)
         val description = cardText.description(content)
         Text(text = description, style = MaterialTheme.typography.bodyMedium)
         TextButton(
             onClick = {
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.card_description_title), description))
+                clipboard.setPrimaryClip(ClipData.newPlainText(descriptionTitle, description))
                 message = R.string.card_description_copied
             }
         ) { Text(text = stringResource(R.string.card_copy_description)) }

@@ -207,8 +207,10 @@ class LocalBackupServiceTest {
             linkIncrementAmount = 1
         )
         val sourceCounters = FakeCounterRepository(listOf(linking, target))
+        // The counters' project travels with them: validation rejects a
+        // counter whose project is in neither the file nor the library.
         val exportingService = LocalBackupService(
-            FakeProjectRepository(emptyList()),
+            FakeProjectRepository(listOf(project)),
             FakeLibraryRepository(emptyList()),
             FakeStashRepository(emptyList()),
             FakeToolRepository(emptyList(), emptyList()),
@@ -228,7 +230,9 @@ class LocalBackupServiceTest {
             FakeCounterNoteRepository(emptyList())
         )
 
-        importingService.importJson(json)
+        val result = importingService.importJson(json)
+
+        assertTrue(result is BackupImportResult.Success)
 
         val restored = destinationCounters.counters.value.associateBy { it.id }
         assertEquals(target, restored.getValue(target.id))

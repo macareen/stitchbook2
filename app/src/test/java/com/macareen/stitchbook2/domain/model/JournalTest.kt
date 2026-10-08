@@ -33,7 +33,10 @@ class JournalTest {
     fun duplicatePositionsFromOlderDataAreRepairedOnMove() {
         val milestones = listOf(milestone("a", 0, 1), milestone("b", 0, 2), milestone("c", 0, 3))
         val changed = reorderMilestones(milestones, "a", 1, 0).associate { it.id to it.position }
-        assertEquals(mapOf("b" to 0, "a" to 1, "c" to 2), changed)
+        // "b" already sits at 0, so only "a" and "c" change; the result is contiguous 0..2.
+        assertEquals(mapOf("a" to 1, "c" to 2), changed)
+        val repaired = milestones.associate { it.id to it.position } + changed
+        assertEquals(mapOf("b" to 0, "a" to 1, "c" to 2), repaired)
     }
 
     @Test

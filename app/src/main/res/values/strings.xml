@@ -71,6 +71,11 @@
     <string name="library_field_source_url">Source Link</string>
     <string name="library_field_tags">Tags (comma-separated)</string>
     <string name="library_field_notes">Notes &amp; Key References</string>
+    <string name="library_field_gauge">Gauge</string>
+    <string name="library_field_sizes">Sizes</string>
+    <string name="library_field_yardage_required">Yardage Required</string>
+    <string name="library_field_recommended_tools">Recommended Tools</string>
+    <string name="library_field_ravelry_pattern_id">Ravelry Pattern ID</string>
     <string name="save_library_item">Save Pattern</string>
     <string name="delete_library_item_title">Delete pattern reference?</string>
     <string name="delete_library_item_confirmation">Delete \"%1$s\"? This removes it from your library.</string>
