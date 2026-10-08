@@ -581,4 +581,7 @@
     <string name="library_card_badge_pdf">PDF</string>
     <string name="library_card_badge_ravelry">Ravelry</string>
     <string name="library_card_more_actions">More for this pattern</string>
+    <string name="focus_tile_total">Total</string>
+    <string name="focus_tile_step">This step</string>
+    <string name="focus_tile_step_estimated">about %1$s</string>
 </resources>

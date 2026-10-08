@@ -1,5 +1,12 @@
 package com.macareen.stitchbook2.feature.focus
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.Surface
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import com.macareen.stitchbook2.domain.model.KnittingTime
 import com.macareen.stitchbook2.domain.model.CraftingSession
@@ -297,82 +304,125 @@ private fun InProgressContent(
     modifier: Modifier = Modifier
 ) {
     var showOverview by rememberSaveable { mutableStateOf(false) }
-    Column(modifier = modifier.fillMaxSize()) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = StitchbookSpacing.large, vertical = StitchbookSpacing.small),
+        verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.medium)
+    ) {
+        // Where you are: guide, part, and how far through.
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(
-                    horizontal = StitchbookSpacing.large,
-                    vertical = StitchbookSpacing.medium
-                )
-                .semantics(mergeDescendants = true) {},
-            verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.extraSmall)
+            modifier = Modifier.semantics(mergeDescendants = true) {},
+            verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)
         ) {
-            QuietText(
-                text = state.guideName,
-                style = MaterialTheme.typography.sectionLabel
-            )
-            if (state.breadcrumbs.isNotEmpty()) {
-                QuietText(text = state.breadcrumbs.joinToString(separator = " › "))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = state.guideName, style = MaterialTheme.typography.titleLarge)
+                    if (state.breadcrumbs.isNotEmpty()) {
+                        QuietText(text = state.breadcrumbs.joinToString(separator = " › "))
+                    }
+                }
+                state.progress?.let { progress ->
+                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
+                        Text(
+                            text = stringResource(R.string.home_percent, progress.percent),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        )
+                    }
+                }
             }
             state.progress?.let { progress ->
                 LinearProgressIndicator(
                     progress = { progress.fraction.toFloat() },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = StitchbookSpacing.extraSmall)
+                        .height(10.dp),
+                    color = MaterialTheme.colorScheme.inversePrimary,
+                    trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    strokeCap = StrokeCap.Round,
+                    gapSize = 0.dp,
+                    drawStopIndicator = {}
                 )
-                QuietText(text = progressText(progress))
-            }
-            state.stepStartedAt?.let { stepStartedAt ->
-                TimeLine(state.timeSessions, stepStartedAt, state.timer)
+                QuietText(text = progressText(progress), style = MaterialTheme.typography.bodySmall)
             }
         }
 
-        if (state.overview.isNotEmpty() || state.pattern != null || state.stepStartedAt != null) {
-            Row(
-                modifier = Modifier.padding(horizontal = StitchbookSpacing.small),
-                horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.extraSmall)
-            ) {
-                if (state.overview.isNotEmpty()) {
-                    TextButton(onClick = { showOverview = true }, modifier = Modifier.heightIn(min = 48.dp)) {
-                        Text(stringResource(R.string.focus_overview_action))
+        state.stepStartedAt?.let { stepStartedAt ->
+            TimeTiles(
+                sessions = state.timeSessions,
+                stepStartedAt = stepStartedAt,
+                timer = state.timer,
+                timerEnabled = !state.isBusy,
+                onToggleTimer = onToggleTimer
+            )
+        }
+
+        // The step itself, as the screen's centrepiece. It scrolls on its own so
+        // the counters and the Complete button below always stay reachable.
+        Surface(
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surfaceContainerLowest,
+            shadowElevation = 3.dp,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(StitchbookSpacing.large)) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.medium)
+                ) {
+                    if (state.positions.isNotEmpty()) {
+                        Column(
+                            modifier = Modifier.semantics(mergeDescendants = true) {},
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            state.positions.forEach { position -> PositionLine(position) }
+                        }
+                    }
+                    Text(
+                        text = state.instructionText,
+                        style = MaterialTheme.typography.instruction,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    state.feedback?.let { feedback ->
+                        QuietText(text = focusFeedbackText(feedback))
                     }
                 }
-                if (state.stepStartedAt != null && state.timer != FocusTimer.OTHER_PROJECT) {
-                    TextButton(onClick = onToggleTimer, enabled = !state.isBusy, modifier = Modifier.heightIn(min = 48.dp)) {
-                        Text(
-                            stringResource(
-                                when (state.timer) {
-                                    FocusTimer.RUNNING -> R.string.focus_timer_pause
-                                    FocusTimer.PAUSED -> R.string.focus_timer_resume
-                                    else -> R.string.focus_timer_start
-                                }
+                if (state.overview.isNotEmpty() || state.pattern != null) {
+                    Row(
+                        modifier = Modifier.padding(top = StitchbookSpacing.small),
+                        horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)
+                    ) {
+                        state.pattern?.let { pattern ->
+                            SoftPill(
+                                text = pattern.page?.let { stringResource(R.string.focus_open_pattern_page_action, it) }
+                                    ?: stringResource(R.string.focus_open_pattern_action),
+                                onClick = { onOpenPattern(pattern) },
+                                modifier = Modifier.weight(1f)
                             )
-                        )
-                    }
-                }
-                state.pattern?.let { pattern ->
-                    TextButton(onClick = { onOpenPattern(pattern) }, modifier = Modifier.heightIn(min = 48.dp)) {
-                        Text(
-                            pattern.page?.let { stringResource(R.string.focus_open_pattern_page_action, it) }
-                                ?: stringResource(R.string.focus_open_pattern_action)
-                        )
+                        }
+                        if (state.overview.isNotEmpty()) {
+                            SoftPill(
+                                text = stringResource(R.string.focus_overview_action),
+                                onClick = { showOverview = true },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
                 }
             }
         }
 
-        // Fixed (not scrollable) so counters stay reachable regardless of
-        // instruction length, the same reachability rationale as the pinned
-        // action row below -- PRODUCT_SPEC.md 6.3's "active crafting screen":
-        // tracking counters without leaving Focus Mode.
         if (state.projectCounters.isNotEmpty()) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = StitchbookSpacing.large),
+                    .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)
             ) {
                 state.projectCounters.forEach { counter ->
@@ -383,67 +433,49 @@ private fun InProgressContent(
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(StitchbookSpacing.small))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
 
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = StitchbookSpacing.large),
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = state.instructionText,
-                style = MaterialTheme.typography.instruction,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-
-            if (state.positions.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
-                Column(
-                    modifier = Modifier.semantics(mergeDescendants = true) {},
-                    verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.extraSmall)
-                ) {
-                    state.positions.forEach { position -> PositionLine(position) }
-                }
-            }
-
-            state.feedback?.let { feedback ->
-                Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
-                QuietText(text = focusFeedbackText(feedback))
-            }
-
-            Spacer(modifier = Modifier.height(StitchbookSpacing.large))
-        }
-
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(StitchbookSpacing.large),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)
-        ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)
+                horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                SecondaryActionButton(
-                    text = stringResource(R.string.focus_previous_action),
+                Surface(
                     onClick = onPrevious,
                     enabled = !state.isBusy,
-                    modifier = Modifier.weight(1f)
-                )
-                PrimaryActionButton(
-                    text = stringResource(R.string.focus_complete_action),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                    modifier = Modifier
+                        .weight(0.4f)
+                        .height(60.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = stringResource(R.string.focus_previous_action),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = if (state.isBusy) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+                Surface(
                     onClick = onComplete,
                     enabled = !state.isBusy,
-                    modifier = Modifier.weight(1f)
-                )
+                    shape = CircleShape,
+                    color = if (state.isBusy) MaterialTheme.colorScheme.surfaceContainerHighest else MaterialTheme.colorScheme.primary,
+                    shadowElevation = if (state.isBusy) 0.dp else 4.dp,
+                    modifier = Modifier
+                        .weight(0.6f)
+                        .height(60.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = stringResource(R.string.focus_complete_action),
+                            style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
+                            color = if (state.isBusy) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
+                }
             }
 
             if (state.jumpToFirstIncompleteTarget != null) {
@@ -470,9 +502,35 @@ private fun InProgressContent(
     }
 }
 
-/** Total and this-step worked time, ticking while this project's timer runs. */
 @Composable
-private fun TimeLine(sessions: List<CraftingSession>, stepStartedAt: Long, timer: FocusTimer) {
+private fun SoftPill(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.background,
+        modifier = modifier.heightIn(min = 48.dp)
+    ) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 12.dp)) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+/** Total and this-step worked time as two small tiles, ticking while this project's timer runs, plus the pause/resume button. */
+@Composable
+private fun TimeTiles(
+    sessions: List<CraftingSession>,
+    stepStartedAt: Long,
+    timer: FocusTimer,
+    timerEnabled: Boolean,
+    onToggleTimer: () -> Unit
+) {
     val now by produceState(System.currentTimeMillis(), timer, sessions) {
         while (timer == FocusTimer.RUNNING) {
             value = System.currentTimeMillis()
@@ -482,17 +540,70 @@ private fun TimeLine(sessions: List<CraftingSession>, stepStartedAt: Long, timer
     }
     val time = KnittingTime.of(sessions, stepStartedAt, now)
     val step = workedText(time.stepMillis)
-    QuietText(
-        text = stringResource(
-            if (time.stepIsEstimated) R.string.focus_time_estimated else R.string.focus_time,
-            workedText(time.totalMillis),
-            step
-        )
-    )
-    when (timer) {
-        FocusTimer.PAUSED -> QuietText(text = stringResource(R.string.focus_timer_paused))
-        FocusTimer.OTHER_PROJECT -> QuietText(text = stringResource(R.string.focus_timer_other_project))
-        else -> Unit
+    Column(verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.extraSmall)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
+            TimeTile(
+                label = stringResource(R.string.focus_tile_total),
+                value = workedText(time.totalMillis),
+                modifier = Modifier.weight(1f)
+            )
+            TimeTile(
+                label = stringResource(R.string.focus_tile_step),
+                value = if (time.stepIsEstimated) stringResource(R.string.focus_tile_step_estimated, step) else step,
+                modifier = Modifier.weight(1f)
+            )
+            if (timer != FocusTimer.OTHER_PROJECT) {
+                Surface(
+                    onClick = onToggleTimer,
+                    enabled = timerEnabled,
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                    modifier = Modifier.size(width = 56.dp, height = 60.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = if (timer == FocusTimer.RUNNING) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                            contentDescription = stringResource(
+                                when (timer) {
+                                    FocusTimer.RUNNING -> R.string.focus_timer_pause
+                                    FocusTimer.PAUSED -> R.string.focus_timer_resume
+                                    else -> R.string.focus_timer_start
+                                }
+                            ),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+        }
+        when (timer) {
+            FocusTimer.PAUSED -> QuietText(text = stringResource(R.string.focus_timer_paused), style = MaterialTheme.typography.bodySmall)
+            FocusTimer.OTHER_PROJECT -> QuietText(text = stringResource(R.string.focus_timer_other_project), style = MaterialTheme.typography.bodySmall)
+            else -> Unit
+        }
+    }
+}
+
+@Composable
+private fun TimeTile(label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+        modifier = modifier
+            .height(60.dp)
+            .semantics(mergeDescendants = true) {}
+    ) {
+        Column(
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(horizontal = 14.dp)
+        ) {
+            Text(
+                text = label.uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.outline
+            )
+            Text(text = value, style = MaterialTheme.typography.titleMedium, maxLines = 1)
+        }
     }
 }
 
@@ -585,7 +696,7 @@ private fun FocusCounterChip(
 ) {
     Card(
         shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = StitchbookSpacing.small, vertical = StitchbookSpacing.extraSmall),
@@ -657,7 +768,7 @@ private fun PositionLine(position: StructuralPosition) {
             }
         }
     }
-    QuietText(text = text)
+    Text(text = text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
 }
 
 @Composable
