@@ -3,6 +3,7 @@ package com.macareen.stitchbook2.data.database
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import androidx.room.Room
+import androidx.room.testing.MigrationTestHelper
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.macareen.stitchbook2.data.repository.LocalGuideRepository
@@ -85,6 +86,7 @@ class StitchbookMigrationTest {
     fun cleanUp() {
         if (::database.isInitialized) database.close()
         context.deleteDatabase(DATABASE_NAME)
+        context.deleteDatabase(HELPER_DATABASE_NAME)
     }
 
     @Test
@@ -1048,6 +1050,75 @@ class StitchbookMigrationTest {
             assertEquals(CURRENT_SCHEMA_VERSION, database.openHelper.readableDatabase.version)
         }
 
+    /**
+     * Starts from a real version-14 database built from the exported 14.json
+     * schema, then checks that 14 -> 18 keeps existing rows, adds only
+     * nullable columns, and ends at exactly the schema in 18.json
+     * (runMigrationsAndValidate fails on any column, index, or FK mismatch).
+     */
+    @Test
+    fun migrationFromFourteenToEighteenPreservesDataAndMatchesTheExportedSchema() {
+        val helper = MigrationTestHelper(
+            InstrumentationRegistry.getInstrumentation(),
+            StitchbookDatabase::class.java
+        )
+        helper.createDatabase(HELPER_DATABASE_NAME, 14).use { db ->
+            db.execSQL(
+                """
+                INSERT INTO projects (id, name, craft, project_type, status, notes, created_at, updated_at)
+                VALUES ('existing-project', 'Tunisian scarf', 'TUNISIAN_CROCHET', 'SCARF', 'ACTIVE', 'Keep', 1, 2)
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                INSERT INTO stash_items (
+                    id, name, category, brand, colorway, dye_lot, weight_category, fiber_content,
+                    quantity, unit_label, yardage_per_unit, notes, storage_location, care_instructions,
+                    ravelry_yarn_id, purchase_source, purchase_price, purchase_date, created_at, updated_at
+                ) VALUES (
+                    'existing-stash-item', 'Merino DK', 'YARN', NULL, 'Teal', NULL, 'DK', NULL,
+                    2.5, 'skeins', 230.0, NULL, 'Bin 1', NULL, NULL, NULL, NULL, NULL, 1, 2
+                )
+                """.trimIndent()
+            )
+        }
+
+        helper.runMigrationsAndValidate(
+            HELPER_DATABASE_NAME,
+            CURRENT_SCHEMA_VERSION,
+            true,
+            MIGRATION_14_15,
+            MIGRATION_15_16,
+            MIGRATION_16_17,
+            MIGRATION_17_18
+        ).use { db ->
+            db.query(
+                "SELECT name, notes, description, construction_method, custom_type_label, start_date, target_date, completed_date FROM projects WHERE id = 'existing-project'"
+            ).use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("Tunisian scarf", cursor.getString(0))
+                assertEquals("Keep", cursor.getString(1))
+                (2..7).forEach { column -> assertTrue(cursor.isNull(column)) }
+            }
+            db.query(
+                "SELECT quantity, storage_location, weight_per_unit_grams, remaining_weight_grams FROM stash_items WHERE id = 'existing-stash-item'"
+            ).use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(2.5, cursor.getDouble(0), 0.0)
+                assertEquals("Bin 1", cursor.getString(1))
+                assertTrue(cursor.isNull(2))
+                assertTrue(cursor.isNull(3))
+            }
+            listOf("yarn_allocations", "project_pattern_links", "milestones", "photos", "journal_entries", "crafting_sessions")
+                .forEach { table ->
+                    db.query("SELECT COUNT(*) FROM `$table`").use { cursor ->
+                        assertTrue(cursor.moveToFirst())
+                        assertEquals("$table starts empty", 0, cursor.getInt(0))
+                    }
+                }
+        }
+    }
+
     private fun readTableNames(): Set<String> {
         return database.openHelper.readableDatabase.query(
             """
@@ -1085,5 +1156,6 @@ class StitchbookMigrationTest {
 
     private companion object {
         const val DATABASE_NAME = "stitchbook-migration-test.db"
+        const val HELPER_DATABASE_NAME = "stitchbook-migration-helper-test.db"
     }
 }
