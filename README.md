@@ -32,6 +32,7 @@ See [PRODUCT_SPEC.md](PRODUCT_SPEC.md) for structured requirements and [ROADMAP.
 
 - A warm, editorial Material 3 light/dark theme (ivory/rose/serif-headline palette) ported from the approved webapp design reference -- see [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)
 - Navigation Compose with Home, Projects, Library, Stash, Tools, Counters, and Settings destinations, each with real content (not placeholders) and a header-less mobile shell matching the design reference
+- Optional Ravelry pull (Settings → Ravelry): bring your stash yarn and needles in with your own personal key, which is kept encrypted on the phone. Read-only from Ravelry, reviewed before saving, and never deletes anything.
 - Import with an assistant: turn a pattern PDF into a draft guide by copying a request to Claude (a free account works) or another assistant and pasting the structured reply back. The app itself sends nothing.
 - A calm Home: a Continue card for the guide in progress, the active-projects list, and quiet links to Counters and Statistics; five bottom-bar places (Home, Projects, Library, Stash with a Yarn | Tools switch, Settings)
 - A project hub: each project opens on a small map with the project at the centre and its guides, patterns, yarn, tools, counters, journal, and time around it, plus one "next step" button. Tools and counters added there also land in the shared toolbox and counters

@@ -1,0 +1,93 @@
+package com.macareen.stitchbook2.data.ravelry
+
+import com.macareen.stitchbook2.domain.ravelry.RavelryApi
+import com.macareen.stitchbook2.domain.ravelry.RavelryAuthException
+import com.macareen.stitchbook2.domain.ravelry.RavelryCredentials
+import com.macareen.stitchbook2.domain.ravelry.RavelryNeedle
+import com.macareen.stitchbook2.domain.ravelry.RavelryStashEntry
+import com.macareen.stitchbook2.domain.ravelry.RavelryUnavailableException
+import java.io.IOException
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
+import java.util.Base64
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.json.JSONException
+
+/**
+ * Talks to api.ravelry.com over HTTPS with HTTP Basic Auth, GET only.
+ * Responses and the key are never logged.
+ */
+class HttpRavelryApi(
+    private val baseUrl: String = "https://api.ravelry.com",
+    private val fetch: (url: String, authorization: String) -> HttpResult = ::httpGet
+) : RavelryApi {
+
+    data class HttpResult(val status: Int, val body: String)
+
+    override suspend fun currentUsername(credentials: RavelryCredentials): String =
+        parse { RavelryJson.username(get(credentials, "/current_user.json")) }
+
+    override suspend fun stash(credentials: RavelryCredentials, username: String): List<RavelryStashEntry> {
+        val entries = mutableListOf<RavelryStashEntry>()
+        var page = 1
+        while (page <= MAX_PAGES) {
+            val body = get(credentials, "/people/${encode(username)}/stash/list.json?page=$page&page_size=$PAGE_SIZE")
+            val result = parse { RavelryJson.stashPage(body) }
+            entries += result.entries
+            if (result.isLastPage || result.entries.isEmpty()) break
+            page++
+        }
+        return entries
+    }
+
+    override suspend fun needles(credentials: RavelryCredentials, username: String): List<RavelryNeedle> =
+        parse { RavelryJson.needles(get(credentials, "/people/${encode(username)}/needles/list.json")) }
+
+    private suspend fun get(credentials: RavelryCredentials, path: String): String {
+        val token = Base64.getEncoder()
+            .encodeToString("${credentials.accessKey}:${credentials.personalKey}".toByteArray(Charsets.UTF_8))
+        val result = try {
+            withContext(Dispatchers.IO) { fetch(baseUrl + path, "Basic $token") }
+        } catch (e: IOException) {
+            throw RavelryUnavailableException("Could not reach Ravelry.", e)
+        }
+        return when (result.status) {
+            in 200..299 -> result.body
+            401, 403 -> throw RavelryAuthException("Ravelry did not accept this key (HTTP ${result.status}).")
+            else -> throw RavelryUnavailableException("Ravelry answered HTTP ${result.status}.")
+        }
+    }
+
+    private inline fun <T> parse(block: () -> T): T = try {
+        block()
+    } catch (e: JSONException) {
+        throw RavelryUnavailableException("Ravelry sent a response this app could not read.", e)
+    }
+
+    private fun encode(value: String): String = URLEncoder.encode(value, "UTF-8").replace("+", "%20")
+
+    companion object {
+        private const val PAGE_SIZE = 100
+        private const val MAX_PAGES = 50
+        private const val TIMEOUT_MS = 20_000
+
+        private fun httpGet(url: String, authorization: String): HttpResult {
+            val connection = URL(url).openConnection() as HttpURLConnection
+            try {
+                connection.requestMethod = "GET"
+                connection.connectTimeout = TIMEOUT_MS
+                connection.readTimeout = TIMEOUT_MS
+                connection.setRequestProperty("Authorization", authorization)
+                connection.setRequestProperty("Accept", "application/json")
+                val status = connection.responseCode
+                val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+                val body = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+                return HttpResult(status, body)
+            } finally {
+                connection.disconnect()
+            }
+        }
+    }
+}

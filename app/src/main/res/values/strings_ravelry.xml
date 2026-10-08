@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ravelry_title">Ravelry</string>
+    <string name="ravelry_explainer">Optional. Bring your Ravelry stash and needles into Stitchbook. On Ravelry, open Pro → Developer, create an app, and add a \"Basic Auth: personal account access\" key. Type it here: it stays encrypted on this phone, and Stitchbook only reads from Ravelry, never writes.</string>
+    <string name="ravelry_access_key">Access key (username)</string>
+    <string name="ravelry_personal_key">Personal key (password)</string>
+    <string name="ravelry_connect">Save and connect</string>
+    <string name="ravelry_connected_as">Connected as %1$s</string>
+    <string name="ravelry_key_saved">A Ravelry key is saved on this phone.</string>
+    <string name="ravelry_pull_explainer">Check Ravelry to see what\'s new before anything is saved. Nothing here is ever deleted, and nothing is sent to Ravelry.</string>
+    <string name="ravelry_preview">Check Ravelry</string>
+    <string name="ravelry_working">Checking…</string>
+    <string name="ravelry_forget">Forget key</string>
+    <string name="ravelry_problem_key">Ravelry didn\'t accept this key. Check it\'s a personal account access key (read-only keys can\'t see your stash), or forget it and type it again.</string>
+    <string name="ravelry_problem_network">Couldn\'t reach Ravelry. Check your connection and try again; nothing was changed.</string>
+    <string name="ravelry_problem_save">Something went wrong saving to this phone. Check Ravelry again: anything already saved is recognised, and the rest is offered again.</string>
+    <string name="ravelry_saved">Saved %1$d records from Ravelry.</string>
+    <string name="ravelry_review_title">From Ravelry</string>
+    <string name="ravelry_review_up_to_date">Everything from Ravelry is already here.</string>
+    <string name="ravelry_review_yarn">Yarn</string>
+    <string name="ravelry_review_tools">Needles and hooks</string>
+    <string name="ravelry_review_new">%1$d new</string>
+    <string name="ravelry_review_changed">%1$d changed on Ravelry</string>
+    <string name="ravelry_review_note">Updating changed items replaces only Ravelry\'s details. Your notes, purchase details, and weighed remainders stay as they are.</string>
+    <string name="ravelry_add_new">Add new only</string>
+    <string name="ravelry_add_and_update">Add new and update changed</string>
+</resources>

@@ -72,7 +72,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
-fun SettingsRoute(viewModel: SettingsViewModel) {
+fun SettingsRoute(viewModel: SettingsViewModel, ravelrySection: @Composable () -> Unit = {}) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val preferences by viewModel.preferences.collectAsStateWithLifecycle()
 
@@ -86,7 +86,8 @@ fun SettingsRoute(viewModel: SettingsViewModel) {
         onConfirmImport = viewModel::confirmImport,
         onCancelImport = viewModel::cancelImport,
         onReset = viewModel::resetAllData,
-        onDismissFeedback = viewModel::dismissFeedback
+        onDismissFeedback = viewModel::dismissFeedback,
+        ravelrySection = ravelrySection
     )
 }
 
@@ -102,7 +103,8 @@ fun SettingsScreen(
     onCancelImport: () -> Unit,
     onReset: () -> Unit,
     onDismissFeedback: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    ravelrySection: @Composable () -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -181,6 +183,10 @@ fun SettingsScreen(
                     pastedJson = ""
                 }
             )
+        }
+
+        item {
+            ravelrySection()
         }
 
         item {
