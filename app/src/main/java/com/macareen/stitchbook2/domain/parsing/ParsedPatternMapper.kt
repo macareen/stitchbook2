@@ -39,16 +39,20 @@ object ParsedPatternMapper {
             return "$text (p.${source.pageNumber})"
         }
 
-        fun mapNode(node: ParsedNode): NodeId {
+        // A heading, range, or repeat with nothing under it is dropped: it would
+        // only block publishing, and its words carry no step to work.
+        fun mapNode(node: ParsedNode): NodeId? {
             val id = NodeId(newNodeId())
             when (node) {
                 is ParsedSection -> {
-                    val childIds = node.children.map(::mapNode)
+                    val childIds = node.children.mapNotNull(::mapNode)
+                    if (childIds.isEmpty()) return null
                     nodes += DraftNode(id = id, type = DraftNodeType.SECTION, title = node.title, children = childIds)
                 }
 
                 is ParsedRange -> {
-                    val childIds = node.children.map(::mapNode)
+                    val childIds = node.children.mapNotNull(::mapNode)
+                    if (childIds.isEmpty()) return null
                     nodes += DraftNode(
                         id = id,
                         type = DraftNodeType.RANGE,
@@ -60,7 +64,8 @@ object ParsedPatternMapper {
                 }
 
                 is ParsedRepeat -> {
-                    val childIds = node.children.map(::mapNode)
+                    val childIds = node.children.mapNotNull(::mapNode)
+                    if (childIds.isEmpty()) return null
                     nodes += DraftNode(
                         id = id,
                         type = DraftNodeType.REPEAT,
@@ -80,7 +85,7 @@ object ParsedPatternMapper {
             return id
         }
 
-        pattern.rootNodes.forEach { rootIds += mapNode(it) }
+        pattern.rootNodes.forEach { node -> mapNode(node)?.let { rootIds += it } }
         pattern.issues.forEach { issue ->
             val id = NodeId(newNodeId())
             nodes += DraftNode(

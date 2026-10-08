@@ -21,8 +21,24 @@ import kotlinx.coroutines.flow.flowOf
  * defined in the data layer.
  */
 class DraftValidationException(
-    message: String
+    message: String,
+    /** What kind of fix the draft needs, so the UI can say it plainly instead of showing [message]. */
+    val problem: DraftProblem = DraftProblem.OTHER
 ) : IllegalArgumentException(message)
+
+/** The plain-language reasons a draft can't be saved or published. */
+enum class DraftProblem {
+    /** A section, row range, or repeat has no steps inside it. */
+    EMPTY_SECTION,
+
+    /** The draft has no steps at all. */
+    NOTHING_TO_KNIT,
+
+    /** A step is missing its text, a range bound, or a repeat count. */
+    MISSING_DETAIL,
+
+    OTHER
+}
 
 /**
  * Thrown by [GuideRepository.saveDraft] when the given draft's `version` no
