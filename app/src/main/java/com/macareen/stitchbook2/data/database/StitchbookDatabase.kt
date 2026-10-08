@@ -32,9 +32,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ProjectPatternLinkEntity::class,
         MilestoneEntity::class,
         PhotoEntity::class,
-        JournalEntryEntity::class
+        JournalEntryEntity::class,
+        CraftingSessionEntity::class
     ],
-    version = 17,
+    version = 18,
     exportSchema = true
 )
 abstract class StitchbookDatabase : RoomDatabase() {
@@ -49,6 +50,7 @@ abstract class StitchbookDatabase : RoomDatabase() {
     abstract fun counterNoteDao(): CounterNoteDao
     abstract fun materialsDao(): MaterialsDao
     abstract fun journalDao(): JournalDao
+    abstract fun craftingSessionDao(): CraftingSessionDao
 
     companion object {
         private const val DATABASE_NAME = "stitchbook.db"
@@ -93,7 +95,8 @@ val ALL_MIGRATIONS: Array<Migration>
         MIGRATION_13_14,
         MIGRATION_14_15,
         MIGRATION_15_16,
-        MIGRATION_16_17
+        MIGRATION_16_17,
+        MIGRATION_17_18
     )
 
 val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -939,5 +942,36 @@ val MIGRATION_16_17 = object : Migration(16, 17) {
             """.trimIndent()
         )
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_journal_entries_project_id` ON `journal_entries` (`project_id`)")
+    }
+}
+
+/**
+ * Phase 8: timed crafting sessions. Only timestamps are stored, so an
+ * active session survives process death. `project_id` is SET_NULL so
+ * deleting a project keeps its time in overall statistics.
+ */
+val MIGRATION_17_18 = object : Migration(17, 18) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `crafting_sessions` (
+                `id` TEXT NOT NULL,
+                `project_id` TEXT,
+                `started_at` INTEGER NOT NULL,
+                `ended_at` INTEGER,
+                `paused_at` INTEGER,
+                `paused_total_millis` INTEGER NOT NULL,
+                `zone_id` TEXT NOT NULL,
+                `rows_completed` INTEGER,
+                `stitches_per_row` INTEGER,
+                `notes` TEXT,
+                `created_at` INTEGER NOT NULL,
+                `updated_at` INTEGER NOT NULL,
+                PRIMARY KEY(`id`),
+                FOREIGN KEY(`project_id`) REFERENCES `projects`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_crafting_sessions_project_id` ON `crafting_sessions` (`project_id`)")
     }
 }

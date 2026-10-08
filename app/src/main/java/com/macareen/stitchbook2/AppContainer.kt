@@ -14,6 +14,7 @@ import com.macareen.stitchbook2.data.repository.LocalJournalRepository
 import com.macareen.stitchbook2.data.repository.LocalLibraryRepository
 import com.macareen.stitchbook2.data.repository.LocalMaterialsRepository
 import com.macareen.stitchbook2.data.repository.LocalProjectRepository
+import com.macareen.stitchbook2.data.repository.LocalSessionRepository
 import com.macareen.stitchbook2.data.repository.LocalStashRepository
 import com.macareen.stitchbook2.data.repository.LocalToolRepository
 import com.macareen.stitchbook2.domain.backup.BackupService
@@ -27,6 +28,7 @@ import com.macareen.stitchbook2.domain.repository.JournalRepository
 import com.macareen.stitchbook2.domain.repository.LibraryRepository
 import com.macareen.stitchbook2.domain.repository.MaterialsRepository
 import com.macareen.stitchbook2.domain.repository.ProjectRepository
+import com.macareen.stitchbook2.domain.repository.SessionRepository
 import com.macareen.stitchbook2.domain.repository.StashRepository
 import com.macareen.stitchbook2.domain.repository.ToolRepository
 import com.macareen.stitchbook2.domain.usecase.CreateGuideFromPdfUseCase
@@ -43,6 +45,7 @@ interface AppContainer {
     val counterNoteRepository: CounterNoteRepository
     val materialsRepository: MaterialsRepository
     val journalRepository: JournalRepository
+    val sessionRepository: SessionRepository
     val backupService: BackupService
     val pdfTextExtractor: PdfTextExtractor
     val createGuideFromPdfUseCase: CreateGuideFromPdfUseCase
@@ -81,6 +84,9 @@ class DefaultAppContainer(context: Context) : AppContainer {
 
     override val journalRepository: JournalRepository =
         LocalJournalRepository(database.journalDao())
+
+    override val sessionRepository: SessionRepository =
+        LocalSessionRepository(database.craftingSessionDao())
 
     override val backupService: BackupService =
         LocalBackupService(

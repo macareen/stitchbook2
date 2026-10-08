@@ -35,9 +35,13 @@ import com.macareen.stitchbook2.feature.projects.ProjectFormViewModel
 import com.macareen.stitchbook2.feature.projects.ProjectsRoute
 import com.macareen.stitchbook2.feature.projects.ProjectsViewModel
 import com.macareen.stitchbook2.feature.projects.route
+import com.macareen.stitchbook2.feature.sessions.ProjectSessionsRoute
+import com.macareen.stitchbook2.feature.sessions.ProjectSessionsViewModel
 import com.macareen.stitchbook2.feature.settings.SettingsRoute
 import com.macareen.stitchbook2.feature.settings.SettingsViewModel
 import com.macareen.stitchbook2.feature.stash.StashRoute
+import com.macareen.stitchbook2.feature.statistics.StatisticsRoute
+import com.macareen.stitchbook2.feature.statistics.StatisticsViewModel
 import com.macareen.stitchbook2.feature.stash.StashViewModel
 import com.macareen.stitchbook2.feature.tools.BulkToolCreationRoute
 import com.macareen.stitchbook2.feature.tools.BulkToolCreationViewModel
@@ -65,6 +69,7 @@ fun StitchbookNavHost(
     val userPreferencesRepository = application.container.userPreferencesRepository
     val materialsRepository = application.container.materialsRepository
     val journalRepository = application.container.journalRepository
+    val sessionRepository = application.container.sessionRepository
 
     NavHost(
         navController = navController,
@@ -98,8 +103,22 @@ fun StitchbookNavHost(
                 },
                 onResumeGuide = { guideId ->
                     navController.navigate(GuideFocusDestination.route(guideId))
+                },
+                onOpenStatistics = {
+                    navController.navigate(ProjectDestination.STATISTICS_ROUTE)
                 }
             )
+        }
+        composable(ProjectDestination.STATISTICS_ROUTE) {
+            val viewModel: StatisticsViewModel = viewModel(
+                factory = StatisticsViewModel.factory(
+                    projectRepository = projectRepository,
+                    sessionRepository = sessionRepository,
+                    materialsRepository = materialsRepository,
+                    stashRepository = stashRepository
+                )
+            )
+            StatisticsRoute(viewModel = viewModel)
         }
         composable(TopLevelDestination.Projects.route) {
             val viewModel: ProjectsViewModel = viewModel(
@@ -297,6 +316,27 @@ fun StitchbookNavHost(
                 )
             )
             ProjectJournalRoute(viewModel = viewModel)
+        }
+        composable(
+            route = ProjectDestination.SESSIONS_ROUTE,
+            arguments = listOf(
+                navArgument(ProjectDestination.PROJECT_ID_ARGUMENT) {
+                    type = NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val projectId = backStackEntry.arguments?.getString(
+                ProjectDestination.PROJECT_ID_ARGUMENT
+            )
+                .orEmpty()
+            val viewModel: ProjectSessionsViewModel = viewModel(
+                factory = ProjectSessionsViewModel.factory(
+                    projectId = projectId,
+                    projectRepository = projectRepository,
+                    sessionRepository = sessionRepository
+                )
+            )
+            ProjectSessionsRoute(viewModel = viewModel)
         }
         composable(
             route = DraftEditorDestination.ROUTE,
