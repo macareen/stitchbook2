@@ -3,6 +3,7 @@ package com.macareen.stitchbook2
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -94,4 +95,4 @@ class StitchbookNavigationTest {
 
 private fun AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity>.navigationItem(
     label: String
-) = onNode(hasText(label) and hasClickAction())
+) = onNode(hasContentDescription(label) and hasClickAction())

@@ -337,7 +337,7 @@ The implemented shell uses Navigation Compose with a single activity, one naviga
 
 Counters is a normal child route (`CountersDestination`) with a back arrow, opened from Home (a project's own counters stay in its hub sheet). Keeping the bottom bar to five places is a deliberate decluttering choice: tools are things you own, so they live with the stash, and counters are most useful inside a project.
 
-The phone layout exposes these routes through a Material 3 bottom navigation bar. `Home` is the start destination. Top-level navigation uses single-top behavior plus saved/restored destination state, while the system Back action retains standard `NavController` behavior. Future detail destinations should be added within this graph only when their features exist.
+The phone layout exposes these routes through a floating pill bottom bar (`ui/components/StitchbookBottomBar.kt`). `Home` is the start destination. Top-level navigation uses single-top behavior plus saved/restored destination state, while the system Back action retains standard `NavController` behavior. Future detail destinations should be added within this graph only when their features exist.
 
 The Projects feature currently adds centralized create, detail, and edit routes. Detail/edit routes pass only the project UUID string; project objects are reloaded from the repository at the destination. The bottom navigation bar is hidden on these child routes to avoid bypassing unsaved-change handling.
 

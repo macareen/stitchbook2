@@ -291,4 +291,4 @@ class ExecutionEntryResumeTest {
 private const val WAIT_MILLIS = 10_000L
 
 private fun AndroidComposeTestRule<*, MainActivity>.navigationItem(label: String) =
-    onNode(hasText(label) and hasClickAction())
+    onNode(hasContentDescription(label) and hasClickAction())
