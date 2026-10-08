@@ -1,5 +1,11 @@
 package com.macareen.stitchbook2.feature.focus
 
+import kotlinx.coroutines.flow.update
+import java.util.UUID
+import java.time.ZoneId
+import com.macareen.stitchbook2.domain.repository.SessionRepository
+import com.macareen.stitchbook2.domain.model.SessionTimer
+import com.macareen.stitchbook2.domain.model.CraftingSession
 import com.macareen.stitchbook2.domain.repository.MaterialsRepository
 import com.macareen.stitchbook2.domain.execution.OverviewEntry
 import com.macareen.stitchbook2.domain.execution.GuideProgressSummary
@@ -111,7 +117,12 @@ sealed interface GuideFocusUiState {
         /** The whole guide as a scannable list, for the overview. */
         val overview: List<OverviewEntry> = emptyList(),
         /** The pattern this guide follows, at the current step's page when the step names one. */
-        val pattern: PatternPage? = null
+        val pattern: PatternPage? = null,
+        /** The project's crafting sessions, for total time and time on this step; empty without a project. */
+        val timeSessions: List<CraftingSession> = emptyList(),
+        /** When the current step became current; null when time isn't tracked (no project). */
+        val stepStartedAt: Long? = null,
+        val timer: FocusTimer = FocusTimer.NOT_RUNNING
     ) : GuideFocusUiState
 
     data class Completed(
@@ -132,6 +143,9 @@ sealed interface GuideFocusUiState {
  * and never computes container progress beyond formatting the ancestry
  * frames and container bounds/counts the guide definition already has.
  */
+/** The project's session timer as Focus Mode sees it. Only one session runs app-wide. */
+enum class FocusTimer { NOT_RUNNING, RUNNING, PAUSED, OTHER_PROJECT }
+
 /** A pattern's PDF in the Library, and the 1-based page to open it at. */
 data class PatternPage(val libraryItemId: String, val page: Int?)
 
@@ -144,7 +158,11 @@ class GuideFocusViewModel(
     /** The project this knitting belongs to; falls back to the guide's own project. */
     private val projectId: String? = null,
     /** Finds the project's pattern when the guide doesn't name one itself. */
-    private val materialsRepository: MaterialsRepository? = null
+    private val materialsRepository: MaterialsRepository? = null,
+    /** The project's crafting sessions, which time the knitting. */
+    private val sessionRepository: SessionRepository? = null,
+    private val clock: () -> Long = System::currentTimeMillis,
+    private val zone: () -> ZoneId = ZoneId::systemDefault
 ) : ViewModel() {
 
     /** The Library pattern to open from Focus, decided once per load. */
@@ -234,8 +252,75 @@ class GuideFocusViewModel(
         _uiState.value = latest.copy(projectCounters = counters)
     }
 
-    fun onComplete() = applyTransition { executionId, version ->
-        executionRepository.applyComplete(executionId, version)
+    /** Completing a step means knitting is happening, so an idle timer starts for this project. */
+    fun onComplete() {
+        val projectId = (_uiState.value as? GuideFocusUiState.InProgress)?.projectId.orEmpty()
+        applyTransition { executionId, version ->
+            startTimerIfIdle(projectId)
+            executionRepository.applyComplete(executionId, version)
+        }
+    }
+
+    /** Starts, pauses or resumes this project's timer; a timer running for another project is left alone. */
+    fun onToggleTimer() {
+        val current = _uiState.value as? GuideFocusUiState.InProgress ?: return
+        val sessions = sessionRepository ?: return
+        if (current.projectId.isEmpty()) return
+        scope.launch {
+            try {
+                val now = clock()
+                val active = sessions.observeActiveSession().first()
+                when {
+                    active == null -> sessions.saveSession(
+                        SessionTimer.start(UUID.randomUUID().toString(), current.projectId, now, zone().id)
+                    )
+                    active.projectId != current.projectId -> Unit
+                    active.isPaused -> sessions.saveSession(SessionTimer.resume(active, now))
+                    else -> sessions.saveSession(SessionTimer.pause(active, now))
+                }
+                refreshTiming()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                // The timer is a convenience; the step and its place are unaffected.
+            }
+        }
+    }
+
+    private suspend fun startTimerIfIdle(projectId: String) {
+        val sessions = sessionRepository ?: return
+        if (projectId.isEmpty()) return
+        try {
+            if (sessions.observeActiveSession().first() == null) {
+                sessions.saveSession(SessionTimer.start(UUID.randomUUID().toString(), projectId, clock(), zone().id))
+            }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            // Never let the timer stop a step from being completed.
+        }
+    }
+
+    private suspend fun refreshTiming() {
+        val current = _uiState.value as? GuideFocusUiState.InProgress ?: return
+        val (sessions, timer) = loadTiming(current.projectId) ?: return
+        _uiState.update { state ->
+            (state as? GuideFocusUiState.InProgress)?.copy(timeSessions = sessions, timer = timer) ?: state
+        }
+    }
+
+    /** The project's sessions and its timer state, or null when time isn't tracked here. */
+    private suspend fun loadTiming(projectId: String): Pair<List<CraftingSession>, FocusTimer>? {
+        val sessions = sessionRepository ?: return null
+        if (projectId.isEmpty()) return null
+        val active = sessions.observeActiveSession().first()
+        val timer = when {
+            active == null -> FocusTimer.NOT_RUNNING
+            active.projectId != projectId -> FocusTimer.OTHER_PROJECT
+            active.isPaused -> FocusTimer.PAUSED
+            else -> FocusTimer.RUNNING
+        }
+        return sessions.observeSessionsForProject(projectId).first() to timer
     }
 
     fun onPrevious() = applyTransition { executionId, version ->
@@ -377,7 +462,19 @@ class GuideFocusViewModel(
             return
         }
 
+        val timing = try {
+            loadTiming(projectId)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            null
+        }
         _uiState.value = buildInProgress(guideName, projectId, projectCounters, revision.definition, execution, feedback)
+            .copy(
+                timeSessions = timing?.first.orEmpty(),
+                stepStartedAt = timing?.let { execution.updatedAt },
+                timer = timing?.second ?: FocusTimer.NOT_RUNNING
+            )
     }
 
     private fun buildInProgress(
@@ -472,7 +569,8 @@ class GuideFocusViewModel(
             executionRepository: ExecutionRepository,
             counterRepository: CounterRepository,
             projectId: String? = null,
-            materialsRepository: MaterialsRepository? = null
+            materialsRepository: MaterialsRepository? = null,
+            sessionRepository: SessionRepository? = null
         ): ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 GuideFocusViewModel(
@@ -481,7 +579,8 @@ class GuideFocusViewModel(
                     executionRepository,
                     counterRepository,
                     projectId = projectId,
-                    materialsRepository = materialsRepository
+                    materialsRepository = materialsRepository,
+                    sessionRepository = sessionRepository
                 )
             }
         }

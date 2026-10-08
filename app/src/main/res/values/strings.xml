@@ -528,6 +528,16 @@
     <string name="focus_progress_stitches">%1$d%% done, by stitches</string>
     <string name="focus_progress_stitches_estimated">About %1$d%% done, by stitches (some rows estimated)</string>
     <string name="focus_progress_steps">%1$d%% done · %2$d of %3$d steps</string>
+    <string name="focus_time">%1$s in total · %2$s on this step</string>
+    <string name="focus_time_estimated">%1$s in total · about %2$s on this step</string>
+    <string name="focus_time_under_minute">under a minute</string>
+    <string name="focus_time_minutes">%1$d min</string>
+    <string name="focus_time_hours">%1$d h %2$d min</string>
+    <string name="focus_timer_start">Start timer</string>
+    <string name="focus_timer_pause">Pause timer</string>
+    <string name="focus_timer_resume">Resume timer</string>
+    <string name="focus_timer_paused">Timer paused</string>
+    <string name="focus_timer_other_project">The timer is running for another project.</string>
     <string name="focus_complete_action">Complete</string>
     <string name="focus_previous_action">Previous</string>
     <string name="focus_jump_to_incomplete_action">Resume at earliest incomplete step</string>

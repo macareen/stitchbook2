@@ -1,5 +1,9 @@
 package com.macareen.stitchbook2.feature.focus
 
+import kotlinx.coroutines.delay
+import com.macareen.stitchbook2.domain.model.KnittingTime
+import com.macareen.stitchbook2.domain.model.CraftingSession
+import androidx.compose.runtime.produceState
 import com.macareen.stitchbook2.domain.execution.ProgressBasis
 import com.macareen.stitchbook2.domain.execution.OverviewStatus
 import com.macareen.stitchbook2.domain.execution.OverviewEntry
@@ -123,7 +127,8 @@ fun GuideFocusRoute(viewModel: GuideFocusViewModel, onOpenPattern: (PatternPage)
         onIncrementCounter = viewModel::onIncrementCounter,
         onDecrementCounter = viewModel::onDecrementCounter,
         onJumpTo = viewModel::onJumpTo,
-        onOpenPattern = onOpenPattern
+        onOpenPattern = onOpenPattern,
+        onToggleTimer = viewModel::onToggleTimer
     )
 }
 
@@ -139,7 +144,8 @@ fun GuideFocusScreen(
     onDecrementCounter: (Counter) -> Unit,
     modifier: Modifier = Modifier,
     onJumpTo: (ExecutionAddress) -> Unit = {},
-    onOpenPattern: (PatternPage) -> Unit = {}
+    onOpenPattern: (PatternPage) -> Unit = {},
+    onToggleTimer: () -> Unit = {}
 ) {
     when (uiState) {
         GuideFocusUiState.Loading -> LoadingState(modifier)
@@ -177,6 +183,7 @@ fun GuideFocusScreen(
             onDecrementCounter = onDecrementCounter,
             onJumpTo = onJumpTo,
             onOpenPattern = onOpenPattern,
+            onToggleTimer = onToggleTimer,
             modifier = modifier
         )
 
@@ -286,6 +293,7 @@ private fun InProgressContent(
     onDecrementCounter: (Counter) -> Unit,
     onJumpTo: (ExecutionAddress) -> Unit,
     onOpenPattern: (PatternPage) -> Unit,
+    onToggleTimer: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showOverview by rememberSaveable { mutableStateOf(false) }
@@ -316,9 +324,12 @@ private fun InProgressContent(
                 )
                 QuietText(text = progressText(progress))
             }
+            state.stepStartedAt?.let { stepStartedAt ->
+                TimeLine(state.timeSessions, stepStartedAt, state.timer)
+            }
         }
 
-        if (state.overview.isNotEmpty() || state.pattern != null) {
+        if (state.overview.isNotEmpty() || state.pattern != null || state.stepStartedAt != null) {
             Row(
                 modifier = Modifier.padding(horizontal = StitchbookSpacing.small),
                 horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.extraSmall)
@@ -326,6 +337,19 @@ private fun InProgressContent(
                 if (state.overview.isNotEmpty()) {
                     TextButton(onClick = { showOverview = true }, modifier = Modifier.heightIn(min = 48.dp)) {
                         Text(stringResource(R.string.focus_overview_action))
+                    }
+                }
+                if (state.stepStartedAt != null && state.timer != FocusTimer.OTHER_PROJECT) {
+                    TextButton(onClick = onToggleTimer, enabled = !state.isBusy, modifier = Modifier.heightIn(min = 48.dp)) {
+                        Text(
+                            stringResource(
+                                when (state.timer) {
+                                    FocusTimer.RUNNING -> R.string.focus_timer_pause
+                                    FocusTimer.PAUSED -> R.string.focus_timer_resume
+                                    else -> R.string.focus_timer_start
+                                }
+                            )
+                        )
                     }
                 }
                 state.pattern?.let { pattern ->
@@ -443,6 +467,42 @@ private fun InProgressContent(
             },
             onDismiss = { showOverview = false }
         )
+    }
+}
+
+/** Total and this-step worked time, ticking while this project's timer runs. */
+@Composable
+private fun TimeLine(sessions: List<CraftingSession>, stepStartedAt: Long, timer: FocusTimer) {
+    val now by produceState(System.currentTimeMillis(), timer, sessions) {
+        while (timer == FocusTimer.RUNNING) {
+            value = System.currentTimeMillis()
+            delay(1_000)
+        }
+        value = System.currentTimeMillis()
+    }
+    val time = KnittingTime.of(sessions, stepStartedAt, now)
+    val step = workedText(time.stepMillis)
+    QuietText(
+        text = stringResource(
+            if (time.stepIsEstimated) R.string.focus_time_estimated else R.string.focus_time,
+            workedText(time.totalMillis),
+            step
+        )
+    )
+    when (timer) {
+        FocusTimer.PAUSED -> QuietText(text = stringResource(R.string.focus_timer_paused))
+        FocusTimer.OTHER_PROJECT -> QuietText(text = stringResource(R.string.focus_timer_other_project))
+        else -> Unit
+    }
+}
+
+@Composable
+private fun workedText(millis: Long): String {
+    val minutes = millis / 60_000
+    return when {
+        minutes < 1 -> stringResource(R.string.focus_time_under_minute)
+        minutes < 60 -> stringResource(R.string.focus_time_minutes, minutes)
+        else -> stringResource(R.string.focus_time_hours, minutes / 60, minutes % 60)
     }
 }
 

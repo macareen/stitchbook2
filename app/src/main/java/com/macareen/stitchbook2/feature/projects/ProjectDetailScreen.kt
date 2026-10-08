@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -567,7 +568,8 @@ private fun GuidesSection(
         )
     }
 
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+    // Wraps so every way to add a guide stays visible on a narrow phone.
+    FlowRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
         if (patternGuides.isNotEmpty()) {
             TextButton(onClick = { choosingPatternGuide = true }) {
                 Text(text = stringResource(R.string.project_use_pattern_guide), style = MaterialTheme.typography.labelLarge)

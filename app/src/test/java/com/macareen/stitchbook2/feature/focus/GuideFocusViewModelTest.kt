@@ -1,5 +1,8 @@
 package com.macareen.stitchbook2.feature.focus
 
+import com.macareen.stitchbook2.domain.repository.SessionRepository
+import com.macareen.stitchbook2.domain.model.SessionTimer
+import com.macareen.stitchbook2.domain.model.CraftingSession
 import com.macareen.stitchbook2.domain.execution.ProgressBasis
 import com.macareen.stitchbook2.domain.execution.AncestryFrame
 import com.macareen.stitchbook2.domain.execution.DefinitionRevisionId
@@ -96,6 +99,59 @@ class GuideFocusViewModelTest {
 
         val moved = viewModel.uiState.value as GuideFocusUiState.InProgress
         assertEquals(listOf(StructuralPosition.RangePosition("round", 4, 1, 4)), moved.positions)
+    }
+
+    @Test
+    fun completingAStepStartsAnIdleTimerAndTheTimerCanBePaused() {
+        val guides = FakeGuideRepository().withGuide(projectId = "project-1").withRevision(simpleFourRoundDefinition())
+        val executions = FakeExecutionRepository(guides)
+        create(executions)
+        val sessions = FakeSessionRepository()
+        val viewModel = GuideFocusViewModel(
+            guideId = guideId,
+            guideRepository = guides,
+            executionRepository = executions,
+            counterRepository = FakeCounterRepository(),
+            externalScope = scope,
+            sessionRepository = sessions,
+            clock = { 1_000L },
+            zone = { java.time.ZoneOffset.UTC }
+        )
+        assertEquals(FocusTimer.NOT_RUNNING, (viewModel.uiState.value as GuideFocusUiState.InProgress).timer)
+
+        viewModel.onComplete()
+
+        val started = viewModel.uiState.value as GuideFocusUiState.InProgress
+        assertEquals("project-1", sessions.saved.single().projectId)
+        assertEquals(FocusTimer.RUNNING, started.timer)
+        assertEquals(1, started.timeSessions.size)
+
+        viewModel.onToggleTimer()
+
+        assertEquals(FocusTimer.PAUSED, (viewModel.uiState.value as GuideFocusUiState.InProgress).timer)
+    }
+
+    @Test
+    fun aTimerRunningForAnotherProjectIsLeftAlone() {
+        val guides = FakeGuideRepository().withGuide(projectId = "project-1").withRevision(simpleFourRoundDefinition())
+        val executions = FakeExecutionRepository(guides)
+        create(executions)
+        val sessions = FakeSessionRepository()
+        runBlocking { sessions.saveSession(SessionTimer.start("other", "project-2", 0, "UTC")) }
+        val viewModel = GuideFocusViewModel(
+            guideId = guideId,
+            guideRepository = guides,
+            executionRepository = executions,
+            counterRepository = FakeCounterRepository(),
+            externalScope = scope,
+            sessionRepository = sessions
+        )
+
+        viewModel.onComplete()
+        viewModel.onToggleTimer()
+
+        assertEquals(FocusTimer.OTHER_PROJECT, (viewModel.uiState.value as GuideFocusUiState.InProgress).timer)
+        assertEquals(listOf("other"), sessions.saved.map { it.id }.distinct())
     }
 
     @Test
@@ -764,5 +820,26 @@ private class FakeCounterRepository(initial: List<Counter> = emptyList()) : Coun
 
     override suspend fun deleteCounter(counter: Counter) {
         counters.value = counters.value.filterNot { it.id == counter.id }
+    }
+}
+
+private class FakeSessionRepository : SessionRepository {
+    private val sessions = MutableStateFlow<List<CraftingSession>>(emptyList())
+    val saved = mutableListOf<CraftingSession>()
+
+    override fun observeSessions(): Flow<List<CraftingSession>> = sessions
+
+    override fun observeSessionsForProject(projectId: String): Flow<List<CraftingSession>> =
+        sessions.map { list -> list.filter { it.projectId == projectId } }
+
+    override fun observeActiveSession(): Flow<CraftingSession?> = sessions.map { list -> list.firstOrNull { it.isActive } }
+
+    override suspend fun saveSession(session: CraftingSession) {
+        saved += session
+        sessions.value = sessions.value.filterNot { it.id == session.id } + session
+    }
+
+    override suspend fun deleteSession(session: CraftingSession) {
+        sessions.value = sessions.value.filterNot { it.id == session.id }
     }
 }
