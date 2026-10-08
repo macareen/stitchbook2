@@ -129,7 +129,8 @@ class DefaultAppContainer(context: Context) : AppContainer {
         CreateGuideFromPdfUseCase(
             textExtractor = pdfTextExtractor,
             guideRepository = guideRepository,
-            newNodeId = { UUID.randomUUID().toString() }
+            newNodeId = { UUID.randomUUID().toString() },
+            libraryRepository = libraryRepository
         )
 
     override val structuredGuideDecoder: StructuredGuideDecoder = StructuredGuideJsonDecoder()

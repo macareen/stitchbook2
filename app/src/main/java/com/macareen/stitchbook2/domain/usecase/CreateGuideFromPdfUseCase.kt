@@ -6,13 +6,16 @@ import com.macareen.stitchbook2.domain.parsing.ExtractedDocument
 import com.macareen.stitchbook2.domain.parsing.ExtractedLine
 import com.macareen.stitchbook2.domain.parsing.ParsedPatternMapper
 import com.macareen.stitchbook2.domain.parsing.ParsingIssue
+import com.macareen.stitchbook2.domain.parsing.PatternDetails
 import com.macareen.stitchbook2.domain.parsing.PatternSizes
 import com.macareen.stitchbook2.domain.parsing.PatternTextParser
 import com.macareen.stitchbook2.domain.parsing.PdfTextExtractionException
 import com.macareen.stitchbook2.domain.parsing.PdfTextExtractor
 import com.macareen.stitchbook2.domain.repository.GuideRepository
+import com.macareen.stitchbook2.domain.repository.LibraryRepository
 import java.io.InputStream
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 
 /**
@@ -30,7 +33,9 @@ import kotlinx.coroutines.withContext
 class CreateGuideFromPdfUseCase(
     private val textExtractor: PdfTextExtractor,
     private val guideRepository: GuideRepository,
-    private val newNodeId: () -> String
+    private val newNodeId: () -> String,
+    /** When given, a pattern guide also fills the pattern's empty details from the PDF's front matter. */
+    private val libraryRepository: LibraryRepository? = null
 ) {
     sealed interface Result {
         data class Success(val guideId: GuideId, val issueCount: Int) : Result
@@ -81,9 +86,36 @@ class CreateGuideFromPdfUseCase(
                 )
             )
         }
-        return createDraft(sized, issues) {
+        return createDraft(
+            document = sized,
+            extraIssues = issues,
+            onDetails = { details -> fillPatternDetails(libraryItemId, details, fromPdf?.second?.text) }
+        ) {
             guideRepository.createPatternGuide(libraryItemId, sizeLabel, guideName)
         }
+    }
+
+    /**
+     * Copies what the pattern says about itself into the Library entry's empty
+     * fields. Anything the user already wrote is kept as it is.
+     */
+    private suspend fun fillPatternDetails(libraryItemId: String, details: PatternDetails, sizesLine: String?) {
+        val repository = libraryRepository ?: return
+        if (details.isEmpty && sizesLine == null) return
+        val item = repository.observeLibraryItem(libraryItemId).first() ?: return
+        // The yarn line has no field of its own, so it follows the description.
+        val description = listOfNotNull(details.description, details.yarn?.let { "Yarn: $it" })
+            .joinToString("\n\n")
+            .ifBlank { null }
+        val filled = item.copy(
+            author = item.author ?: details.designer,
+            notes = item.notes ?: description,
+            gauge = item.gauge ?: details.gauge,
+            sizes = item.sizes ?: details.sizes ?: sizesLine?.substringAfter(':')?.trim()?.ifEmpty { null },
+            recommendedTools = item.recommendedTools ?: details.tools,
+            yardageRequired = item.yardageRequired ?: details.yardage
+        )
+        if (filled != item) repository.saveLibraryItem(filled.copy(updatedAt = System.currentTimeMillis()))
     }
 
     private fun ExtractedDocument.withoutLine(line: ExtractedLine?): ExtractedDocument =
@@ -110,9 +142,11 @@ class CreateGuideFromPdfUseCase(
     private suspend fun createDraft(
         document: ExtractedDocument,
         extraIssues: List<ParsingIssue>,
+        onDetails: suspend (PatternDetails) -> Unit = {},
         createGuide: suspend () -> Guide
     ): Result {
-        val parsed = PatternTextParser.parse(document).let { it.copy(issues = extraIssues + it.issues) }
+        val (steps, details) = PatternTextParser.parseWithDetails(document)
+        val parsed = steps.copy(issues = extraIssues + steps.issues)
         val mapped = ParsedPatternMapper.toDraftNodes(parsed, newNodeId)
 
         val guide = createGuide()
@@ -123,6 +157,7 @@ class CreateGuideFromPdfUseCase(
             emptyDraft.copy(rootNodeIds = mapped.rootNodeIds, nodes = mapped.nodes)
         )
 
+        onDetails(details)
         return Result.Success(guide.id, parsed.issues.size)
     }
 }
