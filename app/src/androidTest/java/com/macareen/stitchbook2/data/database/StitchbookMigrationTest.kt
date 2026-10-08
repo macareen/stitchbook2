@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -17,7 +18,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Bump alongside `StitchbookDatabase.version`; every migration chain below must reach it. */
-private const val CURRENT_SCHEMA_VERSION = 18
+private const val CURRENT_SCHEMA_VERSION = 19
 
 @RunWith(AndroidJUnit4::class)
 class StitchbookMigrationTest {
@@ -118,7 +119,7 @@ class StitchbookMigrationTest {
                 )
             )
             assertEquals(
-                setOf("projects"),
+                setOf("projects", "library_items"),
                 readForeignKeyParents("guides")
             )
             assertEquals(
@@ -187,7 +188,7 @@ class StitchbookMigrationTest {
                 "library_items", "stash_items", "tool_sets", "tool_items", "tool_templates",
                 "project_tool_assignments", "counters", "counter_notes",
                 "yarn_allocations", "project_pattern_links", "milestones", "photos",
-                "journal_entries", "crafting_sessions"
+                "journal_entries", "crafting_sessions", "project_guides"
             )
             assertEquals(expectedTables, readTableNames())
 
@@ -525,6 +526,88 @@ class StitchbookMigrationTest {
      * builder can only create the current version, so this is how each test
      * starts from the exact schema its migration step begins at.
      */
+    /**
+     * Rebuilding `guides` must keep every guide and everything hanging off
+     * it: drafts, published revisions, and in-progress knitting. Foreign keys
+     * are switched on before migrating, the worst case, to prove the rebuild
+     * can't cascade either way. The result must match 19.json exactly.
+     */
+    @Test
+    fun migrationFromEighteenToNineteenKeepsEveryGuideDraftRevisionAndProgressRow() {
+        val helper = migrationHelper
+        helper.createDatabase(HELPER_DATABASE_NAME, 18).use { db ->
+            listOf(
+                EXISTING_PROJECT_SQL,
+                """
+                INSERT INTO guides (id, project_id, name, notes, created_at, updated_at)
+                VALUES ('g1', 'existing-project', 'Body', 'size M', 10, 20)
+                """,
+                """
+                INSERT INTO definition_revisions (id, guide_id, revision_number, created_at)
+                VALUES ('r1', 'g1', 1, 30)
+                """,
+                """
+                INSERT INTO revision_nodes (revision_id, node_id, parent_node_id, child_order, type, instruction_text)
+                VALUES ('r1', 'n1', NULL, 0, 'INSTRUCTION', 'Knit')
+                """,
+                """
+                INSERT INTO guide_drafts (id, guide_id, base_revision_id, created_at, updated_at, version)
+                VALUES ('d1', 'g1', 'r1', 10, 30, 2)
+                """,
+                """
+                INSERT INTO draft_nodes (draft_id, node_id, parent_node_id, child_order, type, instruction_text)
+                VALUES ('d1', 'n1', NULL, 0, 'INSTRUCTION', 'Knit')
+                """,
+                """
+                INSERT INTO executions (id, guide_id, definition_revision_id, status, current_instruction_node_id, created_at, updated_at, completed_at, version)
+                VALUES ('e1', 'g1', 'r1', 'ACTIVE', 'n1', 40, 50, NULL, 3)
+                """,
+                """
+                INSERT INTO execution_current_address_frames (execution_id, frame_order, container_node_id, frame_type, frame_value)
+                VALUES ('e1', 0, 'root', 'ROOT', 0)
+                """,
+                "INSERT INTO active_executions (guide_id, execution_id) VALUES ('g1', 'e1')"
+            ).forEach { db.execSQL(it.trimIndent()) }
+            db.execSQL("PRAGMA foreign_keys = ON")
+        }
+
+        helper.runMigrationsAndValidate(HELPER_DATABASE_NAME, 19, true, MIGRATION_18_19).use { db ->
+            db.query("SELECT project_id, library_item_id, size_label, name, notes FROM guides WHERE id = 'g1'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("existing-project", cursor.getString(0))
+                assertTrue(cursor.isNull(1))
+                assertTrue(cursor.isNull(2))
+                assertEquals("Body", cursor.getString(3))
+                assertEquals("size M", cursor.getString(4))
+            }
+            mapOf(
+                "definition_revisions" to 1,
+                "revision_nodes" to 1,
+                "guide_drafts" to 1,
+                "draft_nodes" to 1,
+                "executions" to 1,
+                "execution_current_address_frames" to 1,
+                "active_executions" to 1,
+                "project_guides" to 0
+            ).forEach { (table, expected) ->
+                db.query("SELECT COUNT(*) FROM `$table`").use { cursor ->
+                    assertTrue(cursor.moveToFirst())
+                    assertEquals("$table rows after migration", expected, cursor.getInt(0))
+                }
+            }
+            db.query("SELECT name FROM sqlite_master WHERE name = 'guides_v18'").use { cursor ->
+                assertFalse("the old table is gone", cursor.moveToFirst())
+            }
+            listOf("guide_drafts", "definition_revisions", "executions", "active_executions").forEach { child ->
+                val parents = db.query("PRAGMA foreign_key_list(`$child`)").use { cursor ->
+                    buildSet { while (cursor.moveToNext()) add(cursor.getString(cursor.getColumnIndexOrThrow("table"))) }
+                }
+                assertTrue("$child still points at guides", "guides" in parents)
+                assertFalse("$child never points at the old table", "guides_v18" in parents)
+            }
+        }
+    }
+
     private fun seedAtVersion(version: Int, vararg statements: String) {
         migrationHelper.createDatabase(DATABASE_NAME, version).use { db ->
             statements.forEach { db.execSQL(it.trimIndent()) }
@@ -539,12 +622,12 @@ class StitchbookMigrationTest {
 
     /**
      * Starts from a real version-14 database built from the exported 14.json
-     * schema, then checks that 14 -> 18 keeps existing rows, adds only
-     * nullable columns, and ends at exactly the schema in 18.json
+     * schema, then checks that 14 -> current keeps existing rows, adds only
+     * nullable columns, and ends at exactly the current exported schema
      * (runMigrationsAndValidate fails on any column, index, or FK mismatch).
      */
     @Test
-    fun migrationFromFourteenToEighteenPreservesDataAndMatchesTheExportedSchema() {
+    fun migrationFromFourteenToCurrentPreservesDataAndMatchesTheExportedSchema() {
         val helper = migrationHelper
         helper.createDatabase(HELPER_DATABASE_NAME, 14).use { db ->
             db.execSQL(
@@ -574,7 +657,8 @@ class StitchbookMigrationTest {
             MIGRATION_14_15,
             MIGRATION_15_16,
             MIGRATION_16_17,
-            MIGRATION_17_18
+            MIGRATION_17_18,
+            MIGRATION_18_19
         ).use { db ->
             db.query(
                 "SELECT name, notes, description, construction_method, custom_type_label, start_date, target_date, completed_date FROM projects WHERE id = 'existing-project'"

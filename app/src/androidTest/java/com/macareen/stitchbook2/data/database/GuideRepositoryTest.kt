@@ -315,6 +315,76 @@ class GuideRepositoryTest {
         return repository.createGuide("project", "Guide").id
     }
 
+    @Test
+    fun aPatternGuideBelongsToNoProjectUntilAProjectUsesIt() = runBlocking {
+        insertPattern("pattern")
+        insertProject("hat")
+        enqueueIds("guide", "draft")
+
+        val guide = repository.createPatternGuide("pattern", " M ", "Hat body")
+
+        assertNull(guide.projectId)
+        assertEquals("pattern", guide.libraryItemId)
+        assertEquals("M", guide.sizeLabel)
+        assertNotNull(repository.loadDraft(guide.id))
+        assertEquals(listOf(guide), repository.observePatternGuides("pattern").first())
+        assertEquals(emptyList<Any>(), repository.observeGuides("hat").first())
+
+        repository.useGuideInProject("hat", guide.id)
+        repository.useGuideInProject("hat", guide.id)
+
+        assertEquals(listOf(guide.id), repository.observeGuides("hat").first().map { it.id })
+    }
+
+    @Test
+    fun deletingAProjectThatUsesAPatternGuideKeepsTheGuide() = runBlocking {
+        insertPattern("pattern")
+        insertProject("hat")
+        enqueueIds("guide", "draft")
+        val guide = repository.createPatternGuide("pattern", "M", "Hat body")
+        repository.useGuideInProject("hat", guide.id)
+
+        database.projectDao().delete(projectEntity("hat"))
+
+        assertNotNull(repository.getGuide(guide.id))
+    }
+
+    @Test
+    fun deletingThePatternEntryKeepsItsGuidesAndTheirContent() = runBlocking {
+        insertPattern("pattern")
+        enqueueIds("guide", "draft")
+        val guide = repository.createPatternGuide("pattern", "M", "Hat body")
+
+        database.openHelper.writableDatabase.execSQL("DELETE FROM library_items WHERE id = 'pattern'")
+
+        val kept = repository.getGuide(guide.id)
+        assertNotNull(kept)
+        assertNull(kept?.libraryItemId)
+        assertEquals("M", kept?.sizeLabel)
+        assertNotNull(repository.loadDraft(guide.id))
+    }
+
+    @Test
+    fun stoppingUseRemovesOnlyTheLink() = runBlocking {
+        insertPattern("pattern")
+        insertProject("hat")
+        enqueueIds("guide", "draft")
+        val guide = repository.createPatternGuide("pattern", "M", "Hat body")
+        repository.useGuideInProject("hat", guide.id)
+
+        repository.stopUsingGuideInProject("hat", guide.id)
+
+        assertEquals(emptyList<Any>(), repository.observeGuides("hat").first())
+        assertNotNull(repository.getGuide(guide.id))
+    }
+
+    private fun insertPattern(id: String) {
+        database.openHelper.writableDatabase.execSQL(
+            "INSERT INTO library_items (id, title, craft, tags, bookmarked, created_at, updated_at) " +
+                "VALUES ('$id', 'Pattern', 'KNITTING', '', 0, 1, 1)"
+        )
+    }
+
     private suspend fun insertProject(id: String) {
         database.projectDao().upsert(projectEntity(id))
     }

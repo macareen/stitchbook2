@@ -22,14 +22,31 @@ class DraftConflictException(
 @Dao
 abstract class GuideDao {
 
+    /** The project's own guides plus the pattern guides it uses. */
     @Query(
         """
         SELECT * FROM guides
         WHERE project_id = :projectId
+           OR id IN (SELECT guide_id FROM project_guides WHERE project_id = :projectId)
         ORDER BY updated_at DESC, name COLLATE NOCASE ASC, id ASC
         """
     )
     abstract fun observeByProject(projectId: String): Flow<List<GuideEntity>>
+
+    @Query(
+        """
+        SELECT * FROM guides
+        WHERE library_item_id = :libraryItemId
+        ORDER BY size_label COLLATE NOCASE ASC, name COLLATE NOCASE ASC, id ASC
+        """
+    )
+    abstract fun observeByLibraryItem(libraryItemId: String): Flow<List<GuideEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    abstract suspend fun insertProjectGuideLink(link: ProjectGuideLinkEntity)
+
+    @Query("DELETE FROM project_guides WHERE project_id = :projectId AND guide_id = :guideId")
+    abstract suspend fun deleteProjectGuideLink(projectId: String, guideId: String)
 
     @Query("SELECT * FROM guides WHERE id = :guideId LIMIT 1")
     abstract suspend fun getGuide(guideId: String): GuideEntity?

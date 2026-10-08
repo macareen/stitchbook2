@@ -305,16 +305,18 @@ class GuideFocusViewModel(
                 return
             }
 
+            // A pattern guide opened on its own has no project, so no project counters.
+            val projectId = guide.projectId.orEmpty()
             val active = executionRepository.getActiveExecution(guideId)
             if (active != null) {
-                val projectCounters = counterRepository.observeCountersByProject(guide.projectId).first()
-                applyExecutionResult(guide.name, guide.projectId, active, projectCounters, feedback)
+                val projectCounters = guide.projectId?.let { counterRepository.observeCountersByProject(it).first() }.orEmpty()
+                applyExecutionResult(guide.name, projectId, active, projectCounters, feedback)
                 return
             }
 
             val hasPublishedRevision = guideRepository.getLatestRevision(guideId) != null
             _uiState.value = if (hasPublishedRevision) {
-                GuideFocusUiState.ReadyToStart(guideName = guide.name, projectId = guide.projectId)
+                GuideFocusUiState.ReadyToStart(guideName = guide.name, projectId = projectId)
             } else {
                 GuideFocusUiState.NoPublishedRevision
             }

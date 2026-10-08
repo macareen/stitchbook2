@@ -56,6 +56,22 @@ interface GuideRepository {
         notes: String?
     ): Guide?
 
+    /** A pattern's guides, one per size. */
+    fun observePatternGuides(libraryItemId: String): Flow<List<Guide>> =
+        throw UnsupportedOperationException("Pattern guides are not supported here.")
+
+    /** Creates a pattern's guide for one size, with an empty draft, owned by no project. */
+    suspend fun createPatternGuide(libraryItemId: String, sizeLabel: String, name: String): Guide =
+        throw UnsupportedOperationException("Pattern guides are not supported here.")
+
+    /** Lets [projectId] use a pattern guide it doesn't own; using it twice is harmless. */
+    suspend fun useGuideInProject(projectId: String, guideId: GuideId): Unit =
+        throw UnsupportedOperationException("Pattern guides are not supported here.")
+
+    /** Stops [projectId] using a pattern guide. The guide itself is kept. */
+    suspend fun stopUsingGuideInProject(projectId: String, guideId: GuideId): Unit =
+        throw UnsupportedOperationException("Pattern guides are not supported here.")
+
     suspend fun deleteGuide(guideId: GuideId)
 
     suspend fun loadDraft(guideId: GuideId): GuideDraft?

@@ -5,6 +5,12 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 
+/**
+ * A guide belongs to a project (its own guide, removed with the project), to
+ * a pattern and size (reusable by any project through [ProjectGuideLinkEntity]),
+ * or both. A pattern's guide outlives the pattern entry: deleting the Library
+ * entry only clears [libraryItemId].
+ */
 @Entity(
     tableName = "guides",
     primaryKeys = ["id"],
@@ -14,17 +20,50 @@ import androidx.room.Index
             parentColumns = ["id"],
             childColumns = ["project_id"],
             onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = LibraryItemEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["library_item_id"],
+            onDelete = ForeignKey.SET_NULL
         )
     ],
-    indices = [Index("project_id")]
+    indices = [Index("project_id"), Index("library_item_id")]
 )
 data class GuideEntity(
     val id: String,
-    @ColumnInfo(name = "project_id") val projectId: String,
+    @ColumnInfo(name = "project_id") val projectId: String?,
+    @ColumnInfo(name = "library_item_id") val libraryItemId: String? = null,
+    @ColumnInfo(name = "size_label") val sizeLabel: String? = null,
     val name: String,
     val notes: String?,
     @ColumnInfo(name = "created_at") val createdAt: Long,
     @ColumnInfo(name = "updated_at") val updatedAt: Long
+)
+
+/** A project using a pattern's guide it doesn't own. Removed with either side. */
+@Entity(
+    tableName = "project_guides",
+    primaryKeys = ["project_id", "guide_id"],
+    foreignKeys = [
+        ForeignKey(
+            entity = ProjectEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["project_id"],
+            onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = GuideEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["guide_id"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index("guide_id")]
+)
+data class ProjectGuideLinkEntity(
+    @ColumnInfo(name = "project_id") val projectId: String,
+    @ColumnInfo(name = "guide_id") val guideId: String
 )
 
 /**
