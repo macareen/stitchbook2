@@ -15,10 +15,10 @@
 
     <string name="home_load_error_title">Home could not be loaded</string>
     <string name="home_new_project_action">New Project</string>
-    <string name="home_active_projects_title">Active Projects</string>
-    <string name="home_active_projects_view_all">View All (%1$d)</string>
+    <string name="home_active_projects_title">Your projects</string>
+    <string name="home_active_projects_view_all">See all</string>
     <string name="home_active_projects_empty">No active projects right now.</string>
-    <string name="home_active_projects_empty_cta">Start a new project</string>
+    <string name="home_active_projects_empty_cta">Start something new</string>
 
     <string name="library_header_title">Library</string>
     <string name="library_header_subtitle">Your patterns, and the guides you make from them.</string>
@@ -387,7 +387,13 @@
     <string name="pattern_folder_syncing">Checking…</string>
     <string name="pattern_folder_not_allowed">That folder\'s app doesn\'t allow folder access. Choose a folder on this phone, or keep a synced copy of your cloud folder on the phone.</string>
     <string name="pattern_folder_unreadable">Couldn\'t read the pattern folder. It may have been moved or access removed; choose it again.</string>
-    <string name="home_continue_label">Continue</string>
+    <string name="home_continue_label">Where you left off</string>
+    <string name="home_keep_going">Keep going</string>
+    <string name="home_percent">%1$d%%</string>
+    <string name="home_title">Happy making</string>
+    <string name="home_greeting_morning">Good morning</string>
+    <string name="home_greeting_afternoon">Good afternoon</string>
+    <string name="home_greeting_evening">Good evening</string>
     <string name="home_project_meta">%1$s · updated %2$s</string>
     <string name="stash_tab_yarn">Yarn &amp; materials</string>
     <string name="stash_tab_tools">Tools</string>
