@@ -41,6 +41,7 @@ import com.macareen.stitchbook2.feature.sessions.ProjectSessionsRoute
 import com.macareen.stitchbook2.feature.sessions.ProjectSessionsViewModel
 import com.macareen.stitchbook2.feature.settings.SettingsRoute
 import com.macareen.stitchbook2.feature.settings.SettingsViewModel
+import com.macareen.stitchbook2.feature.stash.StashHost
 import com.macareen.stitchbook2.feature.stash.StashRoute
 import com.macareen.stitchbook2.feature.statistics.StatisticsRoute
 import com.macareen.stitchbook2.feature.statistics.StatisticsViewModel
@@ -108,6 +109,9 @@ fun StitchbookNavHost(
                 },
                 onOpenStatistics = {
                     navController.navigate(ProjectDestination.STATISTICS_ROUTE)
+                },
+                onOpenCounters = {
+                    navController.navigate(CountersDestination.ROUTE)
                 }
             )
         }
@@ -208,22 +212,24 @@ fun StitchbookNavHost(
             PdfViewerRoute(viewModel = viewModel)
         }
         composable(TopLevelDestination.Stash.route) {
-            val viewModel: StashViewModel = viewModel(
+            val stashViewModel: StashViewModel = viewModel(
                 factory = StashViewModel.factory(stashRepository, materialsRepository, journalRepository)
             )
-            StashRoute(viewModel = viewModel)
-        }
-        composable(TopLevelDestination.Tools.route) {
-            val viewModel: ToolsViewModel = viewModel(
+            val toolsViewModel: ToolsViewModel = viewModel(
                 factory = ToolsViewModel.factory(toolRepository, projectRepository)
             )
-            ToolsRoute(
-                viewModel = viewModel,
-                onBulkCreate = {
-                    navController.navigate(BulkToolCreationDestination.ROUTE)
-                },
-                onManageSets = {
-                    navController.navigate(ToolSetsDestination.ROUTE)
+            StashHost(
+                yarn = { StashRoute(viewModel = stashViewModel) },
+                tools = {
+                    ToolsRoute(
+                        viewModel = toolsViewModel,
+                        onBulkCreate = {
+                            navController.navigate(BulkToolCreationDestination.ROUTE)
+                        },
+                        onManageSets = {
+                            navController.navigate(ToolSetsDestination.ROUTE)
+                        }
+                    )
                 }
             )
         }
@@ -242,7 +248,7 @@ fun StitchbookNavHost(
             )
             ToolSetsRoute(viewModel = viewModel)
         }
-        composable(TopLevelDestination.Counters.route) {
+        composable(CountersDestination.ROUTE) {
             val viewModel: CountersViewModel = viewModel(
                 factory = CountersViewModel.factory(
                     counterRepository,

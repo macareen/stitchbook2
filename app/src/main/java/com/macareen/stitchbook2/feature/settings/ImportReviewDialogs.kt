@@ -118,16 +118,20 @@ private fun ComparisonRow(type: BackupRecordType, counts: TypeComparison) {
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold
         )
-        Text(
-            text = stringResource(
-                R.string.settings_import_review_type_line,
-                counts.new,
-                counts.identical,
-                counts.conflicting,
-                counts.onlyLocal
-            ),
-            style = MaterialTheme.typography.bodySmall
-        )
+        // Only non-zero counts: a row of zeros is noise, not information.
+        val parts = listOf(
+            R.string.settings_import_review_new to counts.new,
+            R.string.settings_import_review_identical to counts.identical,
+            R.string.settings_import_review_conflicting to counts.conflicting,
+            R.string.settings_import_review_only_local to counts.onlyLocal
+        ).filter { (_, count) -> count > 0 }
+            .map { (label, count) -> stringResource(label, count) }
+        if (parts.isNotEmpty()) {
+            Text(
+                text = parts.joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
     }
 }
 
