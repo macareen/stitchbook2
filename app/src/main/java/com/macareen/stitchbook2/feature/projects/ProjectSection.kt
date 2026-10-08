@@ -2,6 +2,7 @@ package com.macareen.stitchbook2.feature.projects
 
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Inventory2
@@ -38,6 +39,11 @@ enum class ProjectSection(
         title = R.string.card_title,
         description = R.string.project_section_card_description,
         icon = Icons.Outlined.Image
+    ),
+    ASSISTED_IMPORT(
+        title = R.string.assist_section_title,
+        description = R.string.assist_section_description,
+        icon = Icons.Outlined.AutoAwesome
     )
 }
 
@@ -46,4 +52,5 @@ fun ProjectSection.route(projectId: String): String = when (this) {
     ProjectSection.JOURNAL -> ProjectDestination.journalRoute(projectId)
     ProjectSection.SESSIONS -> ProjectDestination.sessionsRoute(projectId)
     ProjectSection.CARD -> ProjectDestination.cardRoute(projectId)
+    ProjectSection.ASSISTED_IMPORT -> ProjectDestination.assistedImportRoute(projectId)
 }

@@ -79,6 +79,4 @@
     <string name="statistics_how_estimated">Estimate: depends on an assumption, such as stitches per row or yards per skein.</string>
     <string name="statistics_how_days">Each session counts toward the day it started, in the time zone where it started.</string>
     <string name="home_quick_nav_statistics_title">Statistics</string>
-    <string name="home_quick_nav_statistics_description">Time crafted, streaks, rows, and yarn used, each marked recorded or estimated.</string>
-    <string name="home_quick_nav_statistics_cta">See statistics</string>
 </resources>

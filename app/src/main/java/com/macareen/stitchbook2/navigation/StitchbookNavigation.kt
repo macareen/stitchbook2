@@ -14,6 +14,8 @@ import com.macareen.stitchbook2.StitchbookApplication
 import com.macareen.stitchbook2.domain.execution.GuideId
 import com.macareen.stitchbook2.feature.cards.ShareCardRoute
 import com.macareen.stitchbook2.feature.cards.ShareCardViewModel
+import com.macareen.stitchbook2.feature.assist.AssistedImportRoute
+import com.macareen.stitchbook2.feature.assist.AssistedImportViewModel
 import com.macareen.stitchbook2.feature.counters.CountersRoute
 import com.macareen.stitchbook2.feature.counters.CountersViewModel
 import com.macareen.stitchbook2.feature.draft.DraftEditorRoute
@@ -141,6 +143,37 @@ fun StitchbookNavHost(
                 )
             )
             ShareCardRoute(viewModel = viewModel)
+        }
+        composable(
+            route = ProjectDestination.ASSISTED_IMPORT_ROUTE,
+            arguments = listOf(
+                navArgument(ProjectDestination.PROJECT_ID_ARGUMENT) {
+                    type = NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val projectId = backStackEntry.arguments?.getString(
+                ProjectDestination.PROJECT_ID_ARGUMENT
+            )
+                .orEmpty()
+            val viewModel: AssistedImportViewModel = viewModel(
+                factory = AssistedImportViewModel.factory(
+                    projectId = projectId,
+                    projectRepository = projectRepository,
+                    textExtractor = application.container.pdfTextExtractor,
+                    decoder = application.container.structuredGuideDecoder,
+                    createGuide = application.container.createGuideFromStructuredGuideUseCase
+                )
+            )
+            AssistedImportRoute(
+                viewModel = viewModel,
+                onDraftCreated = { guideId ->
+                    // The import screen has done its job; Back from the editor returns to the project.
+                    navController.navigate(DraftEditorDestination.route(guideId)) {
+                        popUpTo(ProjectDestination.ASSISTED_IMPORT_ROUTE) { inclusive = true }
+                    }
+                }
+            )
         }
         composable(
             route = ProjectDestination.CARD_ROUTE,

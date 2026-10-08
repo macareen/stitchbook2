@@ -391,7 +391,11 @@ Guide-definition persistence follows these v1 constraints: a Guide belongs to on
 
 ## Phase 13 — Optional local AI-assisted parsing
 
-**Status: Not started.**
+**Status: In progress.** The shared structured guide format and the assistant round trip are done. On-device models are next, then an optional user-supplied API key.
+
+- **Structured guide format (done).** `StructuredGuide` (`domain/parsing`) is the one exchange shape every helper produces. It has sections, rows or rounds (`from`/`to`), repeats, instructions, materials, abbreviations, notes, and a `review` list. `StructuredGuideJsonDecoder` (`data/parsing`) reads a reply that may be wrapped in prose or a code fence. It accepts common spellings ("rnd", "rounds", bare-string steps) and rejects anything that changes the work, reporting each problem with its path (`steps[2].from`). It enforces depth, step-count, text-length and number limits. `StructuredGuideMapper` turns a valid guide into an ordinary draft: materials, abbreviations and notes go into a "Before you start" section, and each review item becomes a visible "Review needed" step. The result is never auto-published.
+- **Ask an assistant (done).** From the hub's Guides sheet, open *Import with an assistant*. Read a PDF (or paste text), then copy or share a prompt (`StructuredGuidePrompt`) that carries the craft, the guide name, the page-marked pattern text, and the format with rules (use the pattern's own words, never invent, put anything uncertain in `review`). Paste the reply back, check it, see a summary (steps, sections, items to review), and create a draft. This works with a free Claude account or any other assistant, because a Claude.ai subscription does not include API access. **Privacy decision:** the app itself makes no network call. The text goes only where the person pastes or shares it, as an explicit user action. The owner approved this on 2026-10-08.
+- **Next:** on-device model (Gemini Nano via ML Kit GenAI where the device supports it) producing the same format; then an optional user-supplied API key, stored on the device only and off by default.
 
 **Goal:** Experimentally assist with ambiguous pattern interpretation while retaining privacy and user control.
 

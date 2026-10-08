@@ -417,6 +417,7 @@ Use fakes at domain boundaries; do not mock simple value objects. Keep a small s
 - Use Android share mechanisms with narrow URI grants.
 - Explain what an export or optional synchronization will include before it runs.
 - Do not introduce analytics, crash upload, cloud AI, or remote services without an explicit product and privacy decision.
+- Assisted pattern import is a person-driven copy/share round trip. The app sends nothing; it only reads a pasted reply. That reply is untrusted input, validated by `StructuredGuideJsonDecoder` with explicit limits, and becomes an unpublished draft.
 - Treat Android Auto Backup and device transfer as explicit privacy decisions. They are not substitutes for user-controlled export, and private pattern content must not be included accidentally.
 
 ## 14. Suggested initial package structure

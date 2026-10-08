@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="assist_section_title">Import with an assistant</string>
+    <string name="assist_section_description">Turn a pattern into a guide with Claude or another assistant you use.</string>
+    <string name="assist_title">Import with an assistant</string>
+    <string name="assist_privacy_note">Stitchbook never sends your pattern anywhere. You copy the request to an assistant you choose (a free Claude account works), then paste its reply here.</string>
+    <string name="assist_step_format">%1$d · %2$s</string>
+    <string name="assist_step_pattern">Bring the pattern</string>
+    <string name="assist_guide_name">Guide name</string>
+    <string name="assist_choose_pdf">Read a PDF</string>
+    <string name="assist_reading_pdf">Reading PDF…</string>
+    <string name="assist_pattern_text">Pattern text (read from the PDF, or paste it)</string>
+    <string name="assist_step_ask">Ask your assistant</string>
+    <string name="assist_ask_hint">Copy or share the request, start a new chat, and paste it in. Its reply is a block of JSON.</string>
+    <string name="assist_copy_request">Copy request</string>
+    <string name="assist_share_request">Share request</string>
+    <string name="assist_open_claude">Open Claude</string>
+    <string name="assist_clip_label">Stitchbook guide request</string>
+    <string name="assist_step_reply">Paste the reply</string>
+    <string name="assist_reply">Assistant reply</string>
+    <string name="assist_paste_reply">Paste</string>
+    <string name="assist_check_reply">Check reply</string>
+    <string name="assist_ready_title">Ready to create</string>
+    <string name="assist_ready_hint">This creates a draft. Review it in the editor, then publish when it matches your pattern.</string>
+    <string name="assist_create_draft">Create draft</string>
+    <string name="assist_create_failed">The draft could not be saved. Your reply is still here.</string>
+    <string name="assist_problems_title">This reply can\'t become a guide yet:</string>
+    <string name="assist_problems_hint">Ask the assistant to fix these, or edit the reply and check again.</string>
+    <plurals name="assist_step_count">
+        <item quantity="one">%1$d step</item>
+        <item quantity="other">%1$d steps</item>
+    </plurals>
+    <plurals name="assist_section_count">
+        <item quantity="one">%1$d section</item>
+        <item quantity="other">%1$d sections</item>
+    </plurals>
+    <plurals name="assist_review_count">
+        <item quantity="one">%1$d to review</item>
+        <item quantity="other">%1$d to review</item>
+    </plurals>
+</resources>
