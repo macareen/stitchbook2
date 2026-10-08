@@ -67,8 +67,8 @@ class PatternTextParserTest {
                         ParsedRepeat(
                             count = 6,
                             children = listOf(
-                                ParsedInstruction("Yarn over, knit two together across.", source(2)),
-                                ParsedInstruction("Purl across.", source(3))
+                                ParsedInstruction("Row 1: Yarn over, knit two together across.", source(2)),
+                                ParsedInstruction("Row 2: Purl across.", source(3))
                             ),
                             source = source(4)
                         )

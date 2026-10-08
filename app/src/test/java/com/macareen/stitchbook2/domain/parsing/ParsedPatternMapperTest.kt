@@ -31,7 +31,7 @@ class ParsedPatternMapperTest {
         assertEquals(1, result.rootNodeIds.size)
         val node = nodesById(result.nodes).getValue(result.rootNodeIds.single())
         assertEquals(DraftNodeType.INSTRUCTION, node.type)
-        assertEquals("Cast on 80 stitches. (p.1 l.3)", node.instructionText)
+        assertEquals("Cast on 80 stitches. (p.1)", node.instructionText)
     }
 
     @Test
@@ -52,7 +52,7 @@ class ParsedPatternMapperTest {
 
         val child = byId.getValue(section.children.single())
         assertEquals(DraftNodeType.INSTRUCTION, child.type)
-        assertEquals("Knit all stitches. (p.1 l.2)", child.instructionText)
+        assertEquals("Knit all stitches. (p.1)", child.instructionText)
     }
 
     @Test

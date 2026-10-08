@@ -15,8 +15,8 @@ data class DraftMappingResult(val rootNodeIds: List<NodeId>, val nodes: List<Dra
  * translation -- it never calls the repository itself, so it stays testable
  * without Room or Android.
  *
- * Every generated Instruction's visible text is suffixed with its page/line
- * [SourceReference] so provenance stays visible directly in the existing
+ * Every generated Instruction's visible text is suffixed with its page
+ * ([SourceReference.pageNumber]; review items keep the line too) so provenance stays visible directly in the existing
  * Draft editor, per PRODUCT_SPEC.md 6.6's "show source references for
  * generated steps" -- no separate review UI or schema change is needed for
  * that. Each [ParsingIssue] similarly becomes its own plain, clearly marked
@@ -86,7 +86,8 @@ object ParsedPatternMapper {
         return DraftMappingResult(rootNodeIds = rootIds.toList(), nodes = nodes.toList())
     }
 
-    private fun withProvenance(text: String, source: SourceReference) = "$text ${formatSource(source)}"
+    // Steps show their page only: enough to find the source without crowding every line.
+    private fun withProvenance(text: String, source: SourceReference) = "$text (p.${source.pageNumber})"
 
     private fun formatSource(source: SourceReference) = "(p.${source.pageNumber} l.${source.lineNumber})"
 }
