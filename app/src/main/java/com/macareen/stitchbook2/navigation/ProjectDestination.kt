@@ -11,6 +11,8 @@ object ProjectDestination {
     const val JOURNAL_ROUTE = "projects/{$PROJECT_ID_ARGUMENT}/journal"
     const val SESSIONS_ROUTE = "projects/{$PROJECT_ID_ARGUMENT}/sessions"
     const val STATISTICS_ROUTE = "statistics"
+    const val CARD_ROUTE = "projects/{$PROJECT_ID_ARGUMENT}/card"
+    const val SUMMARY_CARD_ROUTE = "statistics/card"
 
     fun detailRoute(projectId: String): String {
         return "projects/${Uri.encode(projectId)}"
@@ -30,5 +32,9 @@ object ProjectDestination {
 
     fun sessionsRoute(projectId: String): String {
         return "projects/${Uri.encode(projectId)}/sessions"
+    }
+
+    fun cardRoute(projectId: String): String {
+        return "projects/${Uri.encode(projectId)}/card"
     }
 }

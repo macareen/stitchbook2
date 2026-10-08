@@ -55,16 +55,17 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
 @Composable
-fun StatisticsRoute(viewModel: StatisticsViewModel) {
+fun StatisticsRoute(viewModel: StatisticsViewModel, onShareSummary: () -> Unit = {}) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    StatisticsScreen(uiState = uiState, onRangeSelected = viewModel::selectRange)
+    StatisticsScreen(uiState = uiState, onRangeSelected = viewModel::selectRange, onShareSummary = onShareSummary)
 }
 
 @Composable
 fun StatisticsScreen(
     uiState: StatisticsUiState,
     onRangeSelected: (StatisticsRange) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onShareSummary: () -> Unit = {}
 ) {
     when (uiState) {
         StatisticsUiState.Loading -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -73,7 +74,7 @@ fun StatisticsScreen(
         StatisticsUiState.Error -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(text = stringResource(R.string.statistics_error))
         }
-        is StatisticsUiState.Content -> StatisticsContent(uiState, onRangeSelected, modifier)
+        is StatisticsUiState.Content -> StatisticsContent(uiState, onRangeSelected, onShareSummary, modifier)
     }
 }
 
@@ -81,6 +82,7 @@ fun StatisticsScreen(
 private fun StatisticsContent(
     state: StatisticsUiState.Content,
     onRangeSelected: (StatisticsRange) -> Unit,
+    onShareSummary: () -> Unit,
     modifier: Modifier
 ) {
     val stats = state.statistics
@@ -200,6 +202,12 @@ private fun StatisticsContent(
                 StatLine(R.string.statistics_estimated_yards, formatAmount(it), StatisticProvenance.ESTIMATED)
             }
             QuietText(text = stringResource(R.string.statistics_yarn_note))
+        }
+
+        item {
+            androidx.compose.material3.OutlinedButton(onClick = onShareSummary, modifier = Modifier.fillMaxWidth()) {
+                Text(text = stringResource(R.string.statistics_share_summary))
+            }
         }
 
         item { Methodology() }

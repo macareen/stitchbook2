@@ -12,6 +12,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.macareen.stitchbook2.StitchbookApplication
 import com.macareen.stitchbook2.domain.execution.GuideId
+import com.macareen.stitchbook2.feature.cards.ShareCardRoute
+import com.macareen.stitchbook2.feature.cards.ShareCardViewModel
 import com.macareen.stitchbook2.feature.counters.CountersRoute
 import com.macareen.stitchbook2.feature.counters.CountersViewModel
 import com.macareen.stitchbook2.feature.draft.DraftEditorRoute
@@ -118,7 +120,47 @@ fun StitchbookNavHost(
                     stashRepository = stashRepository
                 )
             )
-            StatisticsRoute(viewModel = viewModel)
+            StatisticsRoute(
+                viewModel = viewModel,
+                onShareSummary = { navController.navigate(ProjectDestination.SUMMARY_CARD_ROUTE) }
+            )
+        }
+        composable(ProjectDestination.SUMMARY_CARD_ROUTE) {
+            val viewModel: ShareCardViewModel = viewModel(
+                factory = ShareCardViewModel.factory(
+                    projectId = null,
+                    projectRepository = projectRepository,
+                    journalRepository = journalRepository,
+                    sessionRepository = sessionRepository,
+                    materialsRepository = materialsRepository,
+                    stashRepository = stashRepository
+                )
+            )
+            ShareCardRoute(viewModel = viewModel)
+        }
+        composable(
+            route = ProjectDestination.CARD_ROUTE,
+            arguments = listOf(
+                navArgument(ProjectDestination.PROJECT_ID_ARGUMENT) {
+                    type = NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val projectId = backStackEntry.arguments?.getString(
+                ProjectDestination.PROJECT_ID_ARGUMENT
+            )
+                .orEmpty()
+            val viewModel: ShareCardViewModel = viewModel(
+                factory = ShareCardViewModel.factory(
+                    projectId = projectId,
+                    projectRepository = projectRepository,
+                    journalRepository = journalRepository,
+                    sessionRepository = sessionRepository,
+                    materialsRepository = materialsRepository,
+                    stashRepository = stashRepository
+                )
+            )
+            ShareCardRoute(viewModel = viewModel)
         }
         composable(TopLevelDestination.Projects.route) {
             val viewModel: ProjectsViewModel = viewModel(
