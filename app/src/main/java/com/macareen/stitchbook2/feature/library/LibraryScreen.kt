@@ -1,5 +1,30 @@
 package com.macareen.stitchbook2.feature.library
 
+import androidx.compose.ui.draw.clipToBounds
+import android.graphics.Bitmap
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.sp
+import com.macareen.stitchbook2.data.library.PdfCoverCache
+import com.macareen.stitchbook2.ui.components.SkeinArt
+import com.macareen.stitchbook2.ui.theme.CozyPastels
+import com.macareen.stitchbook2.ui.theme.Pastel
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.FilledTonalButton
 import android.content.Intent
@@ -19,8 +44,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Add
@@ -445,73 +468,90 @@ private fun LibraryContent(
     onForgetFolder: () -> Unit = {},
     onOpenGuides: (String) -> Unit = {}
 ) {
-    LazyColumn(
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
         contentPadding = PaddingValues(
             start = StitchbookSpacing.medium,
             top = StitchbookSpacing.medium,
             end = StitchbookSpacing.medium,
             bottom = 104.dp
         ),
-        verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)
+        verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.medium),
+        horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.medium)
     ) {
-        item {
-            ScreenHeader(
-                title = stringResource(R.string.library_header_title),
-                subtitle = stringResource(R.string.library_header_subtitle),
-                menuDescription = stringResource(R.string.inventory_more_actions),
-                actions = buildList {
-                    if (folderState.isAvailable) {
-                        add(HeaderAction(stringResource(if (folderState.hasFolder) R.string.pattern_folder_change else R.string.pattern_folder_choose), onChooseFolderClick))
-                        if (folderState.hasFolder) add(HeaderAction(stringResource(R.string.pattern_folder_forget), onForgetFolder))
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            Column {
+                ScreenHeader(
+                    title = stringResource(R.string.library_header_title),
+                    subtitle = stringResource(R.string.library_header_subtitle),
+                    menuDescription = stringResource(R.string.inventory_more_actions),
+                    actions = buildList {
+                        if (folderState.isAvailable) {
+                            add(HeaderAction(stringResource(if (folderState.hasFolder) R.string.pattern_folder_change else R.string.pattern_folder_choose), onChooseFolderClick))
+                            if (folderState.hasFolder) add(HeaderAction(stringResource(R.string.pattern_folder_forget), onForgetFolder))
+                        }
+                        add(HeaderAction(stringResource(R.string.library_export_csv_action), onExportCsvClick))
+                        add(HeaderAction(stringResource(R.string.library_import_csv_action), onImportCsvClick))
+                        add(HeaderAction(stringResource(R.string.library_download_csv_template_action), onTemplateCsvClick))
                     }
-                    add(HeaderAction(stringResource(R.string.library_export_csv_action), onExportCsvClick))
-                    add(HeaderAction(stringResource(R.string.library_import_csv_action), onImportCsvClick))
-                    add(HeaderAction(stringResource(R.string.library_download_csv_template_action), onTemplateCsvClick))
+                )
+                if (folderState.isAvailable) {
+                    PatternFolderLine(state = folderState, onChoose = onChooseFolderClick, onSync = onSyncFolder)
                 }
-            )
-            if (folderState.isAvailable) {
-                PatternFolderLine(state = folderState, onChoose = onChooseFolderClick, onSync = onSyncFolder)
+                Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
             }
-            Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
         }
 
-        item {
-            OutlinedTextField(
-                value = uiState.filter.searchQuery,
-                onValueChange = onSearchQueryChanged,
-                singleLine = true,
-                label = { Text(text = stringResource(R.string.library_search_placeholder)) },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            Column {
+                OutlinedTextField(
+                    value = uiState.filter.searchQuery,
+                    onValueChange = onSearchQueryChanged,
+                    singleLine = true,
+                    placeholder = { Text(text = stringResource(R.string.library_search_placeholder)) },
+                    leadingIcon = { Icon(imageVector = Icons.Outlined.Search, contentDescription = null) },
+                    shape = CircleShape,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                        unfocusedBorderColor = Color.Transparent
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+            }
         }
 
-        item {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                CraftFilterDropdown(
-                    selected = uiState.filter.craftFilter,
-                    onSelected = onCraftFilterChanged,
-                    modifier = Modifier.weight(1f)
-                )
-                FilterChip(
-                    selected = uiState.filter.bookmarksOnly,
-                    onClick = { onBookmarksOnlyChanged(!uiState.filter.bookmarksOnly) },
-                    label = { Text(text = stringResource(R.string.library_bookmarks_only)) }
-                )
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            Column {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    CraftFilterDropdown(
+                        selected = uiState.filter.craftFilter,
+                        onSelected = onCraftFilterChanged,
+                        modifier = Modifier.weight(1f)
+                    )
+                    FilterChip(
+                        selected = uiState.filter.bookmarksOnly,
+                        onClick = { onBookmarksOnlyChanged(!uiState.filter.bookmarksOnly) },
+                        label = { Text(text = stringResource(R.string.library_bookmarks_only)) }
+                    )
+                }
+                Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
             }
-            Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
         }
 
         if (uiState.items.isEmpty()) {
-            item {
-                MessageState(
-                    title = stringResource(R.string.library_empty_title),
-                    description = stringResource(R.string.library_empty_description)
-                )
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Column {
+                    MessageState(
+                        title = stringResource(R.string.library_empty_title),
+                        description = stringResource(R.string.library_empty_description)
+                    )
+                }
             }
         } else {
             items(items = uiState.items, key = { it.id }) { libraryItem ->
@@ -586,159 +626,147 @@ private fun LibraryItemCard(
     onOpenPdf: () -> Unit,
     onOpenGuides: () -> Unit = {}
 ) {
+    val pastel = CozyPastels.forKey(item.id)
+    var menuOpen by remember { mutableStateOf(false) }
     // The whole card opens the pattern's own screen: its file and its guides by size.
-    Card(
+    Surface(
         onClick = onOpenGuides,
-        modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
+        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(StitchbookSpacing.medium)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+        Column {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(176.dp)
+                    .clipToBounds()
+                    .background(pastel.tile)
             ) {
-                // "Other" is the default for patterns found in a folder, so it says nothing.
-                if (item.craft != Craft.OTHER) {
-                    LabelPill(
-                        text = stringResource(item.craft.labelResource()),
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                    )
-                } else {
-                    Spacer(modifier = Modifier.width(1.dp))
+                PatternCover(pdfUri = item.pdfUri, pastel = pastel, modifier = Modifier.fillMaxSize())
+                Surface(
+                    onClick = onToggleBookmark,
+                    shape = CircleShape,
+                    color = Color.White.copy(alpha = 0.92f),
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp)
+                        .size(36.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = if (item.bookmarked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                            contentDescription = stringResource(R.string.library_toggle_bookmark),
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
-                IconButton(onClick = onToggleBookmark) {
-                    Icon(
-                        imageVector = if (item.bookmarked) {
-                            Icons.Outlined.Bookmark
-                        } else {
-                            Icons.Outlined.BookmarkBorder
-                        },
-                        contentDescription = stringResource(R.string.library_toggle_bookmark),
-                        tint = if (item.bookmarked) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                    )
+                val badge = when {
+                    item.pdfUri != null -> stringResource(R.string.library_card_badge_pdf)
+                    item.ravelryPatternId != null -> stringResource(R.string.library_card_badge_ravelry)
+                    else -> null
                 }
-            }
-
-            Spacer(modifier = Modifier.height(StitchbookSpacing.extraSmall))
-            Text(
-                text = item.title,
-                style = MaterialTheme.typography.cardTitle,
-                fontWeight = FontWeight.SemiBold
-            )
-
-            item.author?.let { author ->
-                QuietText(text = stringResource(R.string.library_item_author, author))
-            }
-
-            if (item.tags.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.extraSmall)) {
-                    item.tags.forEach { tag ->
-                        Surface(
-                            shape = MaterialTheme.shapes.small,
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh
-                        ) {
-                            Text(
-                                text = tag,
-                                style = MaterialTheme.typography.labelSmall,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
-                        }
+                badge?.let { text ->
+                    Surface(
+                        onClick = if (item.pdfUri != null) onOpenPdf else onOpenGuides,
+                        shape = CircleShape,
+                        color = Color.White.copy(alpha = 0.92f),
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(8.dp)
+                    ) {
+                        Text(
+                            text = text,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = pastel.ink,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
                     }
                 }
             }
-
-            item.notes?.let { notes ->
-                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
-                Surface(
-                    shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.surfaceContainer
-                ) {
+            Row(
+                verticalAlignment = Alignment.Top,
+                modifier = Modifier.padding(start = 12.dp, top = 10.dp, bottom = 10.dp)
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = notes,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.textSecondary,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(StitchbookSpacing.small)
+                        text = item.title,
+                        style = MaterialTheme.typography.titleLarge.copy(fontSize = 17.sp, lineHeight = 22.sp),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
-                }
-            }
-
-            if (item.pdfUri != null) {
-                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
-                Surface(
-                    shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.surfaceContainer,
-                    onClick = onOpenPdf
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(StitchbookSpacing.small),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.extraSmall),
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.PictureAsPdf,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Text(
-                                text = item.pdfFileName ?: stringResource(R.string.library_view_pdf_action),
-                                style = MaterialTheme.typography.bodyMedium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f, fill = false)
-                            )
-                        }
+                    item.author?.let { author ->
                         Text(
-                            text = stringResource(R.string.library_view_pdf_action),
-                            style = MaterialTheme.typography.labelLarge,
+                            text = stringResource(R.string.library_item_author, author),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    // "Other" is the default for patterns found in a folder, so it says nothing.
+                    if (item.craft != Craft.OTHER) {
+                        Text(
+                            text = stringResource(item.craft.labelResource()),
+                            style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
-            }
-
-            Spacer(modifier = Modifier.height(StitchbookSpacing.small))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TextButton(onClick = onOpenGuides) {
-                    Text(text = stringResource(R.string.pattern_guides_link))
-                }
-                Row {
-                    IconButton(onClick = onEdit) {
+                Box {
+                    IconButton(onClick = { menuOpen = true }) {
                         Icon(
-                            imageVector = Icons.Outlined.Edit,
-                            contentDescription = stringResource(R.string.edit_library_item)
+                            imageVector = Icons.Filled.MoreVert,
+                            contentDescription = stringResource(R.string.library_card_more_actions)
                         )
                     }
-                    IconButton(onClick = onDelete) {
-                        Icon(
-                            imageVector = Icons.Outlined.Delete,
-                            contentDescription = stringResource(R.string.delete_library_item)
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.pattern_guides_link)) },
+                            onClick = { menuOpen = false; onOpenGuides() }
+                        )
+                        if (item.pdfUri != null) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.library_view_pdf_action)) },
+                                onClick = { menuOpen = false; onOpenPdf() }
+                            )
+                        }
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.edit_library_item)) },
+                            onClick = { menuOpen = false; onEdit() }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.delete_library_item)) },
+                            onClick = { menuOpen = false; onDelete() }
                         )
                     }
                 }
             }
+        }
+    }
+}
+
+/** The PDF's first page, which is usually the pattern photo; a drawn skein until it loads or if it can't. */
+@Composable
+private fun PatternCover(pdfUri: String?, pastel: Pastel, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val widthPx = with(LocalDensity.current) { 220.dp.roundToPx() }
+    val cover by produceState<Bitmap?>(initialValue = null, pdfUri) {
+        value = pdfUri?.let { PdfCoverCache.get(context).cover(it, widthPx) }
+    }
+    Box(contentAlignment = Alignment.Center, modifier = modifier) {
+        val bitmap = cover
+        if (bitmap != null) {
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                alignment = Alignment.TopCenter,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            SkeinArt(pastel = pastel, width = 60.dp)
         }
     }
 }

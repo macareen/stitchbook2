@@ -578,4 +578,7 @@
     <string name="focus_notification_channel_description">Shows the counters for the guide currently open in Focus Mode.</string>
     <string name="focus_notification_default_title">Focus Mode</string>
     <string name="focus_notification_no_counters">No counters for this project</string>
+    <string name="library_card_badge_pdf">PDF</string>
+    <string name="library_card_badge_ravelry">Ravelry</string>
+    <string name="library_card_more_actions">More for this pattern</string>
 </resources>
