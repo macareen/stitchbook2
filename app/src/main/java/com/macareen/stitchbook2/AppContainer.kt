@@ -7,6 +7,8 @@ import com.macareen.stitchbook2.data.database.StitchbookDatabase
 import com.macareen.stitchbook2.data.parsing.MlKitPdfPageOcr
 import com.macareen.stitchbook2.data.parsing.PdfBoxTextExtractor
 import com.macareen.stitchbook2.data.parsing.StructuredGuideJsonDecoder
+import com.macareen.stitchbook2.data.ravelry.HttpRavelryApi
+import com.macareen.stitchbook2.data.ravelry.KeystoreRavelryCredentialStore
 import com.macareen.stitchbook2.data.preferences.SharedPreferencesUserPreferencesRepository
 import com.macareen.stitchbook2.data.repository.LocalCounterNoteRepository
 import com.macareen.stitchbook2.data.repository.LocalCounterRepository
@@ -22,6 +24,8 @@ import com.macareen.stitchbook2.data.repository.LocalToolRepository
 import com.macareen.stitchbook2.domain.backup.BackupService
 import com.macareen.stitchbook2.domain.parsing.PdfTextExtractor
 import com.macareen.stitchbook2.domain.parsing.StructuredGuideDecoder
+import com.macareen.stitchbook2.domain.ravelry.RavelryCredentialStore
+import com.macareen.stitchbook2.domain.ravelry.RavelrySync
 import com.macareen.stitchbook2.domain.preferences.UserPreferencesRepository
 import com.macareen.stitchbook2.domain.repository.CounterNoteRepository
 import com.macareen.stitchbook2.domain.repository.CounterRepository
@@ -56,6 +60,8 @@ interface AppContainer {
     val pdfTextExtractor: PdfTextExtractor
     val createGuideFromPdfUseCase: CreateGuideFromPdfUseCase
     val structuredGuideDecoder: StructuredGuideDecoder
+    val ravelryCredentialStore: RavelryCredentialStore
+    val ravelrySync: RavelrySync
     val createGuideFromStructuredGuideUseCase: CreateGuideFromStructuredGuideUseCase
     val userPreferencesRepository: UserPreferencesRepository
 }
@@ -120,6 +126,15 @@ class DefaultAppContainer(context: Context) : AppContainer {
         )
 
     override val structuredGuideDecoder: StructuredGuideDecoder = StructuredGuideJsonDecoder()
+
+    override val ravelryCredentialStore: RavelryCredentialStore = KeystoreRavelryCredentialStore(context)
+
+    override val ravelrySync: RavelrySync = RavelrySync(
+        api = HttpRavelryApi(),
+        credentialStore = ravelryCredentialStore,
+        stashRepository = stashRepository,
+        toolRepository = toolRepository
+    )
 
     override val createGuideFromStructuredGuideUseCase: CreateGuideFromStructuredGuideUseCase =
         CreateGuideFromStructuredGuideUseCase(

@@ -43,6 +43,8 @@ import com.macareen.stitchbook2.feature.sessions.ProjectSessionsRoute
 import com.macareen.stitchbook2.feature.sessions.ProjectSessionsViewModel
 import com.macareen.stitchbook2.feature.settings.SettingsRoute
 import com.macareen.stitchbook2.feature.settings.SettingsViewModel
+import com.macareen.stitchbook2.feature.ravelry.RavelryRoute
+import com.macareen.stitchbook2.feature.ravelry.RavelryViewModel
 import com.macareen.stitchbook2.feature.stash.StashHost
 import com.macareen.stitchbook2.feature.stash.StashRoute
 import com.macareen.stitchbook2.feature.statistics.StatisticsRoute
@@ -295,7 +297,10 @@ fun StitchbookNavHost(
             val viewModel: SettingsViewModel = viewModel(
                 factory = SettingsViewModel.factory(backupService, userPreferencesRepository)
             )
-            SettingsRoute(viewModel = viewModel)
+            val ravelryViewModel: RavelryViewModel = viewModel(
+                factory = RavelryViewModel.factory(application.container.ravelryCredentialStore, application.container.ravelrySync)
+            )
+            SettingsRoute(viewModel = viewModel, ravelrySection = { RavelryRoute(ravelryViewModel) })
         }
         composable(ProjectDestination.CREATE_ROUTE) {
             val viewModel: ProjectFormViewModel = viewModel(

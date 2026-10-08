@@ -417,6 +417,11 @@ Use fakes at domain boundaries; do not mock simple value objects. Keep a small s
 - Use Android share mechanisms with narrow URI grants.
 - Explain what an export or optional synchronization will include before it runs.
 - Do not introduce analytics, crash upload, cloud AI, or remote services without an explicit product and privacy decision.
+- Ravelry pull (optional, person-started) is the app's only network use, so `INTERNET` is declared for it alone.
+  - It uses Ravelry's "Basic Auth: personal account access" key. The read-only key can't reach a person's own stash, and Ravelry's OAuth 2 needs a client secret that an app can't keep.
+  - The key is typed on the device and encrypted with an Android Keystore AES-GCM key (`KeystoreRavelryCredentialStore`). It is excluded from Android backup and device transfer, and never included in the JSON backup.
+  - `HttpRavelryApi` only sends GET requests, and never logs the key or responses.
+  - `RavelrySync` previews a plan (`RavelryImportPlanner`) before saving. Records keep stable ids (`ravelry-stash-<id>`, `ravelry-needle-<id>`), so pulls are idempotent. Updates are opt-in and only replace Ravelry's fields. Nothing local is deleted.
 - Assisted pattern import is a person-driven copy/share round trip. The app sends nothing; it only reads a pasted reply. That reply is untrusted input, validated by `StructuredGuideJsonDecoder` with explicit limits, and becomes an unpublished draft.
 - Treat Android Auto Backup and device transfer as explicit privacy decisions. They are not substitutes for user-controlled export, and private pattern content must not be included accidentally.
 
