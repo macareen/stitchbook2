@@ -109,9 +109,9 @@ internal fun ProjectHubHeader(
         Column(modifier = Modifier.weight(1f)) {
             Text(text = project.name, style = MaterialTheme.typography.headlineMedium)
             Text(
-                text = listOf(
+                text = listOfNotNull(
                     stringResource(project.craft.labelResource()),
-                    project.typeDisplayLabel(),
+                    project.typeLabelOrNull(),
                     stringResource(project.status.labelResource())
                 ).joinToString(" · "),
                 style = MaterialTheme.typography.bodyMedium,

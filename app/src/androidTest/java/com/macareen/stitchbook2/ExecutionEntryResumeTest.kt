@@ -76,7 +76,7 @@ class ExecutionEntryResumeTest {
                 // A 2-row Range (rather than a single bare Instruction) so
                 // Complete/Previous have somewhere real to move to and from,
                 // and their persisted position is independently verifiable
-                // via the "Row x of 1-2" structural context line.
+                // via the "Row x of 2" structural context line.
                 rootNodeIds = listOf(NodeId("range")),
                 nodes = listOf(
                     DraftNode(
@@ -161,19 +161,19 @@ class ExecutionEntryResumeTest {
         nodeWithText("Executable guide").performScrollTo().performClick()
         node(hasText("Start") and hasClickAction()).performClick()
 
-        nodeWithText("Row 1 of 1–2").awaitDisplayed()
+        nodeWithText("Row 1 of 2").awaitDisplayed()
 
         nodeWithText("Complete").performClick()
-        nodeWithText("Row 2 of 1–2").awaitDisplayed()
+        nodeWithText("Row 2 of 2").awaitDisplayed()
 
         nodeWithText("Previous").performClick()
-        nodeWithText("Row 1 of 1–2").awaitDisplayed()
+        nodeWithText("Row 1 of 2").awaitDisplayed()
 
         // Recreate the Activity to confirm the post-Complete-then-Previous
         // position (not just the freshly-Started one) is what Room actually
         // persisted, not something the ViewModel merely held in memory.
         composeTestRule.activityRule.scenario.recreate()
-        nodeWithText("Row 1 of 1–2").awaitDisplayed()
+        nodeWithText("Row 1 of 2").awaitDisplayed()
     }
 
     @Test

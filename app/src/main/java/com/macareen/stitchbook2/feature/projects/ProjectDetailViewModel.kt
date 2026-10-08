@@ -1,5 +1,6 @@
 package com.macareen.stitchbook2.feature.projects
 
+import com.macareen.stitchbook2.domain.model.ProjectPatternLink
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -309,7 +310,13 @@ class ProjectDetailViewModel(
 
     /** Uses a pattern's size guide in this project; the guide stays the pattern's. */
     fun usePatternGuide(guide: Guide) {
-        scope.launch { runCatchingWrite { guideRepository.useGuideInProject(projectId, guide.id) } }
+        scope.launch {
+            runCatchingWrite {
+                guideRepository.useGuideInProject(projectId, guide.id)
+                // The guide's pattern belongs to the project too, so it shows under Patterns.
+                guide.libraryItemId?.let { materialsRepository?.linkPattern(ProjectPatternLink(projectId, it)) }
+            }
+        }
     }
 
     /** Every tool in the toolbox, so the Tools sheet can link one that already exists. */

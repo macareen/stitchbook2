@@ -183,3 +183,17 @@ A project screen leads with the work, not with buttons:
 - **Home** is the app name with a single + action, a `primaryContainer` *Continue* card only when a guide is in progress, the active projects as plain `surfaceContainerLowest` rows (name, then "craft · updated date"), and two quiet text links (Counters, Statistics). No hero banner, stat tiles, or feature tour: Home answers "what was I doing?" and nothing else.
 - **Review lists show only non-zero counts.** A restore review row reads "3 new", not "3 new · 0 identical · 0 conflicting · 0 only on this device".
 - **Occasional actions live in an overflow menu.** Inventory screens (Stash, Tools) open on their content: `ScreenHeader` (`ui/components/ScreenHeader.kt`) puts the title beside one ⋮ menu holding bulk creation, sets, and CSV import, export, and template. Rows of text buttons above the content are avoided.
+
+## 17. App icon
+
+The launcher icon is an adaptive icon drawn as vectors (`res/drawable/ic_launcher_*.xml`): a berry yarn ball (primary `#9C3A56`, with rose strands) on two crossed wooden needles over the cream light surface (`#F6F0EA`). The whole drawing is scaled to 84% about the centre, so round, squircle and square masks never clip the needles or the loose end. A separate monochrome layer gives Android 13+ themed icons the same silhouette. The app name is plain "Stitchbook".
+
+## 18. Screen headers and voice
+
+- Every top-level tab opens on one short serif title: *Stitchbook* (Home), *Your projects*, *Library*, *Stash*, *Settings*. Stash shows its title once, above the Yarn & materials / Tools toggle; each tab underneath keeps only its one-line context and overflow menu (`ScreenHeader` with a null title).
+- Copy is plain and warm: "Add pattern", "Add to stash", "No tools yet", "Your records stay yours". Avoid inventory or compliance words ("references", "inventory", "guardrails", "data ownership").
+- Facts that say nothing stay hidden. A plain "Other" project type or pattern craft shows no label; the hub's centre names the craft instead.
+- The privacy note in Settings is a soft primary-container card, not an inverse (dark) slab.
+- Without a pattern folder, Library shows a soft card with the explanation and a tonal *Choose pattern folder* button. With one, it collapses to a single line with *Check folder*.
+- The Draft editor's step cards use `surfaceContainerLow`, and spans read "Rows 1–10". Imported steps note "(p.N)" only where the page changes, and Focus hides that note.
+

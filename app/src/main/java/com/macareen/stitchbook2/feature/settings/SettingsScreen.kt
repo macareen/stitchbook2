@@ -233,8 +233,8 @@ private fun GuardrailsCard() {
     Card(
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.inverseSurface,
-            contentColor = MaterialTheme.colorScheme.inverseOnSurface
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
         )
     ) {
         Column(modifier = Modifier.padding(StitchbookSpacing.large)) {
@@ -242,7 +242,7 @@ private fun GuardrailsCard() {
                 Icon(
                     imageVector = Icons.Outlined.Shield,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.inversePrimary
+                    tint = MaterialTheme.colorScheme.primary
                 )
                 Spacer(modifier = Modifier.width(StitchbookSpacing.small))
                 Text(

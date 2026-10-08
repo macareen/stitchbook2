@@ -1,5 +1,7 @@
 package com.macareen.stitchbook2.feature.library
 
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.FilledTonalButton
 import android.content.Intent
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -358,6 +360,31 @@ private fun LibraryCsvImportReportDialog(
  */
 @Composable
 private fun PatternFolderLine(state: PatternFolderUiState, onChoose: () -> Unit, onSync: () -> Unit) {
+    if (!state.hasFolder) {
+        Surface(
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small),
+                modifier = Modifier.padding(StitchbookSpacing.medium)
+            ) {
+                Text(text = stringResource(R.string.pattern_folder_hint), style = MaterialTheme.typography.bodyMedium)
+                FilledTonalButton(onClick = onChoose) { Text(stringResource(R.string.pattern_folder_choose)) }
+                state.problem?.let { problem ->
+                    Text(
+                        text = stringResource(
+                            if (problem == PatternFolderProblem.NOT_ALLOWED) R.string.pattern_folder_not_allowed else R.string.pattern_folder_unreadable
+                        ),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        }
+        return
+    }
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.weight(1f)) {
             if (state.hasFolder) {
@@ -570,11 +597,16 @@ private fun LibraryItemCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                LabelPill(
-                    text = stringResource(item.craft.labelResource()),
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                )
+                // "Other" is the default for patterns found in a folder, so it says nothing.
+                if (item.craft != Craft.OTHER) {
+                    LabelPill(
+                        text = stringResource(item.craft.labelResource()),
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                } else {
+                    Spacer(modifier = Modifier.width(1.dp))
+                }
                 IconButton(onClick = onToggleBookmark) {
                     Icon(
                         imageVector = if (item.bookmarked) {
