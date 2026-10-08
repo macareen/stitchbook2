@@ -270,6 +270,12 @@ private fun Project.toJson(): JSONObject = JSONObject().apply {
     put("notes", notes ?: JSONObject.NULL)
     put("createdAt", createdAt)
     put("updatedAt", updatedAt)
+    put("description", description ?: JSONObject.NULL)
+    put("constructionMethod", constructionMethod ?: JSONObject.NULL)
+    put("customTypeLabel", customTypeLabel ?: JSONObject.NULL)
+    put("startDate", startDate ?: JSONObject.NULL)
+    put("targetDate", targetDate ?: JSONObject.NULL)
+    put("completedDate", completedDate ?: JSONObject.NULL)
 }
 
 private fun JSONObject.toProject(): Project = Project(
@@ -283,7 +289,15 @@ private fun JSONObject.toProject(): Project = Project(
         ?: throw IllegalArgumentException("Unknown project status value"),
     notes = optNullableString("notes"),
     createdAt = getLong("createdAt"),
-    updatedAt = getLong("updatedAt")
+    updatedAt = getLong("updatedAt"),
+    // Absent in backups written before schema v15 -- optNullableString
+    // treats a missing key as null, so older backups still restore.
+    description = optNullableString("description"),
+    constructionMethod = optNullableString("constructionMethod"),
+    customTypeLabel = optNullableString("customTypeLabel"),
+    startDate = optNullableString("startDate"),
+    targetDate = optNullableString("targetDate"),
+    completedDate = optNullableString("completedDate")
 )
 
 private fun LibraryItem.toJson(): JSONObject = JSONObject().apply {

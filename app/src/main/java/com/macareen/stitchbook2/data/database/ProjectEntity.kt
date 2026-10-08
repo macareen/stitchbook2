@@ -17,7 +17,13 @@ data class ProjectEntity(
     val status: String,
     val notes: String?,
     @ColumnInfo(name = "created_at") val createdAt: Long,
-    @ColumnInfo(name = "updated_at") val updatedAt: Long
+    @ColumnInfo(name = "updated_at") val updatedAt: Long,
+    val description: String? = null,
+    @ColumnInfo(name = "construction_method") val constructionMethod: String? = null,
+    @ColumnInfo(name = "custom_type_label") val customTypeLabel: String? = null,
+    @ColumnInfo(name = "start_date") val startDate: String? = null,
+    @ColumnInfo(name = "target_date") val targetDate: String? = null,
+    @ColumnInfo(name = "completed_date") val completedDate: String? = null
 )
 
 fun ProjectEntity.toDomain(): Project {
@@ -32,7 +38,13 @@ fun ProjectEntity.toDomain(): Project {
             ?: throw UnknownProjectValueException("status", status),
         notes = notes,
         createdAt = createdAt,
-        updatedAt = updatedAt
+        updatedAt = updatedAt,
+        description = description,
+        constructionMethod = constructionMethod,
+        customTypeLabel = customTypeLabel,
+        startDate = startDate,
+        targetDate = targetDate,
+        completedDate = completedDate
     )
 }
 
@@ -45,7 +57,13 @@ fun Project.toEntity(): ProjectEntity {
         status = status.storageValue,
         notes = notes,
         createdAt = createdAt,
-        updatedAt = updatedAt
+        updatedAt = updatedAt,
+        description = description,
+        constructionMethod = constructionMethod,
+        customTypeLabel = customTypeLabel,
+        startDate = startDate,
+        targetDate = targetDate,
+        completedDate = completedDate
     )
 }
 

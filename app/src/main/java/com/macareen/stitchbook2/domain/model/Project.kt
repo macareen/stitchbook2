@@ -8,7 +8,17 @@ data class Project(
     val status: ProjectStatus,
     val notes: String?,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    /** A longer public-facing summary; [notes] stays the private working scratchpad. */
+    val description: String? = null,
+    /** Free text ("top-down raglan", "corner-to-corner", "in the round") -- craft-neutral by design. */
+    val constructionMethod: String? = null,
+    /** User's own type name, shown instead of [projectType]'s label when that is [ProjectType.OTHER]. */
+    val customTypeLabel: String? = null,
+    /** ISO-8601 local dates ("yyyy-MM-dd"): date-only concepts per ARCHITECTURE.md §9. */
+    val startDate: String? = null,
+    val targetDate: String? = null,
+    val completedDate: String? = null
 )
 
 enum class Craft(val storageValue: String) {

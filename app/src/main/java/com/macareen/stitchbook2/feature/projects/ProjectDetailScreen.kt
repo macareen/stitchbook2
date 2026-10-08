@@ -52,6 +52,7 @@ import com.macareen.stitchbook2.domain.model.Project
 import com.macareen.stitchbook2.domain.model.ProjectStatus
 import com.macareen.stitchbook2.domain.model.ProjectType
 import com.macareen.stitchbook2.domain.model.ToolItem
+import com.macareen.stitchbook2.ui.components.DetailLine
 import com.macareen.stitchbook2.ui.components.LabelPill
 import com.macareen.stitchbook2.ui.components.PrimaryActionButton
 import com.macareen.stitchbook2.ui.components.QuietText
@@ -646,7 +647,7 @@ private fun ProjectHeaderCard(project: Project) {
                 style = MaterialTheme.typography.headlineMedium
             )
             Text(
-                text = stringResource(project.projectType.labelResource()),
+                text = project.typeDisplayLabel(),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.textSecondary,
                 modifier = Modifier.padding(top = StitchbookSpacing.extraSmall)
@@ -664,6 +665,22 @@ private fun ProjectHeaderCard(project: Project) {
                     label = stringResource(R.string.project_updated_label),
                     value = formatTimestamp(project.updatedAt)
                 )
+            }
+
+            if (!project.description.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
+                Text(text = project.description, style = MaterialTheme.typography.bodyLarge)
+            }
+
+            val details = listOfNotNull(
+                project.constructionMethod?.let { stringResource(R.string.project_construction_label) to it },
+                project.startDate?.let { stringResource(R.string.project_start_date_label) to it },
+                project.targetDate?.let { stringResource(R.string.project_target_date_label) to it },
+                project.completedDate?.let { stringResource(R.string.project_completed_date_label) to it }
+            )
+            if (details.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+                details.forEach { (label, value) -> DetailLine(label = label, value = value) }
             }
 
             if (!project.notes.isNullOrBlank()) {

@@ -29,7 +29,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CounterEntity::class,
         CounterNoteEntity::class
     ],
-    version = 14,
+    version = 15,
     exportSchema = true
 )
 abstract class StitchbookDatabase : RoomDatabase() {
@@ -55,27 +55,37 @@ abstract class StitchbookDatabase : RoomDatabase() {
                     context.applicationContext,
                     StitchbookDatabase::class.java,
                     DATABASE_NAME
-                ).addMigrations(
-                    MIGRATION_1_2,
-                    MIGRATION_2_3,
-                    MIGRATION_3_4,
-                    MIGRATION_4_5,
-                    MIGRATION_5_6,
-                    MIGRATION_6_7,
-                    MIGRATION_7_8,
-                    MIGRATION_8_9,
-                    MIGRATION_9_10,
-                    MIGRATION_10_11,
-                    MIGRATION_11_12,
-                    MIGRATION_12_13,
-                    MIGRATION_13_14
-                )
+                ).addMigrations(*ALL_MIGRATIONS)
                     .build()
                     .also { instance = it }
             }
         }
     }
 }
+
+/**
+ * Every migration in order. A getter (not a stored property) so it never
+ * observes a not-yet-initialized migration declared further down the file.
+ * Append each new migration here and in StitchbookMigrationTest's
+ * CURRENT_SCHEMA_VERSION.
+ */
+val ALL_MIGRATIONS: Array<Migration>
+    get() = arrayOf(
+        MIGRATION_1_2,
+        MIGRATION_2_3,
+        MIGRATION_3_4,
+        MIGRATION_4_5,
+        MIGRATION_5_6,
+        MIGRATION_6_7,
+        MIGRATION_7_8,
+        MIGRATION_8_9,
+        MIGRATION_9_10,
+        MIGRATION_10_11,
+        MIGRATION_11_12,
+        MIGRATION_12_13,
+        MIGRATION_13_14,
+        MIGRATION_14_15
+    )
 
 val MIGRATION_1_2 = object : Migration(1, 2) {
     override fun migrate(db: SupportSQLiteDatabase) {
@@ -783,5 +793,22 @@ val MIGRATION_13_14 = object : Migration(13, 14) {
         db.execSQL("ALTER TABLE `stash_items` ADD COLUMN `purchase_source` TEXT")
         db.execSQL("ALTER TABLE `stash_items` ADD COLUMN `purchase_price` REAL")
         db.execSQL("ALTER TABLE `stash_items` ADD COLUMN `purchase_date` TEXT")
+    }
+}
+
+/**
+ * Phase 2's remaining project fields (ROADMAP.md: description, construction
+ * method, relevant dates, custom project-type labels). All plain nullable
+ * TEXT columns with no foreign keys, so `ALTER TABLE ADD COLUMN` suffices and
+ * every existing row keeps its values with the new fields null.
+ */
+val MIGRATION_14_15 = object : Migration(14, 15) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `projects` ADD COLUMN `description` TEXT")
+        db.execSQL("ALTER TABLE `projects` ADD COLUMN `construction_method` TEXT")
+        db.execSQL("ALTER TABLE `projects` ADD COLUMN `custom_type_label` TEXT")
+        db.execSQL("ALTER TABLE `projects` ADD COLUMN `start_date` TEXT")
+        db.execSQL("ALTER TABLE `projects` ADD COLUMN `target_date` TEXT")
+        db.execSQL("ALTER TABLE `projects` ADD COLUMN `completed_date` TEXT")
     }
 }
