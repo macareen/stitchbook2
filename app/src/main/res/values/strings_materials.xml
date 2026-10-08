@@ -2,10 +2,10 @@
     <string name="dismiss">Dismiss</string>
     <string name="materials_title">Materials</string>
     <string name="materials_yarn_section">Yarn &amp; supplies</string>
-    <string name="materials_allocate">Allocate</string>
-    <string name="materials_yarn_empty_title">Nothing allocated yet</string>
-    <string name="materials_yarn_empty_description">Reserve yarn or supplies from your stash so you know what’s spoken for.</string>
-    <string name="materials_yarn_empty_no_stash">Add items to your stash first, then reserve them here.</string>
+    <string name="materials_allocate">Set aside yarn</string>
+    <string name="materials_yarn_empty_title">No yarn for this project yet</string>
+    <string name="materials_yarn_empty_description">Set aside yarn from your stash so you know what’s spoken for.</string>
+    <string name="materials_yarn_empty_no_stash">Add yarn to your stash first, then set some aside for this project here.</string>
     <string name="materials_patterns_section">Patterns</string>
     <string name="materials_link_pattern">Link pattern</string>
     <string name="materials_patterns_empty_title">No linked patterns</string>

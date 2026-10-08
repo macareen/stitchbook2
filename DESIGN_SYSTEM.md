@@ -195,5 +195,7 @@ The launcher icon is an adaptive icon drawn as vectors (`res/drawable/ic_launche
 - Facts that say nothing stay hidden. A plain "Other" project type or pattern craft shows no label; the hub's centre names the craft instead.
 - The privacy note in Settings is a soft primary-container card, not an inverse (dark) slab.
 - Without a pattern folder, Library shows a soft card with the explanation and a tonal *Choose pattern folder* button. With one, it collapses to a single line with *Check folder*.
+- A Library card opens its pattern's own screen when tapped, so a pattern's guides are one tap away.
+- Project sheets speak plainly: *Set aside yarn*, "No yarn for this project yet", "No tools for this project yet".
 - The Draft editor's step cards use `surfaceContainerLow`, and spans read "Rows 1–10". Imported steps note "(p.N)" only where the page changes, and Focus hides that note.
 

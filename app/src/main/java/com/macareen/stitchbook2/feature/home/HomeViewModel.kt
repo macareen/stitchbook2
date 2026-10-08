@@ -1,5 +1,8 @@
 package com.macareen.stitchbook2.feature.home
 
+import com.macareen.stitchbook2.domain.execution.PersistedExecution
+import com.macareen.stitchbook2.domain.execution.GuideProgressSummary
+import com.macareen.stitchbook2.domain.execution.GuideDefinitionValidator
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -24,7 +27,9 @@ data class ResumeGuide(
     val guideName: String,
     val projectName: String,
     /** The project whose place to resume; one guide can be in progress in several projects. */
-    val projectId: String? = null
+    val projectId: String? = null,
+    /** How far through the guide, weighted by stitches as in Focus Mode; null if it can't be worked out. */
+    val percentDone: Int? = null
 )
 
 sealed interface HomeUiState {
@@ -65,6 +70,16 @@ class HomeViewModel(
             initialValue = HomeUiState.Loading
         )
 
+    private suspend fun percentDone(execution: PersistedExecution): Int? = try {
+        guideRepository.loadRevision(execution.state.definitionRevisionId)?.let { revision ->
+            GuideProgressSummary.of(GuideDefinitionValidator.validate(revision.definition), execution.state.completedAddresses).percent
+        }
+    } catch (error: CancellationException) {
+        throw error
+    } catch (_: Exception) {
+        null
+    }
+
     private suspend fun buildContent(projects: List<Project>): HomeUiState.Content {
         val activeProjects = projects.filter { it.status == ProjectStatus.ACTIVE }
 
@@ -92,7 +107,8 @@ class HomeViewModel(
                         guideId = guide.id.value,
                         projectId = project.id,
                         guideName = guide.name,
-                        projectName = project.name
+                        projectName = project.name,
+                        percentDone = percentDone(activeExecution)
                     )
                 }
             }
