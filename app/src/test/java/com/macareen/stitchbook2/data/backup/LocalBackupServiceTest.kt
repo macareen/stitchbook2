@@ -366,6 +366,34 @@ class LocalBackupServiceTest {
     }
 
     @Test
+    fun aProjectExportCarriesTheGuidesItKnitsFromAndOnlyItsOwnProgress() = runBlocking {
+        val elsewhere = GuideBackupFixtures.execution.copy(id = "execution-other", projectId = "project-2")
+        val store = FakeGuideBackupStore(
+            GuideBackupFixtures.graph.copy(executions = GuideBackupFixtures.graph.executions + elsewhere)
+        )
+
+        val exported = decodeBackup(requireNotNull(guideService(store).exportProjectJson("project-1")))
+
+        val guides = requireNotNull(exported.guideGraph())
+        assertEquals(setOf("guide-1", "guide-2"), guides.guides.map { it.id }.toSet())
+        assertEquals(listOf("execution-1"), guides.executions.map { it.id })
+        assertEquals(listOf(GuideBackupFixtures.link), guides.projectGuides)
+        assertEquals(listOf("library-1"), exported.libraryItems.orEmpty().map { it.id })
+    }
+
+    @Test
+    fun aProjectExportRestoresWithItsGuidesOnAnotherDevice() = runBlocking {
+        val json = requireNotNull(guideService(FakeGuideBackupStore(GuideBackupFixtures.graph)).exportProjectJson("project-1"))
+        val destination = FakeGuideBackupStore()
+
+        val result = guideService(destination, projects = emptyList(), library = emptyList()).importJson(json, RestoreMode.MERGE)
+
+        assertTrue(result.toString(), result is BackupImportResult.Success)
+        assertEquals(setOf("guide-1", "guide-2"), destination.graph.guides.map { it.id }.toSet())
+        assertEquals(listOf(GuideBackupFixtures.link), destination.graph.projectGuides)
+    }
+
+    @Test
     fun resetAllDataAlsoClearsGuidesThatBelongToNoProject() = runBlocking {
         val store = FakeGuideBackupStore(GuideBackupFixtures.graph)
 

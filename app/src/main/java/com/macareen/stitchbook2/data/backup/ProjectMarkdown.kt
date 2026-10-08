@@ -1,5 +1,6 @@
 package com.macareen.stitchbook2.data.backup
 
+import com.macareen.stitchbook2.domain.backup.GuideBackupGraph
 import com.macareen.stitchbook2.domain.backup.BackupSnapshot
 import com.macareen.stitchbook2.domain.model.Project
 import com.macareen.stitchbook2.domain.model.ProjectType
@@ -122,6 +123,8 @@ fun projectMarkdown(project: Project, snapshot: BackupSnapshot, now: Long): Stri
         line()
     }
 
+    snapshot.guideGraph()?.let { graph -> guidesSection(project.id, graph) }
+
     val photos = snapshot.photos.orEmpty().filter { it.projectId == project.id }.sortedBy { it.createdAt }
     if (photos.isNotEmpty()) {
         line("## Photos")
@@ -149,6 +152,58 @@ fun projectMarkdown(project: Project, snapshot: BackupSnapshot, now: Long): Stri
         }
     }
 }.trimEnd() + "\n"
+
+/**
+ * The guides this project knits from, written out as plain nested steps: the
+ * latest published revision, or the draft when nothing is published yet, plus
+ * how many steps this project has done.
+ */
+private fun StringBuilder.guidesSection(projectId: String, graph: GuideBackupGraph) {
+    val usedIds = graph.projectGuides.filter { it.projectId == projectId }.map { it.guideId }.toSet()
+    val guides = graph.guides.filter { it.projectId == projectId || it.id in usedIds }.sortedBy { it.name.lowercase() }
+    if (guides.isEmpty()) return
+    line("## Guides")
+    line()
+    guides.forEach { guide ->
+        val size = guide.sizeLabel?.takeIf { it.isNotBlank() }?.let { " (size ${it.trim()})" }.orEmpty()
+        line("### ${guide.name.trim()}$size")
+        line()
+        val revision = graph.revisions.filter { it.guideId == guide.id }.maxByOrNull { it.revisionNumber }
+        val nodes = revision?.nodes ?: graph.drafts.firstOrNull { it.guideId == guide.id }?.nodes.orEmpty()
+        if (revision == null) {
+            line("Draft, not yet published.")
+            line()
+        }
+        graph.executions
+            .filter { it.guideId == guide.id && it.projectId == projectId }
+            .maxByOrNull { it.updatedAt }
+            ?.let { progress ->
+                val state = if (progress.completedAt != null) "finished" else "in progress"
+                line("Progress: ${progress.completedOccurrences.size} steps done, $state.")
+                line()
+            }
+        val children = nodes.groupBy { it.parentNodeId }.mapValues { (_, list) -> list.sortedBy { it.childOrder } }
+        fun write(parentId: String?, depth: Int) {
+            children[parentId].orEmpty().forEach { node ->
+                val indent = "  ".repeat(depth)
+                val text = when (node.type) {
+                    "SECTION" -> "**${node.title.orEmpty().trim()}**"
+                    "RANGE" -> {
+                        val unit = node.rangeUnitLabel.orEmpty().replaceFirstChar { it.uppercase() }
+                        if (node.rangeStartInclusive == node.rangeEndInclusive) "$unit ${node.rangeStartInclusive}:"
+                        else "${unit}s ${node.rangeStartInclusive}–${node.rangeEndInclusive}:"
+                    }
+                    "REPEAT" -> listOfNotNull(node.repeatLabel?.takeIf { it.isNotBlank() }?.trim(), "repeat ${node.repeatCount}×").joinToString(", ") + ":"
+                    else -> node.instructionText.orEmpty().trim()
+                }
+                line("$indent- $text")
+                write(node.nodeId, depth + 1)
+            }
+        }
+        write(null, 0)
+        line()
+    }
+}
 
 private fun StringBuilder.line(text: String = "") {
     append(text).append('\n')
