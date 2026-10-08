@@ -9,51 +9,51 @@ import androidx.compose.ui.graphics.Color
 // behind these choices.
 
 // Light scheme
-internal val LightBackground = Color(0xFFFBF8F5)
-internal val LightOnBackground = Color(0xFF2A211D)
-internal val LightSurface = Color(0xFFFBF8F5)
-internal val LightOnSurface = Color(0xFF2A211D)
-internal val LightSurfaceVariant = Color(0xFFEDE0D5)
-internal val LightOnSurfaceVariant = Color(0xFF6D5D53)
-internal val LightSurfaceDim = Color(0xFFE0D2C5)
-internal val LightSurfaceBright = Color(0xFFFBF8F5)
+internal val LightBackground = Color(0xFFFBF5EF)
+internal val LightOnBackground = Color(0xFF4A3434)
+internal val LightSurface = Color(0xFFFBF5EF)
+internal val LightOnSurface = Color(0xFF4A3434)
+internal val LightSurfaceVariant = Color(0xFFF6E6E1)
+internal val LightOnSurfaceVariant = Color(0xFF8A6A6A)
+internal val LightSurfaceDim = Color(0xFFEFE2DC)
+internal val LightSurfaceBright = Color(0xFFFBF5EF)
 internal val LightSurfaceContainerLowest = Color(0xFFFFFFFF)
-internal val LightSurfaceContainerLow = Color(0xFFF6F0EA)
-internal val LightSurfaceContainer = Color(0xFFEEE1D3)
-internal val LightSurfaceContainerHigh = Color(0xFFE6D7C7)
-internal val LightSurfaceContainerHighest = Color(0xFFDFCEBC)
-internal val LightInverseSurface = Color(0xFF362B27)
-internal val LightInverseOnSurface = Color(0xFFF6F0EA)
+internal val LightSurfaceContainerLow = Color(0xFFFFFFFF)
+internal val LightSurfaceContainer = Color(0xFFFDF6F3)
+internal val LightSurfaceContainerHigh = Color(0xFFF8ECE8)
+internal val LightSurfaceContainerHighest = Color(0xFFF3E2DD)
+internal val LightInverseSurface = Color(0xFF4A3434)
+internal val LightInverseOnSurface = Color(0xFFFBF5EF)
 
-// Signature accent: an authored old-rose/dusty-raspberry, not a safe
-// default berry. This is Stitchbook's one deliberately expressive color.
-internal val LightPrimary = Color(0xFF9C3A56)
+// Signature accent: deep rose for filled controls (white text stays readable),
+// with the lighter rose living in containers and decorative accents.
+internal val LightPrimary = Color(0xFFB4485A)
 internal val LightOnPrimary = Color(0xFFFFFFFF)
-internal val LightPrimaryContainer = Color(0xFFF3D7DE)
-internal val LightOnPrimaryContainer = Color(0xFF3D0F1C)
-internal val LightInversePrimary = Color(0xFFF0B4C0)
+internal val LightPrimaryContainer = Color(0xFFFBE1E2)
+internal val LightOnPrimaryContainer = Color(0xFF8E3445)
+internal val LightInversePrimary = Color(0xFFE98A93)
 
 // Supporting accent (secondary emphasis, future categories/tags): muted
 // plum — restrained, not currently applied decoratively anywhere.
-internal val LightSecondary = Color(0xFF6B4B63)
+internal val LightSecondary = Color(0xFF3F6787)
 internal val LightOnSecondary = Color(0xFFFFFFFF)
-internal val LightSecondaryContainer = Color(0xFFEEDBE7)
-internal val LightOnSecondaryContainer = Color(0xFF2B1526)
+internal val LightSecondaryContainer = Color(0xFFE3EEF5)
+internal val LightOnSecondaryContainer = Color(0xFF27455E)
 
 // Supporting accent (future progress/category indicators): deep teal —
 // restrained, not currently applied decoratively anywhere.
-internal val LightTertiary = Color(0xFF2E6664)
+internal val LightTertiary = Color(0xFF5E6838)
 internal val LightOnTertiary = Color(0xFFFFFFFF)
-internal val LightTertiaryContainer = Color(0xFFD3E7E4)
-internal val LightOnTertiaryContainer = Color(0xFF08201F)
+internal val LightTertiaryContainer = Color(0xFFE6E9D6)
+internal val LightOnTertiaryContainer = Color(0xFF363D1C)
 
 internal val LightError = Color(0xFFA23B34)
 internal val LightOnError = Color(0xFFFFFFFF)
 internal val LightErrorContainer = Color(0xFFF9DAD4)
 internal val LightOnErrorContainer = Color(0xFF410E0A)
 
-internal val LightOutline = Color(0xFF8C796D)
-internal val LightOutlineVariant = Color(0xFFDACBBC)
+internal val LightOutline = Color(0xFFA2777B)
+internal val LightOutlineVariant = Color(0xFFF0DCD8)
 internal val LightScrim = Color(0xFF000000)
 
 // Dark scheme — background/surface and the pale-rose primary treatment are

@@ -1,30 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Themed-icon layer: the same ball and needles as one tintable shape, strands cut out. -->
+<!-- Themed-icon silhouette: the heart yarn ball and its needles in one tint. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Scaled about the centre so the round mask never clips the needles or the loose end. -->
-    <group android:pivotX="54" android:pivotY="54" android:scaleX="0.84" android:scaleY="0.84">
-    <path
-        android:pathData="M31,33 L77,79 M77,33 L31,79"
-        android:strokeColor="#000000"
-        android:strokeWidth="3.4"
-        android:strokeLineCap="round" />
-    <path
-        android:fillColor="#000000"
-        android:pathData="M26.5,33 a4.5,4.5 0 1,0 9,0 a4.5,4.5 0 1,0 -9,0z M72.5,33 a4.5,4.5 0 1,0 9,0 a4.5,4.5 0 1,0 -9,0z" />
-    <group>
-        <clip-path android:pathData="M35,55 a19,19 0 1,0 38,0 a19,19 0 1,0 -38,0z" />
-        <path
-            android:fillColor="#000000"
-            android:pathData="M30,30h50v50h-50z" />
-    </group>
-    <path
-        android:pathData="M68,68 C73,74 78,71 79,75 C80,78 77,79 75.5,77"
-        android:strokeColor="#000000"
-        android:strokeWidth="2.6"
-        android:strokeLineCap="round" />
+    <group
+        android:pivotX="60"
+        android:pivotY="60"
+        android:scaleX="0.6"
+        android:scaleY="0.6"
+        android:translateX="-6"
+        android:translateY="-6">
+        <path android:pathData="M22,104 L96,18" android:strokeColor="#FF000000" android:strokeWidth="5" android:strokeLineCap="round" />
+        <path android:pathData="M98,104 L24,18" android:strokeColor="#FF000000" android:strokeWidth="5" android:strokeLineCap="round" />
+        <path android:fillColor="#FF000000" android:pathData="M60,98 C30,78 18,62 18,46 C18,32 29,22 42,22 C51,22 57,27 60,33 C63,27 69,22 78,22 C91,22 102,32 102,46 C102,62 90,78 60,98Z" />
     </group>
 </vector>

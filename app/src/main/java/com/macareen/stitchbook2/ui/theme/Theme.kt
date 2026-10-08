@@ -87,15 +87,14 @@ private val LightColorScheme = lightColorScheme(
     surfaceTint = LightPrimary
 )
 
-// A calm, quietly rounded shape scale. Buttons keep Material3's own fully
-// rounded default independent of this; these radii mainly shape cards and
-// other container surfaces.
+// A soft, generously rounded shape scale so cards read as cozy pillows rather
+// than tiles. Buttons keep Material3's own fully rounded default.
 private val StitchbookShapes = Shapes(
-    extraSmall = RoundedCornerShape(4.dp),
-    small = RoundedCornerShape(8.dp),
-    medium = RoundedCornerShape(16.dp),
-    large = RoundedCornerShape(20.dp),
-    extraLarge = RoundedCornerShape(28.dp)
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(22.dp),
+    large = RoundedCornerShape(26.dp),
+    extraLarge = RoundedCornerShape(30.dp)
 )
 
 @Composable

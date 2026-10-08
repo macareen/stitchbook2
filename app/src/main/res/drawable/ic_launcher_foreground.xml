@@ -1,71 +1,50 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- A berry yarn ball on two crossed wooden needles, kept inside the adaptive icon's safe zone. -->
+<!-- A heart-shaped rose yarn ball on two crossed wooden needles, kept inside the adaptive icon's safe zone. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Scaled about the centre so the round mask never clips the needles or the loose end. -->
-    <group android:pivotX="54" android:pivotY="54" android:scaleX="0.84" android:scaleY="0.84">
+    <!-- Drawn on a 120-unit grid and scaled about its centre so a round mask never clips the needle tips. -->
+    <group
+        android:pivotX="60"
+        android:pivotY="60"
+        android:scaleX="0.6"
+        android:scaleY="0.6"
+        android:translateX="-6"
+        android:translateY="-6">
 
-    <!-- Needles, behind the ball -->
-    <path
-        android:pathData="M31,33 L77,79"
-        android:strokeColor="#B98559"
-        android:strokeWidth="3.4"
-        android:strokeLineCap="round" />
-    <path
-        android:pathData="M77,33 L31,79"
-        android:strokeColor="#B98559"
-        android:strokeWidth="3.4"
-        android:strokeLineCap="round" />
-    <path
-        android:fillColor="#8E623D"
-        android:pathData="M26.5,33 a4.5,4.5 0 1,0 9,0 a4.5,4.5 0 1,0 -9,0z" />
-    <path
-        android:fillColor="#8E623D"
-        android:pathData="M72.5,33 a4.5,4.5 0 1,0 9,0 a4.5,4.5 0 1,0 -9,0z" />
+        <!-- Needles, behind the ball -->
+        <path
+            android:pathData="M22,104 L96,18"
+            android:strokeColor="#C9A27E"
+            android:strokeWidth="5"
+            android:strokeLineCap="round" />
+        <path
+            android:pathData="M98,104 L24,18"
+            android:strokeColor="#C9A27E"
+            android:strokeWidth="5"
+            android:strokeLineCap="round" />
+        <path
+            android:fillColor="#B4485A"
+            android:pathData="M91,18 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0z" />
+        <path
+            android:fillColor="#B4485A"
+            android:pathData="M19,18 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0z" />
 
-    <!-- Ball -->
-    <path
-        android:fillColor="#9C3A56"
-        android:pathData="M35,55 a19,19 0 1,0 38,0 a19,19 0 1,0 -38,0z" />
+        <!-- Heart ball -->
+        <path
+            android:fillColor="#EE8F94"
+            android:pathData="M60,98 C30,78 18,62 18,46 C18,32 29,22 42,22 C51,22 57,27 60,33 C63,27 69,22 78,22 C91,22 102,32 102,46 C102,62 90,78 60,98Z" />
 
-    <!-- Wrapped strands, clipped to the ball -->
-    <group>
-        <clip-path android:pathData="M35,55 a19,19 0 1,0 38,0 a19,19 0 1,0 -38,0z" />
-        <path
-            android:pathData="M32,46 Q54,58 76,45"
-            android:strokeColor="#F3D7DE"
-            android:strokeWidth="2.2"
-            android:strokeLineCap="round" />
-        <path
-            android:pathData="M32,55 Q54,67 76,54"
-            android:strokeColor="#F3D7DE"
-            android:strokeWidth="2.2"
-            android:strokeLineCap="round" />
-        <path
-            android:pathData="M34,64 Q54,76 76,63"
-            android:strokeColor="#F3D7DE"
-            android:strokeWidth="2.2"
-            android:strokeLineCap="round" />
-        <path
-            android:pathData="M47,34 Q66,55 52,77"
-            android:strokeColor="#D98BA0"
-            android:strokeWidth="2.2"
-            android:strokeLineCap="round" />
-        <path
-            android:pathData="M58,34 Q77,55 63,77"
-            android:strokeColor="#D98BA0"
-            android:strokeWidth="2.2"
-            android:strokeLineCap="round" />
-    </group>
-
-    <!-- Loose end -->
-    <path
-        android:pathData="M68,68 C73,74 78,71 79,75 C80,78 77,79 75.5,77"
-        android:strokeColor="#9C3A56"
-        android:strokeWidth="2.6"
-        android:strokeLineCap="round" />
+        <!-- Wrapped strands, clipped to the heart -->
+        <group>
+            <clip-path android:pathData="M60,98 C30,78 18,62 18,46 C18,32 29,22 42,22 C51,22 57,27 60,33 C63,27 69,22 78,22 C91,22 102,32 102,46 C102,62 90,78 60,98Z" />
+            <path android:pathData="M18,40 Q60,60 104,36" android:strokeColor="#C9606A" android:strokeWidth="2.6" android:strokeLineCap="round" />
+            <path android:pathData="M16,54 Q60,74 106,50" android:strokeColor="#C9606A" android:strokeWidth="2.6" android:strokeLineCap="round" />
+            <path android:pathData="M22,68 Q60,88 100,64" android:strokeColor="#C9606A" android:strokeWidth="2.6" android:strokeLineCap="round" />
+            <path android:pathData="M46,18 Q68,56 50,102" android:strokeColor="#C9606A" android:strokeWidth="2.6" android:strokeLineCap="round" />
+            <path android:pathData="M68,18 Q88,56 70,102" android:strokeColor="#C9606A" android:strokeWidth="2.6" android:strokeLineCap="round" />
+        </group>
     </group>
 </vector>
