@@ -118,6 +118,12 @@ The first increment of the deterministic PDF parser (ROADMAP.md's "Parser founda
 
 Versions 15–18 add, in order: project description, construction method, custom type label, and start/target/completed local dates (v15); yarn allocations, measured stash weights, extra pattern metadata (gauge, sizes, yardage required, recommended tools, Ravelry pattern ID), and project–pattern links (v16); photo references, journal entries, and milestones (v17); crafting sessions (v18). Every step is an explicit, non-destructive migration in `data/database/StitchbookDatabase.kt`, collected in `ALL_MIGRATIONS`; schemas 1–18 are exported under `app/schemas`. `StitchbookMigrationTest` builds a real version-14 database from `14.json` with Room's `MigrationTestHelper` and validates 14 → 18 against `18.json`.
 
+### Current project hub
+
+Project detail is the hub every other record connects to. `ProjectDetailViewModel` exposes, beside its main `uiState`, a `connections` flow (counts of guides, linked patterns, distinct allocated yarns, assigned tools, project counters, journal items, and worked time), the project's live counters, and the whole toolbox. The repositories behind them are optional constructor parameters, so a screen or test that doesn't need the hub doesn't supply them. Node placement (`hubNodePositions`), the next-step rule (`nextStepFor`), and each craft's suggested tool categories (`Craft.suggestedToolCategories`) are pure functions in `domain/model/ProjectConnections.kt`.
+
+Records added from the hub are ordinary shared records: a tool created there is saved to the toolbox and assigned to the project in one step, linking an existing tool keeps its other projects, and a counter created there is a project-owned counter that also appears on the Counters screen. There is no separate per-project copy of anything.
+
 ### Current crafting sessions and statistics
 
 A `CraftingSession` stores only wall-clock timestamps (`startedAt`, `endedAt`, `pausedAt`, accumulated `pausedTotalMillis`) and the device time zone at start (`zoneId`). Nothing ticks in the background, so a running or paused session survives process death and needs no service or WorkManager job.

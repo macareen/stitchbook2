@@ -33,6 +33,7 @@ See [PRODUCT_SPEC.md](PRODUCT_SPEC.md) for structured requirements and [ROADMAP.
 - A warm, editorial Material 3 light/dark theme (ivory/rose/serif-headline palette) ported from the approved webapp design reference -- see [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)
 - Navigation Compose with Home, Projects, Library, Stash, Tools, Counters, and Settings destinations, each with real content (not placeholders) and a header-less mobile shell matching the design reference
 - Home dashboard aggregating real project/execution state: a resume-in-progress hero, project/craft-type stats, quick navigation, and an active-projects list
+- A project hub: each project opens on a small map with the project at the centre and its guides, patterns, yarn, tools, counters, journal, and time around it, plus one "next step" button. Tools and counters added there also land in the shared toolbox and counters
 - Full project CRUD (create, list, view, edit, delete with confirmation) across a fixed craft/project-type/status taxonomy, plus a description, construction method, a custom type label for "Other", and start/target/completed dates
 - A manual guide-authoring Draft editor supporting Section, Row range, Repeat, and Instruction nodes, with add/edit/delete/reorder, structural validation, and optimistic-concurrency conflict recovery
 - Publish: a Draft becomes an immutable, versioned Definition Revision through a real Publish action; the Draft remains editable afterward and a later edit publishes as a new Revision

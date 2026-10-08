@@ -17,6 +17,7 @@ import com.macareen.stitchbook2.domain.guide.DefinitionRevision
 import com.macareen.stitchbook2.domain.guide.Guide
 import com.macareen.stitchbook2.domain.guide.GuideDraft
 import com.macareen.stitchbook2.domain.model.Craft
+import com.macareen.stitchbook2.domain.model.Counter
 import com.macareen.stitchbook2.domain.model.Project
 import com.macareen.stitchbook2.domain.model.ProjectStatus
 import com.macareen.stitchbook2.domain.model.ProjectType
@@ -27,6 +28,7 @@ import com.macareen.stitchbook2.domain.model.ToolTemplate
 import com.macareen.stitchbook2.domain.parsing.ExtractedDocument
 import com.macareen.stitchbook2.domain.parsing.PdfTextExtractor
 import com.macareen.stitchbook2.domain.repository.ExecutionRepository
+import com.macareen.stitchbook2.domain.repository.CounterRepository
 import com.macareen.stitchbook2.domain.repository.GuideRepository
 import com.macareen.stitchbook2.domain.repository.ProjectRepository
 import com.macareen.stitchbook2.domain.repository.ToolRepository
@@ -38,6 +40,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -268,6 +271,69 @@ class ProjectDetailViewModelTest {
         assertEquals("project.json", projectExportFileName("???", ProjectExportFormat.JSON))
     }
 
+    @Test
+    fun addingANewToolFromTheProjectPutsItInTheToolboxAndLinksIt() {
+        val tools = FakeToolRepository(emptyList())
+        val viewModel = viewModel(FakeGuideRepository(guides = emptyList()), FakeExecutionRepository(), tools = tools)
+
+        viewModel.addNewTool("  5 mm hook ", ToolCategory.CROCHET_HOOK)
+
+        val created = tools.toolbox.value.single()
+        assertEquals("5 mm hook", created.name)
+        assertEquals(ToolCategory.CROCHET_HOOK, created.category)
+        assertEquals(setOf(project.id), tools.projectIdsByTool[created.id])
+        assertEquals(listOf(created), contentState(viewModel).assignedTools)
+    }
+
+    @Test
+    fun linkingAToolboxToolKeepsItsOtherProjects() {
+        val shared = toolItem("hook-1")
+        val tools = FakeToolRepository(emptyList(), otherTools = listOf(shared))
+        tools.projectIdsByTool[shared.id] = setOf("another-project")
+        val viewModel = viewModel(FakeGuideRepository(guides = emptyList()), FakeExecutionRepository(), tools = tools)
+
+        viewModel.assignTool(shared)
+
+        assertEquals(setOf("another-project", project.id), tools.projectIdsByTool[shared.id])
+    }
+
+    @Test
+    fun hubCountersAreProjectOwnedAndNeverGoBelowZero() {
+        val counters = FakeHubCounterRepository()
+        val viewModel = viewModel(FakeGuideRepository(guides = emptyList()), FakeExecutionRepository(), counters = counters)
+        scope.launch { viewModel.projectCounters.collect {} }
+
+        viewModel.addCounter("Squares", "", goal = 48)
+        val created = counters.counters.value.single()
+        assertEquals(project.id, created.projectId)
+        assertEquals("rows", created.unitLabel)
+        assertEquals(48, created.goal)
+
+        viewModel.decrementCounter(created)
+        assertEquals(0, counters.counters.value.single().currentValue)
+        viewModel.incrementCounter(created)
+        assertEquals(1, counters.counters.value.single().currentValue)
+    }
+
+    @Test
+    fun connectionsCountWhatIsLinkedToTheProject() {
+        val tools = FakeToolRepository(listOf(toolItem("hook-1"), toolItem("hook-2")))
+        val counters = FakeHubCounterRepository()
+        val viewModel = viewModel(
+            FakeGuideRepository(guides = listOf(guide("guide-1"))),
+            FakeExecutionRepository(),
+            tools = tools,
+            counters = counters
+        )
+        scope.launch { viewModel.connections.collect {} }
+        viewModel.addCounter("Rounds", "rounds", goal = null)
+
+        val connections = viewModel.connections.value
+        assertEquals(1, connections.guides)
+        assertEquals(2, connections.tools)
+        assertEquals(1, connections.counters)
+    }
+
     private fun contentState(viewModel: ProjectDetailViewModel): ProjectDetailUiState.Content {
         return viewModel.uiState.value as ProjectDetailUiState.Content
     }
@@ -283,11 +349,14 @@ class ProjectDetailViewModelTest {
 
     private fun revisionId(value: String) = DefinitionRevisionId(value)
 
+    private var idCounter = 0
+
     private fun viewModel(
         guides: FakeGuideRepository,
         executions: FakeExecutionRepository,
         tools: FakeToolRepository = FakeToolRepository(emptyList()),
-        backupService: BackupService? = null
+        backupService: BackupService? = null,
+        counters: CounterRepository? = null
     ): ProjectDetailViewModel {
         val viewModel = ProjectDetailViewModel(
             projectId = project.id,
@@ -301,6 +370,8 @@ class ProjectDetailViewModelTest {
                 newNodeId = { "unused" }
             ),
             backupService = backupService,
+            counterRepository = counters,
+            newId = { "id-${++idCounter}" },
             externalScope = scope
         )
         // uiState is built with SharingStarted.WhileSubscribed, so it only
@@ -327,6 +398,26 @@ private class FakeProjectBackupService(
     override suspend fun resetAllData() = error("not used")
 }
 
+private const val PROJECT_ID = "project"
+
+private class FakeHubCounterRepository : CounterRepository {
+    val counters = MutableStateFlow<List<Counter>>(emptyList())
+
+    override fun observeCounters(): Flow<List<Counter>> = counters
+    override fun observeCountersByProject(projectId: String): Flow<List<Counter>> =
+        counters.map { list -> list.filter { it.projectId == projectId } }
+    override fun observeCounter(id: String): Flow<Counter?> = counters.map { list -> list.firstOrNull { it.id == id } }
+    override suspend fun saveCounter(counter: Counter) {
+        counters.value = counters.value.filterNot { it.id == counter.id } + counter
+    }
+    override suspend fun incrementCounterValue(id: String, amount: Int, updatedAt: Long) {
+        counters.value = counters.value.map { if (it.id == id) it.copy(currentValue = it.currentValue + amount) else it }
+    }
+    override suspend fun deleteCounter(counter: Counter) {
+        counters.value = counters.value.filterNot { it.id == counter.id }
+    }
+}
+
 /** This test suite never exercises PDF import; every call would be a test bug. */
 private object NeverCalledPdfTextExtractor : PdfTextExtractor {
     override suspend fun extract(input: InputStream): ExtractedDocument =
@@ -340,17 +431,22 @@ private class FakeProjectRepository(private val project: Project) : ProjectRepos
     override suspend fun deleteProject(project: Project) = Unit
 }
 
-private class FakeToolRepository(initialAssignedTools: List<ToolItem>) : ToolRepository {
+private class FakeToolRepository(
+    initialAssignedTools: List<ToolItem>,
+    otherTools: List<ToolItem> = emptyList()
+) : ToolRepository {
     val assignedTools = MutableStateFlow(initialAssignedTools)
+    val toolbox = MutableStateFlow(initialAssignedTools + otherTools)
+    val projectIdsByTool = mutableMapOf<String, Set<String>>()
 
-    override fun observeToolItems(): Flow<List<ToolItem>> =
-        throw UnsupportedOperationException("Not used by ProjectDetailViewModel")
+    override fun observeToolItems(): Flow<List<ToolItem>> = toolbox
     override fun observeToolItem(id: String): Flow<ToolItem?> =
         throw UnsupportedOperationException("Not used by ProjectDetailViewModel")
     override fun observeToolItemsBySet(setId: String): Flow<List<ToolItem>> =
         throw UnsupportedOperationException("Not used by ProjectDetailViewModel")
-    override suspend fun saveToolItem(item: ToolItem) =
-        throw UnsupportedOperationException("Not used by ProjectDetailViewModel")
+    override suspend fun saveToolItem(item: ToolItem) {
+        toolbox.value = toolbox.value.filterNot { it.id == item.id } + item
+    }
     override suspend fun deleteToolItem(item: ToolItem) =
         throw UnsupportedOperationException("Not used by ProjectDetailViewModel")
     override fun observeToolSets(): Flow<List<ToolSet>> =
@@ -371,10 +467,15 @@ private class FakeToolRepository(initialAssignedTools: List<ToolItem>) : ToolRep
     override fun observeToolItemsForProject(projectId: String): Flow<List<ToolItem>> = assignedTools
 
     override fun observeProjectIdsForToolItem(toolItemId: String): Flow<List<String>> =
-        throw UnsupportedOperationException("Not used by ProjectDetailViewModel")
+        flowOf(projectIdsByTool[toolItemId].orEmpty().toList())
 
-    override suspend fun setProjectAssignments(toolItemId: String, projectIds: Set<String>) =
-        throw UnsupportedOperationException("Not used by ProjectDetailViewModel")
+    override suspend fun setProjectAssignments(toolItemId: String, projectIds: Set<String>) {
+        projectIdsByTool[toolItemId] = projectIds
+        val tool = toolbox.value.first { it.id == toolItemId }
+        if (PROJECT_ID in projectIds && assignedTools.value.none { it.id == toolItemId }) {
+            assignedTools.value = assignedTools.value + tool
+        }
+    }
 
     override suspend fun unassignToolFromProject(toolItemId: String, projectId: String) {
         assignedTools.value = assignedTools.value.filterNot { it.id == toolItemId }

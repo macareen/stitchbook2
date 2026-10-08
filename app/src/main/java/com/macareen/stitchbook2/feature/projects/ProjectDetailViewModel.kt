@@ -7,15 +7,24 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.macareen.stitchbook2.domain.backup.BackupService
 import com.macareen.stitchbook2.domain.guide.Guide
+import com.macareen.stitchbook2.domain.model.Counter
 import com.macareen.stitchbook2.domain.model.Project
+import com.macareen.stitchbook2.domain.model.ProjectConnections
+import com.macareen.stitchbook2.domain.model.ToolCategory
 import com.macareen.stitchbook2.domain.model.ToolItem
 import com.macareen.stitchbook2.domain.parsing.PdfTextExtractionException
+import com.macareen.stitchbook2.domain.repository.CounterRepository
 import com.macareen.stitchbook2.domain.repository.ExecutionRepository
 import com.macareen.stitchbook2.domain.repository.GuideRepository
+import com.macareen.stitchbook2.domain.repository.JournalRepository
+import com.macareen.stitchbook2.domain.repository.MaterialsRepository
 import com.macareen.stitchbook2.domain.repository.ProjectRepository
+import com.macareen.stitchbook2.domain.repository.SessionRepository
 import com.macareen.stitchbook2.domain.repository.ToolRepository
 import com.macareen.stitchbook2.domain.usecase.CreateGuideFromPdfUseCase
+import com.macareen.stitchbook2.domain.usecase.IncrementCounterUseCase
 import java.io.ByteArrayInputStream
+import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
@@ -25,6 +34,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -93,6 +104,12 @@ class ProjectDetailViewModel(
     private val toolRepository: ToolRepository,
     private val createGuideFromPdfUseCase: CreateGuideFromPdfUseCase,
     private val backupService: BackupService? = null,
+    private val counterRepository: CounterRepository? = null,
+    private val materialsRepository: MaterialsRepository? = null,
+    private val journalRepository: JournalRepository? = null,
+    private val sessionRepository: SessionRepository? = null,
+    private val clock: () -> Long = System::currentTimeMillis,
+    private val newId: () -> String = { UUID.randomUUID().toString() },
     externalScope: CoroutineScope? = null
 ) : ViewModel() {
 
@@ -273,6 +290,145 @@ class ProjectDetailViewModel(
      * Execution happens on another screen and changes no guide row, so the
      * screen calls this whenever it returns to the foreground.
      */
+    /** This project's counters, live, for the hub's Counters sheet. */
+    val projectCounters: StateFlow<List<Counter>> =
+        (counterRepository?.observeCountersByProject(projectId) ?: flowOf(emptyList()))
+            .catch { emit(emptyList()) }
+            .stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Every tool in the toolbox, so the Tools sheet can link one that already exists. */
+    val toolbox: StateFlow<List<ToolItem>> = toolRepository.observeToolItems()
+        .catch { emit(emptyList()) }
+        .stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Counts for each node around the project on the hub map. */
+    val connections: StateFlow<ProjectConnections> = combine(
+        combine(
+            guideRepository.observeGuides(projectId).catch { emit(emptyList()) },
+            toolRepository.observeToolItemsForProject(projectId).catch { emit(emptyList()) },
+            projectCounters,
+            materialsRepository?.observeAllocationsForProject(projectId)?.catch { emit(emptyList()) } ?: flowOf(emptyList()),
+            materialsRepository?.observePatternsForProject(projectId)?.catch { emit(emptyList()) } ?: flowOf(emptyList())
+        ) { guides, tools, counters, allocations, patterns ->
+            ProjectConnections(
+                guides = guides.size,
+                patterns = patterns.size,
+                yarns = allocations.map { it.stashItemId }.distinct().size,
+                tools = tools.size,
+                counters = counters.size
+            )
+        },
+        journalRepository?.let { journal ->
+            combine(
+                journal.observeEntriesForProject(projectId),
+                journal.observeMilestonesForProject(projectId),
+                journal.observePhotosForProject(projectId)
+            ) { entries, milestones, photos -> entries.size + milestones.size + photos.size }
+                .catch { emit(0) }
+        } ?: flowOf(0),
+        sessionRepository?.observeSessionsForProject(projectId)?.catch { emit(emptyList()) } ?: flowOf(emptyList())
+    ) { base, journalCount, sessions ->
+        val now = clock()
+        base.copy(journal = journalCount, workedMillis = sessions.sumOf { it.workedMillis(now) })
+    }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), ProjectConnections())
+
+    fun incrementCounter(counter: Counter) {
+        val repository = counterRepository ?: return
+        scope.launch { runCatchingWrite { IncrementCounterUseCase(repository)(counter) } }
+    }
+
+    fun decrementCounter(counter: Counter) {
+        val repository = counterRepository ?: return
+        if (counter.currentValue <= 0) return
+        scope.launch {
+            runCatchingWrite {
+                repository.saveCounter(counter.copy(currentValue = counter.currentValue - 1, updatedAt = clock()))
+            }
+        }
+    }
+
+    /** Creates a counter owned by this project; it also appears on the Counters screen. */
+    fun addCounter(name: String, unitLabel: String, goal: Int?) {
+        val repository = counterRepository ?: return
+        if (name.isBlank()) return
+        val now = clock()
+        val counter = Counter(
+            id = newId(),
+            projectId = projectId,
+            name = name.trim(),
+            unitLabel = unitLabel.trim().ifEmpty { "rows" },
+            currentValue = 0,
+            goal = goal?.takeIf { it > 0 },
+            createdAt = now,
+            updatedAt = now,
+            linkedCounterId = null,
+            linkIncrementInterval = null,
+            linkIncrementAmount = null,
+            autoResetOnGoal = false
+        )
+        scope.launch { runCatchingWrite { repository.saveCounter(counter) } }
+    }
+
+    /** Links a toolbox tool to this project, keeping its other projects. */
+    fun assignTool(toolItem: ToolItem) {
+        scope.launch {
+            runCatchingWrite {
+                val current = toolRepository.observeProjectIdsForToolItem(toolItem.id).first().toSet()
+                toolRepository.setProjectAssignments(toolItem.id, current + projectId)
+            }
+        }
+    }
+
+    /**
+     * Adds a brand-new tool to the toolbox and links it to this project in
+     * one step, so the project and the toolbox never disagree about it.
+     */
+    fun addNewTool(name: String, category: ToolCategory) {
+        if (name.isBlank()) return
+        val now = clock()
+        val tool = ToolItem(
+            id = newId(),
+            name = name.trim(),
+            category = category,
+            brand = null,
+            material = null,
+            sizeMetricMm = null,
+            sizeLabel = null,
+            lengthMm = null,
+            statedCableLengthMm = null,
+            cableLengthDefinition = null,
+            approximateAssembledLengthMm = null,
+            connectorFamily = null,
+            compatibilityNotes = null,
+            quantity = 1,
+            storageLocation = null,
+            notes = null,
+            setId = null,
+            createdAt = now,
+            updatedAt = now
+        )
+        scope.launch {
+            runCatchingWrite {
+                toolRepository.saveToolItem(tool)
+                toolRepository.setProjectAssignments(tool.id, setOf(projectId))
+            }
+        }
+    }
+
+    /**
+     * Hub edits are small and their result shows straight away in the live
+     * lists, so a failed write is simply not reflected; cancellation still
+     * propagates.
+     */
+    private suspend fun runCatchingWrite(block: suspend () -> Unit) {
+        try {
+            block()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+        }
+    }
+
     fun refreshGuideEntries() {
         entryRefresh.update { it + 1 }
     }
@@ -334,7 +490,11 @@ class ProjectDetailViewModel(
             executionRepository: ExecutionRepository,
             toolRepository: ToolRepository,
             createGuideFromPdfUseCase: CreateGuideFromPdfUseCase,
-            backupService: BackupService
+            backupService: BackupService,
+            counterRepository: CounterRepository,
+            materialsRepository: MaterialsRepository,
+            journalRepository: JournalRepository,
+            sessionRepository: SessionRepository
         ): ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 ProjectDetailViewModel(
@@ -344,7 +504,11 @@ class ProjectDetailViewModel(
                     executionRepository,
                     toolRepository,
                     createGuideFromPdfUseCase,
-                    backupService
+                    backupService,
+                    counterRepository,
+                    materialsRepository,
+                    journalRepository,
+                    sessionRepository
                 )
             }
         }

@@ -4,6 +4,7 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -121,6 +122,7 @@ class ExecutionEntryResumeTest {
     @Test
     fun startingAGuideNavigatesToFocusModeAndResumesAfterRecreation() {
         openProject()
+        openGuides()
 
         nodeWithText("Executable guide").performScrollTo().assertIsDisplayed()
         node(hasText("Start") and hasClickAction()).performScrollTo().assertIsDisplayed()
@@ -144,6 +146,7 @@ class ExecutionEntryResumeTest {
         composeTestRule.activityRule.scenario.onActivity {
             it.onBackPressedDispatcher.onBackPressed()
         }
+        openGuides()
         nodeWithText("Executable guide").performScrollTo().assertIsDisplayed()
         node(hasText("Continue") and hasClickAction()).performScrollTo().assertIsDisplayed()
 
@@ -154,6 +157,7 @@ class ExecutionEntryResumeTest {
     @Test
     fun completingAndRewindingPersistThroughRealNavigationAndSurviveRecreation() {
         openProject()
+        openGuides()
         nodeWithText("Executable guide").performScrollTo().performClick()
         node(hasText("Start") and hasClickAction()).performClick()
 
@@ -179,6 +183,7 @@ class ExecutionEntryResumeTest {
         // "Edit draft") -> reopen -> the authored step is what Room
         // actually persisted, not something the editor merely held.
         openProject()
+        openGuides()
 
         node(hasText("Add Guide") and hasClickAction()).performScrollTo().performClick()
         nodeWithText("Guide name").performTextInput("Sleeve")
@@ -194,6 +199,7 @@ class ExecutionEntryResumeTest {
         nodeWithText("Cast on 10 stitches").awaitDisplayed()
 
         node(hasText("Done") and hasClickAction()).performClick()
+        openGuides()
 
         nodeWithText("Sleeve").performScrollTo().assertIsDisplayed()
         // Both draft-only guides (the seeded one and "Sleeve") offer Edit draft.
@@ -206,6 +212,7 @@ class ExecutionEntryResumeTest {
     @Test
     fun publishingAGuideThroughRealNavigationReachesFocusMode() {
         openProject()
+        openGuides()
 
         node(hasText("Add Guide") and hasClickAction()).performScrollTo().performClick()
         nodeWithText("Guide name").performTextInput("Hat")
@@ -236,6 +243,7 @@ class ExecutionEntryResumeTest {
         // point is the Draft editor instead of Focus Mode, which would have
         // nothing to execute yet.
         openProject()
+        openGuides()
 
         nodeWithText("Draft only guide").performScrollTo().assertIsDisplayed()
         node(hasText("Edit draft") and hasClickAction()).performScrollTo().assertIsDisplayed()
@@ -252,6 +260,11 @@ class ExecutionEntryResumeTest {
     private fun openProject() {
         composeTestRule.navigationItem("Projects").performClick()
         nodeWithText(projectName).performClick()
+    }
+
+    /** Guides live in a sheet behind the project's Guides node. */
+    private fun openGuides() {
+        node(hasContentDescription("Guides", substring = true) and hasClickAction()).performClick()
     }
 
     /**

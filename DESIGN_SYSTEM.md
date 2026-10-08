@@ -167,3 +167,12 @@ The Statistics screen's eight-week trend (`WeeklyBars` in `feature/statistics/St
 - Only the first and last week are labelled on the axis; a quiet line above names the peak week and its total.
 - The whole chart is one TalkBack stop whose description reads every week and its minutes, so the data never depends on seeing the bars.
 - Every figure beside the chart is labelled recorded, derived, or estimated (ARCHITECTURE.md "Current crafting sessions and statistics").
+
+## 15. Project hub
+
+A project screen leads with the work, not with buttons:
+
+- **Header:** the project name, then one quiet line of craft · type · status, then the description. Edit, share card, exports, and delete sit behind one ⋮ menu; delete is the only item in the error colour, below a divider.
+- **Next step:** one full-width button for the single obvious action: *Continue* an in-progress guide (primary), *Start* a published one (primary), or *Finish writing* a draft / *Add a guide* (secondary).
+- **Node map** (`ui/components/ProjectNodeMap.kt`): the project type in a `primaryContainer` pill at the centre, and seven nodes (Guides, Patterns, Yarn, Tools, Counters, Journal, Time) evenly spaced on a ring from the top, joined to the centre by 1dp `outlineVariant` hairlines. Each node is a `surfaceContainerLowest` tile with a hairline border, an icon, a label, and its count. A node with nothing linked keeps its place but drops to secondary text with no count, so the map always shows what *could* connect. The hairlines are decorative; each node is one TalkBack stop ("Yarn, 2" or "Yarn, nothing linked yet").
+- **Sheets:** Guides, Tools, and Counters open in a bottom sheet; Patterns and Yarn open Materials, Journal opens Journal, and Time opens Sessions. Anything added from a sheet is added to the shared toolbox or counters too, so the project and the global lists never disagree.
