@@ -53,13 +53,17 @@ import com.macareen.stitchbook2.R
 import com.macareen.stitchbook2.domain.execution.GuideId
 import com.macareen.stitchbook2.domain.guide.Guide
 import com.macareen.stitchbook2.domain.model.Craft
+import com.macareen.stitchbook2.domain.model.GuideStatus
 import com.macareen.stitchbook2.domain.model.Project
+import com.macareen.stitchbook2.domain.model.ProjectNode
 import com.macareen.stitchbook2.domain.model.ProjectStatus
 import com.macareen.stitchbook2.domain.model.ProjectType
 import com.macareen.stitchbook2.domain.model.ToolItem
+import com.macareen.stitchbook2.domain.model.nextStepFor
 import com.macareen.stitchbook2.ui.components.DetailLine
 import com.macareen.stitchbook2.ui.components.LabelPill
 import com.macareen.stitchbook2.ui.components.PrimaryActionButton
+import com.macareen.stitchbook2.ui.components.ProjectNodeMap
 import com.macareen.stitchbook2.ui.components.QuietText
 import com.macareen.stitchbook2.ui.components.SecondaryActionButton
 import com.macareen.stitchbook2.ui.components.SectionHeader
@@ -86,6 +90,9 @@ fun ProjectDetailRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val exportFeedback by viewModel.exportFeedback.collectAsStateWithLifecycle()
+    val connections by viewModel.connections.collectAsStateWithLifecycle()
+    val projectCounters by viewModel.projectCounters.collectAsStateWithLifecycle()
+    val toolbox by viewModel.toolbox.collectAsStateWithLifecycle()
 
     // Coming back from Focus Mode or the Draft editor can change a guide's Start/Continue state.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
@@ -116,7 +123,15 @@ fun ProjectDetailRoute(
         onOpenSection = onOpenSection,
         exportFeedback = exportFeedback,
         onExportProject = viewModel::exportProject,
-        onDismissExportFeedback = viewModel::dismissExportFeedback
+        onDismissExportFeedback = viewModel::dismissExportFeedback,
+        hubState = ProjectHubState(connections = connections, counters = projectCounters, toolbox = toolbox),
+        hubActions = ProjectHubActions(
+            onIncrementCounter = viewModel::incrementCounter,
+            onDecrementCounter = viewModel::decrementCounter,
+            onAddCounter = viewModel::addCounter,
+            onAssignTool = viewModel::assignTool,
+            onAddNewTool = viewModel::addNewTool
+        )
     )
 }
 
@@ -134,7 +149,9 @@ fun ProjectDetailScreen(
     modifier: Modifier = Modifier,
     exportFeedback: ProjectExportFeedback? = null,
     onExportProject: (ProjectExportFormat, suspend (String) -> Unit) -> Unit = { _, _ -> },
-    onDismissExportFeedback: () -> Unit = {}
+    onDismissExportFeedback: () -> Unit = {},
+    hubState: ProjectHubState = ProjectHubState(),
+    hubActions: ProjectHubActions = ProjectHubActions()
 ) {
     when (uiState) {
         ProjectDetailUiState.Loading -> {
@@ -177,6 +194,8 @@ fun ProjectDetailScreen(
                 exportFeedback = exportFeedback,
                 onExportProject = onExportProject,
                 onDismissExportFeedback = onDismissExportFeedback,
+                hubState = hubState,
+                hubActions = hubActions,
                 modifier = modifier
             )
         }
@@ -197,9 +216,12 @@ private fun ProjectDetailContent(
     exportFeedback: ProjectExportFeedback?,
     onExportProject: (ProjectExportFormat, suspend (String) -> Unit) -> Unit,
     onDismissExportFeedback: () -> Unit,
+    hubState: ProjectHubState,
+    hubActions: ProjectHubActions,
     modifier: Modifier = Modifier
 ) {
     var showDeleteConfirmation by remember { mutableStateOf(false) }
+    var openSheet by remember { mutableStateOf<HubSheet?>(null) }
     var showAddGuideDialog by remember { mutableStateOf(false) }
     var showCreateFromPdfDialog by remember { mutableStateOf(false) }
     var pendingPdfGuideName by remember { mutableStateOf<String?>(null) }
@@ -245,95 +267,114 @@ private fun ProjectDetailContent(
         onResult = exportTo(ProjectExportFormat.MARKDOWN)
     )
 
+    val nextStep = nextStepFor(
+        state.guideEntries.map { entry ->
+            GuideStatus(
+                guideId = entry.guide.id.value,
+                name = entry.guide.name,
+                inProgress = entry.action == GuideEntryAction.CONTINUE,
+                published = entry.action != GuideEntryAction.NOT_EXECUTABLE
+            )
+        }
+    )
+    val nodes = hubNodes(hubState.connections) { node ->
+        when (node) {
+            ProjectNode.GUIDES -> openSheet = HubSheet.GUIDES
+            ProjectNode.TOOLS -> openSheet = HubSheet.TOOLS
+            ProjectNode.COUNTERS -> openSheet = HubSheet.COUNTERS
+            ProjectNode.PATTERNS, ProjectNode.YARN -> onOpenSection(ProjectSection.MATERIALS)
+            ProjectNode.JOURNAL -> onOpenSection(ProjectSection.JOURNAL)
+            ProjectNode.TIME -> onOpenSection(ProjectSection.SESSIONS)
+        }
+    }
+
     Column(
+        verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.medium),
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(StitchbookSpacing.large)
+            .padding(horizontal = StitchbookSpacing.large, vertical = StitchbookSpacing.medium)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End
-        ) {
-            TextButton(
-                onClick = { onEditProject(project.id) },
-                enabled = !state.isDeleting
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Edit,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Text(
-                    text = stringResource(R.string.edit_project),
-                    style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.padding(start = StitchbookSpacing.extraSmall)
-                )
-            }
-            TextButton(
-                onClick = { showDeleteConfirmation = true },
-                enabled = !state.isDeleting,
-                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Delete,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Text(
-                    text = if (state.isDeleting) {
-                        stringResource(R.string.deleting_project)
-                    } else {
-                        stringResource(R.string.delete_project)
-                    },
-                    style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.padding(start = StitchbookSpacing.extraSmall)
-                )
-            }
+        ProjectHubHeader(
+            project = project,
+            isDeleting = state.isDeleting,
+            onEdit = { onEditProject(project.id) },
+            onShareCard = { onOpenSection(ProjectSection.CARD) },
+            onExportJson = { exportJsonLauncher.launch(projectExportFileName(project.name, ProjectExportFormat.JSON)) },
+            onExportMarkdown = { exportMarkdownLauncher.launch(projectExportFileName(project.name, ProjectExportFormat.MARKDOWN)) },
+            onDelete = { showDeleteConfirmation = true }
+        )
+
+        NextStepRow(
+            step = nextStep,
+            onOpenGuide = onOpenGuide,
+            onEditDraft = onEditDraft,
+            onAddGuide = { showAddGuideDialog = true }
+        )
+
+        ProjectNodeMap(centreLabel = project.typeDisplayLabel(), nodes = nodes)
+
+        if (ProjectNode.entries.all { hubState.connections.count(it) == 0 }) {
+            EmptyHubHint()
         }
 
-        Spacer(modifier = Modifier.height(StitchbookSpacing.small))
-
-        ProjectHeaderCard(project = project)
-
-        Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
-        ProjectSectionLinks(onOpenSection = onOpenSection)
+        ProjectDetailsLine(project)
 
         if (state.deleteFailed) {
             Text(
                 text = stringResource(R.string.project_delete_error),
                 color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(top = StitchbookSpacing.small)
+                style = MaterialTheme.typography.bodyMedium
             )
         }
+        exportFeedback?.let { feedback ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(
+                        if (feedback == ProjectExportFeedback.SAVED) R.string.project_export_saved else R.string.project_export_failed
+                    ),
+                    color = if (feedback == ProjectExportFeedback.FAILED) MaterialTheme.colorScheme.error else Color.Unspecified,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = onDismissExportFeedback) { Text(text = stringResource(R.string.settings_dismiss)) }
+            }
+        }
+    }
 
-        Spacer(modifier = Modifier.height(StitchbookSpacing.large))
-        GuidesSection(
-            guideEntries = state.guideEntries,
-            isCreatingGuide = state.isCreatingGuide,
-            createGuideFailed = state.createGuideFailed,
-            isImportingPdf = state.isImportingPdf,
-            pdfImportError = state.pdfImportError,
-            onOpenGuide = onOpenGuide,
-            onEditDraft = onEditDraft,
-            onAddGuide = { showAddGuideDialog = true },
-            onCreateGuideFromPdf = { showCreateFromPdfDialog = true }
-        )
-
-        Spacer(modifier = Modifier.height(StitchbookSpacing.large))
-        ToolsSection(
-            assignedTools = state.assignedTools,
-            onUnassignTool = onUnassignTool
-        )
-
-        Spacer(modifier = Modifier.height(StitchbookSpacing.large))
-        ExportSection(
-            feedback = exportFeedback,
-            onExportJson = { exportJsonLauncher.launch(projectExportFileName(project.name, ProjectExportFormat.JSON)) },
-            onExportMarkdown = { exportMarkdownLauncher.launch(projectExportFileName(project.name, ProjectExportFormat.MARKDOWN)) },
-            onDismissFeedback = onDismissExportFeedback
-        )
+    when (openSheet) {
+        HubSheet.GUIDES -> HubBottomSheet(onDismiss = { openSheet = null }) {
+            GuidesSection(
+                guideEntries = state.guideEntries,
+                isCreatingGuide = state.isCreatingGuide,
+                createGuideFailed = state.createGuideFailed,
+                isImportingPdf = state.isImportingPdf,
+                pdfImportError = state.pdfImportError,
+                onOpenGuide = { openSheet = null; onOpenGuide(it) },
+                onEditDraft = { openSheet = null; onEditDraft(it) },
+                onAddGuide = { showAddGuideDialog = true },
+                onCreateGuideFromPdf = { showCreateFromPdfDialog = true }
+            )
+        }
+        HubSheet.TOOLS -> HubBottomSheet(onDismiss = { openSheet = null }) {
+            ToolsSheetContent(
+                craft = project.craft,
+                assigned = state.assignedTools,
+                toolbox = hubState.toolbox,
+                onUnassign = onUnassignTool,
+                onAssign = hubActions.onAssignTool,
+                onAddNew = hubActions.onAddNewTool
+            )
+        }
+        HubSheet.COUNTERS -> HubBottomSheet(onDismiss = { openSheet = null }) {
+            CountersSheetContent(
+                counters = hubState.counters,
+                onIncrement = hubActions.onIncrementCounter,
+                onDecrement = hubActions.onDecrementCounter,
+                onAdd = hubActions.onAddCounter
+            )
+        }
+        null -> Unit
     }
 
     if (showDeleteConfirmation) {
@@ -557,121 +598,6 @@ private fun GuidesSection(
 }
 
 /**
- * Read-only-with-unassign: tools are created and assigned to a project from
- * the Tools screen's own "Assign to Projects" dialog, not from here, so
- * there is deliberately no "add tool" action in this section -- only a way
- * to remove this project's side of an existing assignment.
- */
-/** Per-project exports into the user's own storage: restorable JSON and readable Markdown. */
-@Composable
-private fun ExportSection(
-    feedback: ProjectExportFeedback?,
-    onExportJson: () -> Unit,
-    onExportMarkdown: () -> Unit,
-    onDismissFeedback: () -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
-        SectionHeader(title = stringResource(R.string.project_export_title))
-        QuietText(text = stringResource(R.string.project_export_description))
-        SecondaryActionButton(
-            text = stringResource(R.string.project_export_json),
-            onClick = onExportJson,
-            modifier = Modifier.fillMaxWidth()
-        )
-        SecondaryActionButton(
-            text = stringResource(R.string.project_export_markdown),
-            onClick = onExportMarkdown,
-            modifier = Modifier.fillMaxWidth()
-        )
-        if (feedback != null) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(
-                        when (feedback) {
-                            ProjectExportFeedback.SAVED -> R.string.project_export_saved
-                            ProjectExportFeedback.FAILED -> R.string.project_export_failed
-                        }
-                    ),
-                    color = if (feedback == ProjectExportFeedback.FAILED) MaterialTheme.colorScheme.error else Color.Unspecified,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.weight(1f)
-                )
-                TextButton(onClick = onDismissFeedback) {
-                    Text(text = stringResource(R.string.settings_dismiss))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ToolsSection(
-    assignedTools: List<ToolItem>,
-    onUnassignTool: (ToolItem) -> Unit
-) {
-    Text(
-        text = stringResource(R.string.project_tools_section_title),
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.primary
-    )
-    Spacer(modifier = Modifier.height(4.dp))
-
-    if (assignedTools.isEmpty()) {
-        Text(
-            text = stringResource(R.string.project_tools_empty_description),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    } else {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            assignedTools.forEach { toolItem ->
-                ProjectToolListItem(
-                    toolItem = toolItem,
-                    onUnassign = { onUnassignTool(toolItem) }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ProjectToolListItem(
-    toolItem: ToolItem,
-    onUnassign: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(StitchbookSpacing.medium),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = toolItem.name,
-                    style = MaterialTheme.typography.cardTitle
-                )
-                toolItem.brand?.let { QuietText(text = it) }
-            }
-            Spacer(modifier = Modifier.width(StitchbookSpacing.small))
-            SecondaryActionButton(
-                text = stringResource(R.string.project_unassign_tool_action),
-                onClick = onUnassign
-            )
-        }
-    }
-}
-
-/**
  * Renders exactly the entry action [GuideEntryAction] already resolved from
  * persisted state -- never decides Continue/Start/unavailable itself. A
  * Draft-only Guide (no published Revision yet) opens the Draft editor
@@ -729,157 +655,20 @@ private fun GuideListItem(
     }
 }
 
+/** Construction and dates in one quiet line, then private notes if any. */
 @Composable
-private fun ProjectSectionLinks(onOpenSection: (ProjectSection) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
-        ProjectSection.entries.forEach { section ->
-            Surface(
-                onClick = { onOpenSection(section) },
-                shape = MaterialTheme.shapes.large,
-                color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(StitchbookSpacing.medium)
-                ) {
-                    Surface(
-                        shape = MaterialTheme.shapes.medium,
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    ) {
-                        Icon(
-                            imageVector = section.icon,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .padding(StitchbookSpacing.small)
-                                .size(20.dp)
-                        )
-                    }
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(start = StitchbookSpacing.medium)
-                    ) {
-                        Text(text = stringResource(section.title), style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            text = stringResource(section.description),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.textSecondary
-                        )
-                    }
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.textSecondary
-                    )
-                }
-            }
+private fun ProjectDetailsLine(project: Project) {
+    val parts = listOfNotNull(
+        project.constructionMethod?.takeIf { it.isNotBlank() },
+        project.startDate?.let { stringResource(R.string.project_details_started, it) },
+        project.targetDate?.let { stringResource(R.string.project_details_target, it) },
+        project.completedDate?.let { stringResource(R.string.project_details_completed, it) }
+    )
+    if (parts.isNotEmpty()) QuietText(text = parts.joinToString(" · "))
+    project.notes?.takeIf { it.isNotBlank() }?.let { notes ->
+        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
+            Text(text = notes, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(StitchbookSpacing.medium))
         }
-    }
-}
-
-@Composable
-private fun ProjectHeaderCard(project: Project) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
-    ) {
-        Column(modifier = Modifier.padding(StitchbookSpacing.large)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.extraSmall)) {
-                LabelPill(
-                    text = stringResource(project.craft.labelResource()),
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    contentColor = MaterialTheme.colorScheme.textSecondary
-                )
-                val (statusContainer, statusContent) = project.status.pillColors()
-                LabelPill(
-                    text = stringResource(project.status.labelResource()),
-                    containerColor = statusContainer,
-                    contentColor = statusContent
-                )
-            }
-            Spacer(modifier = Modifier.height(StitchbookSpacing.small))
-            Text(
-                text = project.name,
-                style = MaterialTheme.typography.headlineMedium
-            )
-            Text(
-                text = project.typeDisplayLabel(),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.textSecondary,
-                modifier = Modifier.padding(top = StitchbookSpacing.extraSmall)
-            )
-            Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                MetaLine(
-                    label = stringResource(R.string.project_created_label),
-                    value = formatTimestamp(project.createdAt)
-                )
-                MetaLine(
-                    label = stringResource(R.string.project_updated_label),
-                    value = formatTimestamp(project.updatedAt)
-                )
-            }
-
-            if (!project.description.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
-                Text(text = project.description, style = MaterialTheme.typography.bodyLarge)
-            }
-
-            val details = listOfNotNull(
-                project.constructionMethod?.let { stringResource(R.string.project_construction_label) to it },
-                project.startDate?.let { stringResource(R.string.project_start_date_label) to it },
-                project.targetDate?.let { stringResource(R.string.project_target_date_label) to it },
-                project.completedDate?.let { stringResource(R.string.project_completed_date_label) to it }
-            )
-            if (details.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
-                details.forEach { (label, value) -> DetailLine(label = label, value = value) }
-            }
-
-            if (!project.notes.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
-                Surface(
-                    shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.surfaceContainer
-                ) {
-                    Column(modifier = Modifier.padding(StitchbookSpacing.medium)) {
-                        Text(
-                            text = stringResource(R.string.project_notes_label).uppercase(),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.textSecondary,
-                            letterSpacing = 0.8.sp
-                        )
-                        Spacer(modifier = Modifier.height(StitchbookSpacing.extraSmall))
-                        Text(
-                            text = project.notes,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun MetaLine(label: String, value: String) {
-    Column {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.textSecondary
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(top = 2.dp)
-        )
     }
 }
 
@@ -907,13 +696,6 @@ private fun DetailMessage(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
-}
-
-private fun formatTimestamp(timestamp: Long): String {
-    return DateFormat.getDateTimeInstance(
-        DateFormat.MEDIUM,
-        DateFormat.SHORT
-    ).format(Date(timestamp))
 }
 
 @Preview(showBackground = true)
