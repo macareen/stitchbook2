@@ -1,12 +1,14 @@
 package com.macareen.stitchbook2
 
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.macareen.stitchbook2.domain.execution.NodeId
@@ -18,6 +20,7 @@ import com.macareen.stitchbook2.domain.model.ProjectStatus
 import com.macareen.stitchbook2.domain.model.ProjectType
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -119,14 +122,14 @@ class ExecutionEntryResumeTest {
     fun startingAGuideNavigatesToFocusModeAndResumesAfterRecreation() {
         openProject()
 
-        composeTestRule.onNodeWithText("Executable guide").assertIsDisplayed()
-        composeTestRule.onNode(hasText("Start") and hasClickAction()).assertIsDisplayed()
+        nodeWithText("Executable guide").performScrollTo().assertIsDisplayed()
+        node(hasText("Start") and hasClickAction()).performScrollTo().assertIsDisplayed()
 
-        composeTestRule.onNodeWithText("Executable guide").performClick()
-        composeTestRule.onNodeWithText("Ready to start").assertIsDisplayed()
+        nodeWithText("Executable guide").performScrollTo().performClick()
+        nodeWithText("Ready to start").awaitDisplayed()
 
-        composeTestRule.onNode(hasText("Start") and hasClickAction()).performClick()
-        composeTestRule.onNodeWithText("Cast on 40 stitches").assertIsDisplayed()
+        node(hasText("Start") and hasClickAction()).performClick()
+        nodeWithText("Cast on 40 stitches").awaitDisplayed()
 
         // Recreate the Activity (and every ViewModel/composable with it) to
         // simulate returning after process death or a configuration change.
@@ -134,39 +137,39 @@ class ExecutionEntryResumeTest {
         // in-memory or navigation-carried copy.
         composeTestRule.activityRule.scenario.recreate()
 
-        composeTestRule.onNodeWithText("Cast on 40 stitches").assertIsDisplayed()
+        nodeWithText("Cast on 40 stitches").awaitDisplayed()
 
         // Back out to the Guide's own entry point and confirm it now offers
         // Continue -- never Start again -- for the same still-ACTIVE Execution.
         composeTestRule.activityRule.scenario.onActivity {
             it.onBackPressedDispatcher.onBackPressed()
         }
-        composeTestRule.onNodeWithText("Executable guide").assertIsDisplayed()
-        composeTestRule.onNode(hasText("Continue") and hasClickAction()).assertIsDisplayed()
+        nodeWithText("Executable guide").performScrollTo().assertIsDisplayed()
+        node(hasText("Continue") and hasClickAction()).performScrollTo().assertIsDisplayed()
 
-        composeTestRule.onNodeWithText("Executable guide").performClick()
-        composeTestRule.onNodeWithText("Cast on 40 stitches").assertIsDisplayed()
+        nodeWithText("Executable guide").performScrollTo().performClick()
+        nodeWithText("Cast on 40 stitches").awaitDisplayed()
     }
 
     @Test
     fun completingAndRewindingPersistThroughRealNavigationAndSurviveRecreation() {
         openProject()
-        composeTestRule.onNodeWithText("Executable guide").performClick()
-        composeTestRule.onNode(hasText("Start") and hasClickAction()).performClick()
+        nodeWithText("Executable guide").performScrollTo().performClick()
+        node(hasText("Start") and hasClickAction()).performClick()
 
-        composeTestRule.onNodeWithText("Row 1 of 1–2").assertIsDisplayed()
+        nodeWithText("Row 1 of 1–2").awaitDisplayed()
 
-        composeTestRule.onNodeWithText("Complete").performClick()
-        composeTestRule.onNodeWithText("Row 2 of 1–2").assertIsDisplayed()
+        nodeWithText("Complete").performClick()
+        nodeWithText("Row 2 of 1–2").awaitDisplayed()
 
-        composeTestRule.onNodeWithText("Previous").performClick()
-        composeTestRule.onNodeWithText("Row 1 of 1–2").assertIsDisplayed()
+        nodeWithText("Previous").performClick()
+        nodeWithText("Row 1 of 1–2").awaitDisplayed()
 
         // Recreate the Activity to confirm the post-Complete-then-Previous
         // position (not just the freshly-Started one) is what Room actually
         // persisted, not something the ViewModel merely held in memory.
         composeTestRule.activityRule.scenario.recreate()
-        composeTestRule.onNodeWithText("Row 1 of 1–2").assertIsDisplayed()
+        nodeWithText("Row 1 of 1–2").awaitDisplayed()
     }
 
     @Test
@@ -177,52 +180,53 @@ class ExecutionEntryResumeTest {
         // actually persisted, not something the editor merely held.
         openProject()
 
-        composeTestRule.onNode(hasText("Add Guide") and hasClickAction()).performClick()
-        composeTestRule.onNodeWithText("Guide name").performTextInput("Sleeve")
-        composeTestRule.onNode(hasText("Create") and hasClickAction()).performClick()
+        node(hasText("Add Guide") and hasClickAction()).performScrollTo().performClick()
+        nodeWithText("Guide name").performTextInput("Sleeve")
+        node(hasText("Create") and hasClickAction()).performClick()
 
-        composeTestRule.onNodeWithText("Sleeve").assertIsDisplayed()
+        nodeWithText("Sleeve").awaitDisplayed()
 
-        composeTestRule.onNode(hasText("Add step") and hasClickAction()).performClick()
-        composeTestRule.onNode(hasText("Instruction") and hasClickAction()).performClick()
-        composeTestRule.onNodeWithText("What to knit").performTextInput("Cast on 10 stitches")
-        composeTestRule.onNode(hasText("Add") and hasClickAction()).performClick()
+        node(hasText("Add step") and hasClickAction()).performClick()
+        node(hasText("Instruction") and hasClickAction()).performClick()
+        nodeWithText("What to knit").performTextInput("Cast on 10 stitches")
+        node(hasText("Add") and hasClickAction()).performClick()
 
-        composeTestRule.onNodeWithText("Cast on 10 stitches").assertIsDisplayed()
+        nodeWithText("Cast on 10 stitches").awaitDisplayed()
 
-        composeTestRule.onNode(hasText("Done") and hasClickAction()).performClick()
+        node(hasText("Done") and hasClickAction()).performClick()
 
-        composeTestRule.onNodeWithText("Sleeve").assertIsDisplayed()
-        composeTestRule.onNode(hasText("Edit draft") and hasClickAction()).assertIsDisplayed()
+        nodeWithText("Sleeve").performScrollTo().assertIsDisplayed()
+        // Both draft-only guides (the seeded one and "Sleeve") offer Edit draft.
+        assertEquals(2, composeTestRule.onAllNodes(hasText("Edit draft") and hasClickAction()).fetchSemanticsNodes().size)
 
-        composeTestRule.onNodeWithText("Sleeve").performClick()
-        composeTestRule.onNodeWithText("Cast on 10 stitches").assertIsDisplayed()
+        nodeWithText("Sleeve").performScrollTo().performClick()
+        nodeWithText("Cast on 10 stitches").awaitDisplayed()
     }
 
     @Test
     fun publishingAGuideThroughRealNavigationReachesFocusMode() {
         openProject()
 
-        composeTestRule.onNode(hasText("Add Guide") and hasClickAction()).performClick()
-        composeTestRule.onNodeWithText("Guide name").performTextInput("Hat")
-        composeTestRule.onNode(hasText("Create") and hasClickAction()).performClick()
+        node(hasText("Add Guide") and hasClickAction()).performScrollTo().performClick()
+        nodeWithText("Guide name").performTextInput("Hat")
+        node(hasText("Create") and hasClickAction()).performClick()
 
-        composeTestRule.onNode(hasText("Add step") and hasClickAction()).performClick()
-        composeTestRule.onNode(hasText("Instruction") and hasClickAction()).performClick()
-        composeTestRule.onNodeWithText("What to knit").performTextInput("Cast on 60 stitches")
-        composeTestRule.onNode(hasText("Add") and hasClickAction()).performClick()
+        node(hasText("Add step") and hasClickAction()).performClick()
+        node(hasText("Instruction") and hasClickAction()).performClick()
+        nodeWithText("What to knit").performTextInput("Cast on 60 stitches")
+        node(hasText("Add") and hasClickAction()).performClick()
 
-        composeTestRule.onNode(hasText("Publish") and hasClickAction()).performClick()
+        node(hasText("Publish") and hasClickAction()).performClick()
 
-        composeTestRule.onNode(hasText("Start Knitting") and hasClickAction()).performClick()
+        node(hasText("Start Knitting") and hasClickAction()).performClick()
 
         // Landed on Focus Mode's own Ready-to-start screen -- the Draft
         // editor only navigates here, it never creates the Execution
         // itself; that remains Focus Mode's own Start action.
-        composeTestRule.onNodeWithText("Ready to start").assertIsDisplayed()
-        composeTestRule.onNode(hasText("Start") and hasClickAction()).performClick()
+        nodeWithText("Ready to start").awaitDisplayed()
+        node(hasText("Start") and hasClickAction()).performClick()
 
-        composeTestRule.onNodeWithText("Cast on 60 stitches").assertIsDisplayed()
+        nodeWithText("Cast on 60 stitches").awaitDisplayed()
     }
 
     @Test
@@ -233,23 +237,45 @@ class ExecutionEntryResumeTest {
         // nothing to execute yet.
         openProject()
 
-        composeTestRule.onNodeWithText("Draft only guide").assertIsDisplayed()
-        composeTestRule.onNode(hasText("Edit draft") and hasClickAction()).assertIsDisplayed()
+        nodeWithText("Draft only guide").performScrollTo().assertIsDisplayed()
+        node(hasText("Edit draft") and hasClickAction()).performScrollTo().assertIsDisplayed()
 
-        composeTestRule.onNodeWithText("Draft only guide").performClick()
+        nodeWithText("Draft only guide").performScrollTo().performClick()
 
-        composeTestRule.onNodeWithText("Draft only guide").assertIsDisplayed()
-        composeTestRule.onNodeWithText(
+        nodeWithText("Draft only guide").awaitDisplayed()
+        nodeWithText(
             "Let's write your pattern. Try a Section to name a part (like Body), " +
                 "or jump straight to an Instruction if it's simple."
-        ).assertIsDisplayed()
+        ).awaitDisplayed()
     }
 
     private fun openProject() {
         composeTestRule.navigationItem("Projects").performClick()
-        composeTestRule.onNodeWithText(projectName).performClick()
+        nodeWithText(projectName).performClick()
+    }
+
+    /**
+     * Screens load from Room on a background dispatcher that Compose's idling
+     * doesn't track, so each step waits for its node to exist rather than
+     * assuming the first idle frame already shows loaded content.
+     */
+    private fun node(matcher: SemanticsMatcher): SemanticsNodeInteraction {
+        composeTestRule.waitUntil(WAIT_MILLIS) {
+            composeTestRule.onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty()
+        }
+        return composeTestRule.onNode(matcher)
+    }
+
+    private fun nodeWithText(text: String): SemanticsNodeInteraction = node(hasText(text))
+
+    /** Waits until the node is on screen, which also covers navigation transitions. */
+    private fun SemanticsNodeInteraction.awaitDisplayed(): SemanticsNodeInteraction {
+        composeTestRule.waitUntil(WAIT_MILLIS) { runCatching { assertIsDisplayed() }.isSuccess }
+        return assertIsDisplayed()
     }
 }
+
+private const val WAIT_MILLIS = 10_000L
 
 private fun AndroidComposeTestRule<*, MainActivity>.navigationItem(label: String) =
     onNode(hasText(label) and hasClickAction())

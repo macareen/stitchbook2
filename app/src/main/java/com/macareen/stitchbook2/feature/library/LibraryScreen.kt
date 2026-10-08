@@ -57,6 +57,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -117,7 +119,7 @@ fun LibraryScreen(
     onCraftFilterChanged: (Craft?) -> Unit,
     onBookmarksOnlyChanged: (Boolean) -> Unit,
     onToggleBookmark: (LibraryItem) -> Unit,
-    onSaveItem: (LibraryItem?, String, Craft, String, String, List<String>, String, String?, String?) -> Unit,
+    onSaveItem: (LibraryItem?, String, Craft, String, String, List<String>, String, String?, String?, PatternMetadataInput?) -> Unit,
     onDeleteItem: (LibraryItem) -> Unit,
     onOpenPdf: (String) -> Unit,
     onExportCsv: (suspend (String) -> Unit) -> Unit,
@@ -232,8 +234,8 @@ fun LibraryScreen(
         LibraryItemDialog(
             original = null,
             onDismiss = { isAddingItem = false },
-            onSave = { title, craft, author, sourceUrl, tags, notes, pdfUri, pdfFileName ->
-                onSaveItem(null, title, craft, author, sourceUrl, tags, notes, pdfUri, pdfFileName)
+            onSave = { title, craft, author, sourceUrl, tags, notes, pdfUri, pdfFileName, metadata ->
+                onSaveItem(null, title, craft, author, sourceUrl, tags, notes, pdfUri, pdfFileName, metadata)
                 isAddingItem = false
             }
         )
@@ -243,8 +245,8 @@ fun LibraryScreen(
         LibraryItemDialog(
             original = item,
             onDismiss = { editingItem = null },
-            onSave = { title, craft, author, sourceUrl, tags, notes, pdfUri, pdfFileName ->
-                onSaveItem(item, title, craft, author, sourceUrl, tags, notes, pdfUri, pdfFileName)
+            onSave = { title, craft, author, sourceUrl, tags, notes, pdfUri, pdfFileName, metadata ->
+                onSaveItem(item, title, craft, author, sourceUrl, tags, notes, pdfUri, pdfFileName, metadata)
                 editingItem = null
             }
         )
@@ -647,7 +649,7 @@ private fun LibraryItemCard(
 private fun LibraryItemDialog(
     original: LibraryItem?,
     onDismiss: () -> Unit,
-    onSave: (String, Craft, String, String, List<String>, String, String?, String?) -> Unit
+    onSave: (String, Craft, String, String, List<String>, String, String?, String?, PatternMetadataInput) -> Unit
 ) {
     var title by remember { mutableStateOf(original?.title.orEmpty()) }
     var craft by remember { mutableStateOf(original?.craft ?: Craft.KNITTING) }
@@ -658,6 +660,11 @@ private fun LibraryItemDialog(
     var titleIsBlank by remember { mutableStateOf(false) }
     var pdfUri by remember { mutableStateOf(original?.pdfUri) }
     var pdfFileName by remember { mutableStateOf(original?.pdfFileName) }
+    var gauge by remember { mutableStateOf(original?.gauge.orEmpty()) }
+    var sizes by remember { mutableStateOf(original?.sizes.orEmpty()) }
+    var yardageRequiredText by remember { mutableStateOf(original?.yardageRequired?.toString().orEmpty()) }
+    var recommendedTools by remember { mutableStateOf(original?.recommendedTools.orEmpty()) }
+    var ravelryPatternId by remember { mutableStateOf(original?.ravelryPatternId.orEmpty()) }
 
     val context = LocalContext.current
     val pickPdfLauncher = rememberLauncherForActivityResult(
@@ -737,6 +744,48 @@ private fun LibraryItemDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+                OutlinedTextField(
+                    value = gauge,
+                    onValueChange = { gauge = it },
+                    singleLine = true,
+                    label = { Text(text = stringResource(R.string.library_field_gauge)) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+                Row(horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
+                    OutlinedTextField(
+                        value = sizes,
+                        onValueChange = { sizes = it },
+                        singleLine = true,
+                        label = { Text(text = stringResource(R.string.library_field_sizes)) },
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = yardageRequiredText,
+                        onValueChange = { yardageRequiredText = it },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        label = { Text(text = stringResource(R.string.library_field_yardage_required)) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+                OutlinedTextField(
+                    value = recommendedTools,
+                    onValueChange = { recommendedTools = it },
+                    singleLine = true,
+                    label = { Text(text = stringResource(R.string.library_field_recommended_tools)) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+                OutlinedTextField(
+                    value = ravelryPatternId,
+                    onValueChange = { ravelryPatternId = it },
+                    singleLine = true,
+                    label = { Text(text = stringResource(R.string.library_field_ravelry_pattern_id)) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
                 if (pdfUri == null) {
                     OutlinedButton(
                         onClick = { pickPdfLauncher.launch(arrayOf("application/pdf")) },
@@ -809,7 +858,14 @@ private fun LibraryItemDialog(
                             tagsText.split(","),
                             notes,
                             pdfUri,
-                            pdfFileName
+                            pdfFileName,
+                            PatternMetadataInput(
+                                gauge = gauge,
+                                sizes = sizes,
+                                yardageRequiredText = yardageRequiredText,
+                                recommendedTools = recommendedTools,
+                                ravelryPatternId = ravelryPatternId
+                            )
                         )
                     }
                 }
@@ -921,7 +977,7 @@ private fun LibraryScreenPreview() {
             onCraftFilterChanged = {},
             onBookmarksOnlyChanged = {},
             onToggleBookmark = {},
-            onSaveItem = { _, _, _, _, _, _, _, _, _ -> },
+            onSaveItem = { _, _, _, _, _, _, _, _, _, _ -> },
             onDeleteItem = {},
             onOpenPdf = {},
             onExportCsv = {},

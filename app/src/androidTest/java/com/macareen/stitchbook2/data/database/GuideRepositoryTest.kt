@@ -15,6 +15,8 @@ import com.macareen.stitchbook2.domain.execution.Repeat
 import com.macareen.stitchbook2.domain.execution.Section
 import com.macareen.stitchbook2.domain.guide.DraftNode
 import com.macareen.stitchbook2.domain.guide.DraftNodeType
+import com.macareen.stitchbook2.domain.repository.DraftValidationException
+import com.macareen.stitchbook2.domain.repository.DraftVersionConflictException
 import java.util.ArrayDeque
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -151,7 +153,7 @@ class GuideRepositoryTest {
 
         assertEquals(incomplete.nodes, saved.nodes)
         enqueueIds("revision")
-        assertSuspendThrows<InvalidDraftForPublicationException> {
+        assertSuspendThrows<DraftValidationException> {
             repository.publishDraft(guideId)
         }
         assertEquals(emptyList<Any>(), repository.listRevisions(guideId))
@@ -266,7 +268,7 @@ class GuideRepositoryTest {
 
         repository.saveDraft(firstCopy.withValidTree("Current"))
 
-        assertSuspendThrows<DraftConflictException> {
+        assertSuspendThrows<DraftVersionConflictException> {
             repository.saveDraft(staleCopy.withValidTree("Stale"))
         }
         assertEquals(

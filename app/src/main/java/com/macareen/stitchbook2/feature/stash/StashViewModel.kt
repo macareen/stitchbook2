@@ -9,9 +9,15 @@ import com.macareen.stitchbook2.data.csv.StashCsvImportReport
 import com.macareen.stitchbook2.data.csv.StashCsvRowError
 import com.macareen.stitchbook2.data.csv.parseStashCsv
 import com.macareen.stitchbook2.data.csv.stashItemsToCsv
+import com.macareen.stitchbook2.domain.model.Photo
+import com.macareen.stitchbook2.domain.model.PhotoRole
+import com.macareen.stitchbook2.domain.model.PickedDocument
 import com.macareen.stitchbook2.domain.model.StashCategory
 import com.macareen.stitchbook2.domain.model.StashItem
 import com.macareen.stitchbook2.domain.model.normalizedStashItemName
+import com.macareen.stitchbook2.domain.model.roundQuantity
+import com.macareen.stitchbook2.domain.repository.JournalRepository
+import com.macareen.stitchbook2.domain.repository.MaterialsRepository
 import com.macareen.stitchbook2.domain.repository.StashRepository
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
@@ -22,6 +28,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -36,7 +43,11 @@ sealed interface StashUiState {
     data class Content(
         val items: List<StashItem>,
         val filter: StashFilterState,
-        val hasAnyItems: Boolean
+        val hasAnyItems: Boolean,
+        /** Quantity reserved by project allocations, keyed by stash item id. */
+        val reservedByItemId: Map<String, Double> = emptyMap(),
+        /** Photo references per stash item (same never-copy policy as project photos). */
+        val photosByItemId: Map<String, List<Photo>> = emptyMap()
     ) : StashUiState
 }
 
@@ -63,12 +74,16 @@ data class StashItemFormInput(
     val ravelryYarnId: String,
     val purchaseSource: String,
     val purchasePriceText: String,
-    val purchaseDate: String
+    val purchaseDate: String,
+    val weightPerUnitGramsText: String = "",
+    val remainingWeightGramsText: String = ""
 )
 
 class StashViewModel(
     private val repository: StashRepository,
-    externalScope: CoroutineScope? = null
+    externalScope: CoroutineScope? = null,
+    materialsRepository: MaterialsRepository? = null,
+    private val journalRepository: JournalRepository? = null
 ) : ViewModel() {
 
     private val scope: CoroutineScope = externalScope ?: viewModelScope
@@ -79,12 +94,18 @@ class StashViewModel(
 
     val uiState = combine(
         repository.observeStashItems(),
-        filterState
-    ) { items, filter ->
+        filterState,
+        materialsRepository?.observeAllocations() ?: flowOf(emptyList()),
+        journalRepository?.observePhotos() ?: flowOf(emptyList())
+    ) { items, filter, allocations, photos ->
         StashUiState.Content(
             items = items.filter { matchesFilter(it, filter) },
             filter = filter,
-            hasAnyItems = items.isNotEmpty()
+            hasAnyItems = items.isNotEmpty(),
+            reservedByItemId = allocations
+                .groupBy { it.stashItemId }
+                .mapValues { (_, rows) -> roundQuantity(rows.sumOf { it.quantityReserved }) },
+            photosByItemId = photos.filter { it.stashItemId != null }.groupBy { it.stashItemId!! }
         ) as StashUiState
     }
         .catch { emit(StashUiState.Error) }
@@ -137,7 +158,9 @@ class StashViewModel(
                 purchasePrice = form.purchasePriceText.toDoubleOrNull(),
                 purchaseDate = form.purchaseDate.trim().ifEmpty { null },
                 createdAt = original?.createdAt ?: now,
-                updatedAt = now
+                updatedAt = now,
+                weightPerUnitGrams = if (isYarn) form.weightPerUnitGramsText.toPositiveDoubleOrNull() else null,
+                remainingWeightGrams = if (isYarn) form.remainingWeightGramsText.toPositiveDoubleOrNull() else null
             )
             try {
                 repository.saveStashItem(item)
@@ -192,6 +215,47 @@ class StashViewModel(
         _importReport.value = null
     }
 
+    fun addPhoto(stashItemId: String, document: PickedDocument) {
+        val repository = journalRepository ?: return
+        scope.launch {
+            val now = System.currentTimeMillis()
+            try {
+                repository.savePhoto(
+                    Photo(
+                        id = UUID.randomUUID().toString(),
+                        projectId = null,
+                        stashItemId = stashItemId,
+                        uri = document.uri,
+                        displayName = document.displayName,
+                        caption = null,
+                        takenDate = null,
+                        milestoneId = null,
+                        role = PhotoRole.NONE,
+                        createdAt = now,
+                        updatedAt = now
+                    )
+                )
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                // The list reflects whatever was actually persisted.
+            }
+        }
+    }
+
+    /** Forgets the reference only; the photo file itself is never deleted. */
+    fun removePhoto(photo: Photo) {
+        val repository = journalRepository ?: return
+        scope.launch {
+            try {
+                repository.deletePhoto(photo)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+            }
+        }
+    }
+
     fun deleteItem(item: StashItem) {
         scope.launch {
             try {
@@ -215,10 +279,21 @@ class StashViewModel(
     }
 
     companion object {
-        fun factory(repository: StashRepository): ViewModelProvider.Factory = viewModelFactory {
+        fun factory(
+            repository: StashRepository,
+            materialsRepository: MaterialsRepository,
+            journalRepository: JournalRepository
+        ): ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                StashViewModel(repository)
+                StashViewModel(
+                    repository,
+                    materialsRepository = materialsRepository,
+                    journalRepository = journalRepository
+                )
             }
         }
     }
 }
+
+private fun String.toPositiveDoubleOrNull(): Double? =
+    trim().replace(',', '.').toDoubleOrNull()?.takeIf { it >= 0.0 }

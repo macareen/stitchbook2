@@ -35,8 +35,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.macareen.stitchbook2.R
 import com.macareen.stitchbook2.domain.model.Craft
+import com.macareen.stitchbook2.domain.model.ProjectDateError
 import com.macareen.stitchbook2.domain.model.ProjectStatus
 import com.macareen.stitchbook2.domain.model.ProjectType
+import com.macareen.stitchbook2.ui.components.DateField
 import com.macareen.stitchbook2.ui.components.PrimaryActionButton
 import com.macareen.stitchbook2.ui.components.SecondaryActionButton
 import com.macareen.stitchbook2.ui.theme.StitchbookSpacing
@@ -65,6 +67,12 @@ fun ProjectFormRoute(
         onProjectTypeChanged = viewModel::updateProjectType,
         onStatusChanged = viewModel::updateStatus,
         onNotesChanged = viewModel::updateNotes,
+        onDescriptionChanged = viewModel::updateDescription,
+        onConstructionMethodChanged = viewModel::updateConstructionMethod,
+        onCustomTypeLabelChanged = viewModel::updateCustomTypeLabel,
+        onStartDateChanged = viewModel::updateStartDate,
+        onTargetDateChanged = viewModel::updateTargetDate,
+        onCompletedDateChanged = viewModel::updateCompletedDate,
         onSave = viewModel::saveProject,
         onCancel = onCancel
     )
@@ -79,6 +87,12 @@ fun ProjectFormScreen(
     onProjectTypeChanged: (ProjectType) -> Unit,
     onStatusChanged: (ProjectStatus) -> Unit,
     onNotesChanged: (String) -> Unit,
+    onDescriptionChanged: (String) -> Unit,
+    onConstructionMethodChanged: (String) -> Unit,
+    onCustomTypeLabelChanged: (String) -> Unit,
+    onStartDateChanged: (String) -> Unit,
+    onTargetDateChanged: (String) -> Unit,
+    onCompletedDateChanged: (String) -> Unit,
     onSave: () -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier
@@ -134,6 +148,12 @@ fun ProjectFormScreen(
                 onProjectTypeChanged = onProjectTypeChanged,
                 onStatusChanged = onStatusChanged,
                 onNotesChanged = onNotesChanged,
+                onDescriptionChanged = onDescriptionChanged,
+                onConstructionMethodChanged = onConstructionMethodChanged,
+                onCustomTypeLabelChanged = onCustomTypeLabelChanged,
+                onStartDateChanged = onStartDateChanged,
+                onTargetDateChanged = onTargetDateChanged,
+                onCompletedDateChanged = onCompletedDateChanged,
                 onSave = onSave,
                 onCancel = ::requestExit,
                 modifier = modifier
@@ -174,6 +194,12 @@ private fun ProjectFormContent(
     onProjectTypeChanged: (ProjectType) -> Unit,
     onStatusChanged: (ProjectStatus) -> Unit,
     onNotesChanged: (String) -> Unit,
+    onDescriptionChanged: (String) -> Unit,
+    onConstructionMethodChanged: (String) -> Unit,
+    onCustomTypeLabelChanged: (String) -> Unit,
+    onStartDateChanged: (String) -> Unit,
+    onTargetDateChanged: (String) -> Unit,
+    onCompletedDateChanged: (String) -> Unit,
     onSave: () -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier
@@ -234,6 +260,31 @@ private fun ProjectFormContent(
             enabled = !uiState.isSaving
         )
 
+        if (uiState.projectType == ProjectType.OTHER) {
+            Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
+            OutlinedTextField(
+                value = uiState.customTypeLabel,
+                onValueChange = onCustomTypeLabelChanged,
+                label = { Text(text = stringResource(R.string.project_custom_type_label)) },
+                supportingText = { Text(text = stringResource(R.string.project_custom_type_help)) },
+                singleLine = true,
+                enabled = !uiState.isSaving,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
+
+        OutlinedTextField(
+            value = uiState.constructionMethod,
+            onValueChange = onConstructionMethodChanged,
+            label = { Text(text = stringResource(R.string.project_construction_label)) },
+            supportingText = { Text(text = stringResource(R.string.project_construction_help)) },
+            singleLine = true,
+            enabled = !uiState.isSaving,
+            modifier = Modifier.fillMaxWidth()
+        )
+
         Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
 
         EnumSelector(
@@ -242,6 +293,55 @@ private fun ProjectFormContent(
             options = ProjectStatus.entries,
             optionLabel = { stringResource(it.labelResource()) },
             onSelected = onStatusChanged,
+            enabled = !uiState.isSaving
+        )
+
+        Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
+
+        OutlinedTextField(
+            value = uiState.description,
+            onValueChange = onDescriptionChanged,
+            label = { Text(text = stringResource(R.string.project_description_label)) },
+            minLines = 2,
+            enabled = !uiState.isSaving,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(StitchbookSpacing.large))
+        Text(
+            text = stringResource(R.string.project_dates_heading),
+            style = MaterialTheme.typography.titleMedium
+        )
+        Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+        DateField(
+            value = uiState.startDate,
+            onValueChange = onStartDateChanged,
+            label = stringResource(R.string.project_start_date_label),
+            isError = ProjectDateError.INVALID_START in uiState.dateErrors,
+            errorText = stringResource(R.string.project_date_invalid),
+            enabled = !uiState.isSaving
+        )
+        Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+        DateField(
+            value = uiState.targetDate,
+            onValueChange = onTargetDateChanged,
+            label = stringResource(R.string.project_target_date_label),
+            isError = ProjectDateError.INVALID_TARGET in uiState.dateErrors,
+            errorText = stringResource(R.string.project_date_invalid),
+            enabled = !uiState.isSaving
+        )
+        Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+        DateField(
+            value = uiState.completedDate,
+            onValueChange = onCompletedDateChanged,
+            label = stringResource(R.string.project_completed_date_label),
+            isError = ProjectDateError.INVALID_COMPLETED in uiState.dateErrors ||
+                ProjectDateError.COMPLETED_BEFORE_START in uiState.dateErrors,
+            errorText = if (ProjectDateError.COMPLETED_BEFORE_START in uiState.dateErrors) {
+                stringResource(R.string.project_completed_before_start)
+            } else {
+                stringResource(R.string.project_date_invalid)
+            },
             enabled = !uiState.isSaving
         )
 
@@ -378,6 +478,12 @@ private fun AddProjectPreview() {
             onProjectTypeChanged = {},
             onStatusChanged = {},
             onNotesChanged = {},
+            onDescriptionChanged = {},
+            onConstructionMethodChanged = {},
+            onCustomTypeLabelChanged = {},
+            onStartDateChanged = {},
+            onTargetDateChanged = {},
+            onCompletedDateChanged = {},
             onSave = {},
             onCancel = {}
         )

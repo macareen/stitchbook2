@@ -1,0 +1,16 @@
+<resources>
+    <string name="date_field_placeholder">YYYY-MM-DD</string>
+    <string name="date_field_pick">Pick %1$s</string>
+    <string name="date_field_confirm">Use date</string>
+    <string name="project_description_label">Description</string>
+    <string name="project_construction_label">Construction method</string>
+    <string name="project_construction_help">For example top-down, in the round, corner-to-corner, or panels.</string>
+    <string name="project_custom_type_label">Your type name</string>
+    <string name="project_custom_type_help">Shown instead of “Other”.</string>
+    <string name="project_dates_heading">Dates</string>
+    <string name="project_start_date_label">Started</string>
+    <string name="project_target_date_label">Target</string>
+    <string name="project_completed_date_label">Finished</string>
+    <string name="project_date_invalid">Use the format YYYY-MM-DD, or leave it blank.</string>
+    <string name="project_completed_before_start">The finish date is before the start date.</string>
+</resources>

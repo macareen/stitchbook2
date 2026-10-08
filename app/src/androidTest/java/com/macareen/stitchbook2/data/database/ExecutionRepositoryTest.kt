@@ -100,7 +100,7 @@ class ExecutionRepositoryTest {
     }
 
     @Test
-    fun revisionMustBelongToSpecifiedGuide() = runBlocking {
+    fun revisionMustBelongToSpecifiedGuide() = runBlocking<Unit> {
         val guideOne = createGuideWithSimpleRevision("guide-one", "draft-one", "revision-one")
         createGuideWithSimpleRevision("guide-two", "draft-two", "revision-two")
 
@@ -111,7 +111,7 @@ class ExecutionRepositoryTest {
     }
 
     @Test
-    fun creatingExecutionForMissingGuideOrRevisionFailsExplicitly() = runBlocking {
+    fun creatingExecutionForMissingGuideOrRevisionFailsExplicitly() = runBlocking<Unit> {
         createGuideWithSimpleRevision("guide", "draft", "revision")
 
         enqueueIds("exec-1")
@@ -126,7 +126,7 @@ class ExecutionRepositoryTest {
     }
 
     @Test
-    fun onlyOneActiveExecutionMayExistPerGuide() = runBlocking {
+    fun onlyOneActiveExecutionMayExistPerGuide() = runBlocking<Unit> {
         val guideId = createGuideWithSimpleRevision("guide", "draft", "revision")
         enqueueIds("exec-1")
         executionRepository.createExecution(guideId, DefinitionRevisionId("revision"))
@@ -406,7 +406,7 @@ class ExecutionRepositoryTest {
     // ---- Explicit failure, not silent repair ----
 
     @Test
-    fun invalidOrRevisionMismatchedAddressesAreRejected() = runBlocking {
+    fun invalidOrRevisionMismatchedAddressesAreRejected() = runBlocking<Unit> {
         val guideId = createGuideWithSimpleRevision("guide", "draft", "revision")
         enqueueIds("exec")
         val created = executionRepository.createExecution(guideId, DefinitionRevisionId("revision"))
@@ -423,7 +423,7 @@ class ExecutionRepositoryTest {
     }
 
     @Test
-    fun malformedPersistedStateFailsExplicitly() = runBlocking {
+    fun malformedPersistedStateFailsExplicitly() = runBlocking<Unit> {
         val guideId = createGuideWithSimpleRevision("guide", "draft", "revision")
         enqueueIds("exec")
         val created = executionRepository.createExecution(guideId, DefinitionRevisionId("revision"))

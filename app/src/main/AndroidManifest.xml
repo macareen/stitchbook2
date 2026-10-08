@@ -35,6 +35,17 @@
             </intent-filter>
         </activity>
 
+        <!-- Shares rendered card PNGs from the reproducible cache only. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/share_paths" />
+        </provider>
+
         <service
             android:name=".data.notification.CounterFocusNotificationService"
             android:exported="false"

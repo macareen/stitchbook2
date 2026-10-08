@@ -36,6 +36,10 @@ android {
     buildFeatures {
         compose = true
     }
+    sourceSets {
+        // Exported Room schemas, read by MigrationTestHelper in connected tests.
+        getByName("androidTest").assets.srcDir("$projectDir/schemas")
+    }
 }
 
 ksp {
@@ -65,6 +69,12 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.room.testing)
+    constraints {
+        // room-testing needs serialization 1.8+; the app otherwise gets 1.7.3 transitively
+        // (lifecycle/navigation), and instrumented tests share the app's runtime classes.
+        implementation(libs.kotlinx.serialization.core)
+    }
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

@@ -5,7 +5,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import com.macareen.stitchbook2.R
+import androidx.compose.ui.res.stringResource
 import com.macareen.stitchbook2.domain.model.Craft
+import com.macareen.stitchbook2.domain.model.Project
 import com.macareen.stitchbook2.domain.model.ProjectStatus
 import com.macareen.stitchbook2.domain.model.ProjectType
 import com.macareen.stitchbook2.ui.theme.textSecondary
@@ -61,4 +63,15 @@ fun ProjectStatus.pillColors(): Pair<Color, Color> = when (this) {
         MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
     ProjectStatus.PAUSED, ProjectStatus.ABANDONED ->
         MaterialTheme.colorScheme.surfaceContainerHigh to MaterialTheme.colorScheme.textSecondary
+}
+
+/** The project's type as the user named it: a custom label wins for [ProjectType.OTHER]. */
+@Composable
+fun Project.typeDisplayLabel(): String {
+    val custom = customTypeLabel
+    return if (projectType == ProjectType.OTHER && !custom.isNullOrBlank()) {
+        custom
+    } else {
+        stringResource(projectType.labelResource())
+    }
 }

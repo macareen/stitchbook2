@@ -105,7 +105,8 @@ class LibraryViewModel(
         tags: List<String>,
         notes: String,
         pdfUri: String?,
-        pdfFileName: String?
+        pdfFileName: String?,
+        metadata: PatternMetadataInput? = null
     ) {
         val normalizedTitle = normalizedLibraryItemTitle(title) ?: return
         scope.launch {
@@ -126,7 +127,24 @@ class LibraryViewModel(
                 // A newly attached/changed PDF has no remembered page yet;
                 // only carry the prior page forward when the attachment
                 // itself didn't change.
-                pdfLastViewedPage = if (pdfUri == original?.pdfUri) original?.pdfLastViewedPage else null
+                pdfLastViewedPage = if (pdfUri == original?.pdfUri) original?.pdfLastViewedPage else null,
+                gauge = if (metadata != null) metadata.gauge.trim().ifEmpty { null } else original?.gauge,
+                sizes = if (metadata != null) metadata.sizes.trim().ifEmpty { null } else original?.sizes,
+                yardageRequired = if (metadata != null) {
+                    metadata.yardageRequiredText.trim().replace(',', '.').toDoubleOrNull()?.takeIf { it > 0.0 }
+                } else {
+                    original?.yardageRequired
+                },
+                recommendedTools = if (metadata != null) {
+                    metadata.recommendedTools.trim().ifEmpty { null }
+                } else {
+                    original?.recommendedTools
+                },
+                ravelryPatternId = if (metadata != null) {
+                    metadata.ravelryPatternId.trim().ifEmpty { null }
+                } else {
+                    original?.ravelryPatternId
+                }
             )
             try {
                 repository.saveLibraryItem(item)
@@ -225,3 +243,15 @@ class LibraryViewModel(
         }
     }
 }
+
+/**
+ * Raw pattern-metadata form text (PRODUCT_SPEC.md 6.5). Passing null to
+ * [LibraryViewModel.saveItem] keeps the original item's metadata unchanged.
+ */
+data class PatternMetadataInput(
+    val gauge: String = "",
+    val sizes: String = "",
+    val yardageRequiredText: String = "",
+    val recommendedTools: String = "",
+    val ravelryPatternId: String = ""
+)

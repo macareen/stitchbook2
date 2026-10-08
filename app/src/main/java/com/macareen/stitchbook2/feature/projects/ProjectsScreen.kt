@@ -229,7 +229,7 @@ private fun ProjectListItem(
                 fontWeight = FontWeight.SemiBold
             )
             Text(
-                text = stringResource(project.projectType.labelResource()),
+                text = project.typeDisplayLabel(),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.textSecondary,
                 modifier = Modifier.padding(top = 2.dp)

@@ -21,7 +21,15 @@ data class LibraryItem(
     val pdfUri: String? = null,
     val pdfFileName: String? = null,
     /** 0-indexed. Null until the in-app viewer has been opened at least once. */
-    val pdfLastViewedPage: Int? = null
+    val pdfLastViewedPage: Int? = null,
+    /** Free text as printed ("22 sts × 30 rows = 10 cm in stockinette"); crafts measure gauge differently. */
+    val gauge: String? = null,
+    /** Free text size range ("XS–3XL", "0–6 months"). */
+    val sizes: String? = null,
+    /** Total yarn the pattern calls for, in yards (the Stash's canonical length unit). */
+    val yardageRequired: Double? = null,
+    val recommendedTools: String? = null,
+    val ravelryPatternId: String? = null
 )
 
 fun normalizedLibraryItemTitle(value: String): String? {

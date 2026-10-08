@@ -24,8 +24,30 @@ data class StashItem(
     /** ISO-8601 date-only string ("yyyy-MM-dd"), e.g. "2024-03-15" -- a purchase date has no time-of-day meaning (ARCHITECTURE.md 9's "local dates for date-only concepts"). */
     val purchaseDate: String?,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    /** Manufacturer's stated weight of one full unit (skein/ball), in grams. */
+    val weightPerUnitGrams: Double? = null,
+    /**
+     * A *measured* (scale) weight in grams of what's left across all units,
+     * recorded by the user for partial skeins. Null means "not weighed";
+     * [quantity] still tracks full and fractional units either way.
+     */
+    val remainingWeightGrams: Double? = null
 )
+
+/**
+ * Estimated remaining length in yards, derived from the measured
+ * [StashItem.remainingWeightGrams] and the stated yards-per-gram ratio of a
+ * full unit. Always an *estimate* (dye, moisture and ply vary), rounded to
+ * one decimal place; null when any input is missing or the unit weight is 0.
+ */
+fun StashItem.estimatedRemainingYards(): Double? {
+    val remaining = remainingWeightGrams ?: return null
+    val yardsPerUnit = yardagePerUnit ?: return null
+    val gramsPerUnit = weightPerUnitGrams ?: return null
+    if (gramsPerUnit <= 0.0 || remaining < 0.0) return null
+    return Math.round(remaining / gramsPerUnit * yardsPerUnit * 10.0) / 10.0
+}
 
 enum class StashCategory(val storageValue: String) {
     YARN("YARN"),

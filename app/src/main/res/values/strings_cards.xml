@@ -1,0 +1,53 @@
+<resources>
+    <string name="card_title">Share card</string>
+    <string name="project_section_card_description">Make a PNG summary to save or share</string>
+    <string name="card_privacy_note">Cards are made on this device. Nothing is posted for you, and only the details you switch on are included.</string>
+    <string name="card_load_failed">This card could not be prepared.</string>
+    <string name="card_template_progress">Progress</string>
+    <string name="card_template_completed">Finished</string>
+    <string name="card_template_milestone">Milestone</string>
+    <string name="card_template_before_after">Before &amp; after</string>
+    <string name="card_template_yarn">Yarn</string>
+    <string name="card_template_weekly">Weekly</string>
+    <string name="card_template_annual">Year in crafting</string>
+    <string name="card_title_weekly">My crafting week</string>
+    <string name="card_title_annual">My %1$d in crafting</string>
+    <string name="card_fact_craft">Craft</string>
+    <string name="card_fact_type">Type</string>
+    <string name="card_fact_status">Status</string>
+    <string name="card_fact_duration">Took</string>
+    <string name="card_fact_time">Time crafted</string>
+    <string name="card_fact_estimated_length">Length (estimate)</string>
+    <string name="card_fact_streak">Streak</string>
+    <string name="card_amount">%1$s %2$s</string>
+    <plurals name="card_days">
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
+    <plurals name="card_photo_count">
+        <item quantity="one">Includes %1$d photo.</item>
+        <item quantity="other">Includes %1$d photos.</item>
+    </plurals>
+    <string name="card_save">Save PNG</string>
+    <string name="card_share">Share</string>
+    <string name="card_saved">Saved.</string>
+    <string name="card_export_failed">The card couldn’t be exported. Please try again.</string>
+    <string name="card_fields">What to include</string>
+    <string name="card_field_photo">Photo</string>
+    <string name="card_field_craft">Craft &amp; type</string>
+    <string name="card_field_dates">Dates</string>
+    <string name="card_field_time">Time</string>
+    <string name="card_field_rows">Rows</string>
+    <string name="card_field_milestone">Latest milestone</string>
+    <string name="card_field_yarn">Yarn</string>
+    <string name="card_field_description">Description</string>
+    <string name="card_field_notes">Private notes</string>
+    <string name="card_private_warning">Private notes will be visible to anyone you share this card with.</string>
+    <string name="card_photo">Photo</string>
+    <string name="card_use_photo">Use this photo</string>
+    <string name="card_before_after_missing">Mark a Before and an After photo in the project Journal to fill this card.</string>
+    <string name="card_description_title">Text description</string>
+    <string name="card_copy_description">Copy description</string>
+    <string name="card_description_copied">Description copied. Paste it as alt text where you share.</string>
+    <string name="statistics_share_summary">Share a summary card</string>
+</resources>

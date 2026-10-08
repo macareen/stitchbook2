@@ -1,10 +1,16 @@
 package com.macareen.stitchbook2.data.backup
 
 import com.macareen.stitchbook2.domain.backup.BackupImportResult
+import com.macareen.stitchbook2.domain.backup.BackupPreview
+import com.macareen.stitchbook2.domain.backup.BackupRecordType
+import com.macareen.stitchbook2.domain.backup.RestoreMode
 import com.macareen.stitchbook2.domain.model.Counter
 import com.macareen.stitchbook2.domain.model.CounterNote
 import com.macareen.stitchbook2.domain.model.Craft
+import com.macareen.stitchbook2.domain.model.JournalEntry
 import com.macareen.stitchbook2.domain.model.LibraryItem
+import com.macareen.stitchbook2.domain.model.Milestone
+import com.macareen.stitchbook2.domain.model.Photo
 import com.macareen.stitchbook2.domain.model.Project
 import com.macareen.stitchbook2.domain.model.ProjectStatus
 import com.macareen.stitchbook2.domain.model.ProjectType
@@ -16,11 +22,13 @@ import com.macareen.stitchbook2.domain.model.ToolSet
 import com.macareen.stitchbook2.domain.model.ToolTemplate
 import com.macareen.stitchbook2.domain.repository.CounterNoteRepository
 import com.macareen.stitchbook2.domain.repository.CounterRepository
+import com.macareen.stitchbook2.domain.repository.JournalRepository
 import com.macareen.stitchbook2.domain.repository.LibraryRepository
 import com.macareen.stitchbook2.domain.repository.ProjectRepository
 import com.macareen.stitchbook2.domain.repository.StashRepository
 import com.macareen.stitchbook2.domain.repository.ToolRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -206,8 +214,10 @@ class LocalBackupServiceTest {
             linkIncrementAmount = 1
         )
         val sourceCounters = FakeCounterRepository(listOf(linking, target))
+        // The counters' project travels with them: validation rejects a
+        // counter whose project is in neither the file nor the library.
         val exportingService = LocalBackupService(
-            FakeProjectRepository(emptyList()),
+            FakeProjectRepository(listOf(project)),
             FakeLibraryRepository(emptyList()),
             FakeStashRepository(emptyList()),
             FakeToolRepository(emptyList(), emptyList()),
@@ -227,7 +237,9 @@ class LocalBackupServiceTest {
             FakeCounterNoteRepository(emptyList())
         )
 
-        importingService.importJson(json)
+        val result = importingService.importJson(json)
+
+        assertTrue(result is BackupImportResult.Success)
 
         val restored = destinationCounters.counters.value.associateBy { it.id }
         assertEquals(target, restored.getValue(target.id))
@@ -388,6 +400,165 @@ class LocalBackupServiceTest {
         assertEquals(BackupImportResult.InvalidFormat, result)
     }
 
+    @Test
+    fun aVersion1FileStillPreviewsAndRestoresWithNewerFieldsDefaulted() = runBlocking {
+        val projects = FakeProjectRepository(emptyList())
+        val journal = FakeJournalRepository()
+        val service = LocalBackupService(
+            projects,
+            FakeLibraryRepository(emptyList()),
+            FakeStashRepository(emptyList()),
+            FakeToolRepository(emptyList(), emptyList()),
+            FakeCounterRepository(emptyList()),
+            FakeCounterNoteRepository(emptyList()),
+            journalRepository = journal
+        )
+        // Shape written by format-1 exports: no "format" marker, no manifest, original project fields only.
+        val json = """{"version":1,"exportedAt":0,"projects":[${projectJson(project)}]}"""
+
+        val preview = service.previewImport(json) as BackupPreview.Ready
+        assertEquals(1, preview.formatVersion)
+        assertEquals(setOf(BackupRecordType.PROJECTS), preview.comparison.keys)
+
+        val result = service.importJson(json, RestoreMode.REPLACE)
+
+        assertTrue(result is BackupImportResult.Success)
+        val restored = projects.items.value.single()
+        assertEquals(project, restored)
+        assertEquals(null, restored.description)
+        assertEquals(null, restored.startDate)
+        assertTrue(journal.entries.value.isEmpty())
+    }
+
+    @Test
+    fun mergeAddsOnlyNewRecordsAndNeverOverwritesAConflict() = runBlocking {
+        val localVersion = project.copy(name = "Local edits", updatedAt = 900)
+        val projects = FakeProjectRepository(listOf(localVersion))
+        val service = LocalBackupService(
+            projects,
+            FakeLibraryRepository(emptyList()),
+            FakeStashRepository(emptyList()),
+            FakeToolRepository(emptyList(), emptyList()),
+            FakeCounterRepository(emptyList()),
+            FakeCounterNoteRepository(emptyList())
+        )
+        val added = project.copy(id = "project-2", name = "From the file")
+        val json = """{"version":2,"exportedAt":0,"projects":[${projectJson(project)},${projectJson(added)}]}"""
+
+        val result = service.importJson(json, RestoreMode.MERGE) as BackupImportResult.Success
+
+        assertEquals(setOf(localVersion, added), projects.items.value.toSet())
+        assertEquals(1, result.conflictsKept)
+        assertEquals(mapOf(BackupRecordType.PROJECTS to 1), result.written)
+    }
+
+    @Test
+    fun replacingTheProjectsTypeUpdatesAKeptProjectWithoutDroppingItsChildren() = runBlocking {
+        val journal = FakeJournalRepository(
+            entries = listOf(journalEntry("entry-1", "project-1"), journalEntry("entry-2", "project-2")),
+            milestones = listOf(milestone("milestone-1", "project-1"))
+        )
+        // Mirrors Room's ON DELETE CASCADE, so a delete-and-reinsert would visibly lose the children.
+        val projects = FakeProjectRepository(listOf(project, project.copy(id = "project-2"))) { deleted ->
+            journal.entries.value = journal.entries.value.filterNot { it.projectId == deleted.id }
+            journal.milestones.value = journal.milestones.value.filterNot { it.projectId == deleted.id }
+        }
+        val service = LocalBackupService(
+            projects,
+            FakeLibraryRepository(emptyList()),
+            FakeStashRepository(emptyList()),
+            FakeToolRepository(emptyList(), emptyList()),
+            FakeCounterRepository(emptyList()),
+            FakeCounterNoteRepository(emptyList()),
+            journalRepository = journal
+        )
+        val renamed = project.copy(name = "Renamed in the backup", updatedAt = 999)
+        val json = """{"version":2,"exportedAt":0,"projects":[${projectJson(renamed)}]}"""
+
+        val result = service.importJson(json, RestoreMode.REPLACE)
+
+        assertTrue(result is BackupImportResult.Success)
+        assertEquals(listOf(renamed), projects.items.value)
+        assertEquals(listOf("project-2"), projects.deletedIds)
+        // The kept project's children survive; the removed project's children cascade away.
+        assertEquals(listOf("entry-1"), journal.entries.value.map { it.id })
+        assertEquals(listOf("milestone-1"), journal.milestones.value.map { it.id })
+    }
+
+    @Test
+    fun anInvalidFileWritesNothingAndReportsEachIssue() = runBlocking {
+        val projects = FakeProjectRepository(listOf(project))
+        val journal = FakeJournalRepository()
+        val service = LocalBackupService(
+            projects,
+            FakeLibraryRepository(emptyList()),
+            FakeStashRepository(emptyList()),
+            FakeToolRepository(emptyList(), emptyList()),
+            FakeCounterRepository(emptyList()),
+            FakeCounterNoteRepository(emptyList()),
+            journalRepository = journal
+        )
+        val json = """
+            {"version":2,"exportedAt":0,"projects":[],
+             "journalEntries":[{"id":"j1","projectId":"ghost","entryDate":"2026-01-01","title":null,
+                                "body":"x","createdAt":0,"updatedAt":0}]}
+        """.trimIndent()
+
+        assertTrue(service.previewImport(json) is BackupPreview.Invalid)
+        val result = service.importJson(json, RestoreMode.REPLACE) as BackupImportResult.ValidationFailed
+
+        assertEquals(listOf(BackupRecordType.JOURNAL_ENTRIES), result.issues.map { it.type })
+        assertEquals(listOf(project), projects.items.value)
+        assertTrue(journal.entries.value.isEmpty())
+    }
+
+    @Test
+    fun referencedFilesThatCannotBeOpenedAreReportedByDisplayName() = runBlocking {
+        val exporting = LocalBackupService(
+            FakeProjectRepository(emptyList()),
+            FakeLibraryRepository(listOf(libraryItem)),
+            FakeStashRepository(emptyList()),
+            FakeToolRepository(emptyList(), emptyList()),
+            FakeCounterRepository(emptyList()),
+            FakeCounterNoteRepository(emptyList())
+        )
+        val json = exporting.exportJson()
+        val importing = LocalBackupService(
+            FakeProjectRepository(emptyList()),
+            FakeLibraryRepository(emptyList()),
+            FakeStashRepository(emptyList()),
+            FakeToolRepository(emptyList(), emptyList()),
+            FakeCounterRepository(emptyList()),
+            FakeCounterNoteRepository(emptyList()),
+            isFileAccessible = { false }
+        )
+
+        val result = importing.importJson(json, RestoreMode.MERGE) as BackupImportResult.Success
+
+        assertEquals(listOf("Raglan Guide.pdf"), result.missingFiles)
+    }
+
+    private fun journalEntry(id: String, projectId: String) = JournalEntry(
+        id = id,
+        projectId = projectId,
+        entryDate = "2026-02-01",
+        title = null,
+        body = "Progress note",
+        createdAt = 100,
+        updatedAt = 100
+    )
+
+    private fun milestone(id: String, projectId: String) = Milestone(
+        id = id,
+        projectId = projectId,
+        title = "Cast on",
+        reachedDate = "2026-01-15",
+        notes = null,
+        position = 0,
+        createdAt = 100,
+        updatedAt = 100
+    )
+
     private fun projectJson(project: Project): String {
         val notesJson = project.notes?.let { "\"$it\"" } ?: "null"
         return """
@@ -398,8 +569,13 @@ class LocalBackupServiceTest {
     }
 }
 
-private class FakeProjectRepository(initial: List<Project>) : ProjectRepository {
+private class FakeProjectRepository(
+    initial: List<Project>,
+    /** Called after a delete, so a test can emulate Room's cascades. */
+    private val onDelete: (Project) -> Unit = {}
+) : ProjectRepository {
     val items = MutableStateFlow(initial)
+    val deletedIds = mutableListOf<String>()
     override fun observeProjects(): Flow<List<Project>> = items
     override fun observeProject(id: String): Flow<Project?> =
         throw UnsupportedOperationException("Not used by LocalBackupService")
@@ -408,6 +584,49 @@ private class FakeProjectRepository(initial: List<Project>) : ProjectRepository 
     }
     override suspend fun deleteProject(project: Project) {
         items.value = items.value.filterNot { it.id == project.id }
+        deletedIds += project.id
+        onDelete(project)
+    }
+}
+
+private class FakeJournalRepository(
+    entries: List<JournalEntry> = emptyList(),
+    milestones: List<Milestone> = emptyList(),
+    photos: List<Photo> = emptyList()
+) : JournalRepository {
+    val entries = MutableStateFlow(entries)
+    val milestones = MutableStateFlow(milestones)
+    val photos = MutableStateFlow(photos)
+
+    override fun observePhotos(): Flow<List<Photo>> = photos
+    override fun observePhotosForProject(projectId: String): Flow<List<Photo>> =
+        throw UnsupportedOperationException("Not used by LocalBackupService")
+    override fun observePhotosForStashItem(stashItemId: String): Flow<List<Photo>> =
+        throw UnsupportedOperationException("Not used by LocalBackupService")
+    override suspend fun savePhoto(photo: Photo) {
+        photos.value = photos.value.filterNot { it.id == photo.id } + photo
+    }
+    override suspend fun deletePhoto(photo: Photo) {
+        photos.value = photos.value.filterNot { it.id == photo.id }
+    }
+    override fun observeEntries(): Flow<List<JournalEntry>> = entries
+    override fun observeEntriesForProject(projectId: String): Flow<List<JournalEntry>> =
+        throw UnsupportedOperationException("Not used by LocalBackupService")
+    override suspend fun saveEntry(entry: JournalEntry) {
+        entries.value = entries.value.filterNot { it.id == entry.id } + entry
+    }
+    override suspend fun deleteEntry(entry: JournalEntry) {
+        entries.value = entries.value.filterNot { it.id == entry.id }
+    }
+    override fun observeMilestones(): Flow<List<Milestone>> = milestones
+    override fun observeMilestonesForProject(projectId: String): Flow<List<Milestone>> =
+        throw UnsupportedOperationException("Not used by LocalBackupService")
+    override suspend fun saveMilestones(milestones: List<Milestone>) {
+        val ids = milestones.map { it.id }.toSet()
+        this.milestones.value = this.milestones.value.filterNot { it.id in ids } + milestones
+    }
+    override suspend fun deleteMilestone(milestone: Milestone) {
+        milestones.value = milestones.value.filterNot { it.id == milestone.id }
     }
 }
 
@@ -466,19 +685,24 @@ private class FakeToolRepository(
         sets.value = sets.value.filterNot { it.id == set.id }
     }
 
-    override fun observeToolTemplates(): Flow<List<ToolTemplate>> =
-        throw UnsupportedOperationException("Not used by LocalBackupService")
-    override suspend fun saveToolTemplate(template: ToolTemplate) =
-        throw UnsupportedOperationException("Not used by LocalBackupService")
-    override suspend fun deleteToolTemplate(template: ToolTemplate) =
-        throw UnsupportedOperationException("Not used by LocalBackupService")
+    val templates = MutableStateFlow<List<ToolTemplate>>(emptyList())
+    val assignments = MutableStateFlow<Map<String, Set<String>>>(emptyMap())
+
+    override fun observeToolTemplates(): Flow<List<ToolTemplate>> = templates
+    override suspend fun saveToolTemplate(template: ToolTemplate) {
+        templates.value = templates.value.filterNot { it.id == template.id } + template
+    }
+    override suspend fun deleteToolTemplate(template: ToolTemplate) {
+        templates.value = templates.value.filterNot { it.id == template.id }
+    }
 
     override fun observeToolItemsForProject(projectId: String): Flow<List<ToolItem>> =
         throw UnsupportedOperationException("Not used by LocalBackupService")
     override fun observeProjectIdsForToolItem(toolItemId: String): Flow<List<String>> =
-        throw UnsupportedOperationException("Not used by LocalBackupService")
-    override suspend fun setProjectAssignments(toolItemId: String, projectIds: Set<String>) =
-        throw UnsupportedOperationException("Not used by LocalBackupService")
+        flowOf(assignments.value[toolItemId].orEmpty().toList())
+    override suspend fun setProjectAssignments(toolItemId: String, projectIds: Set<String>) {
+        assignments.value = assignments.value + (toolItemId to projectIds)
+    }
     override suspend fun unassignToolFromProject(toolItemId: String, projectId: String) =
         throw UnsupportedOperationException("Not used by LocalBackupService")
 }

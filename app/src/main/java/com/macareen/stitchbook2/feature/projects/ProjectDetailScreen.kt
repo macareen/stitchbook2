@@ -1,5 +1,6 @@
 package com.macareen.stitchbook2.feature.projects
 
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.AlertDialog
@@ -38,11 +40,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.macareen.stitchbook2.R
 import com.macareen.stitchbook2.domain.execution.GuideId
@@ -52,14 +57,18 @@ import com.macareen.stitchbook2.domain.model.Project
 import com.macareen.stitchbook2.domain.model.ProjectStatus
 import com.macareen.stitchbook2.domain.model.ProjectType
 import com.macareen.stitchbook2.domain.model.ToolItem
+import com.macareen.stitchbook2.ui.components.DetailLine
 import com.macareen.stitchbook2.ui.components.LabelPill
 import com.macareen.stitchbook2.ui.components.PrimaryActionButton
 import com.macareen.stitchbook2.ui.components.QuietText
 import com.macareen.stitchbook2.ui.components.SecondaryActionButton
+import com.macareen.stitchbook2.ui.components.SectionHeader
 import com.macareen.stitchbook2.ui.theme.StitchbookSpacing
 import com.macareen.stitchbook2.ui.theme.StitchbookTheme
 import com.macareen.stitchbook2.ui.theme.cardTitle
 import com.macareen.stitchbook2.ui.theme.textSecondary
+import java.io.IOException
+import java.io.OutputStreamWriter
 import java.text.DateFormat
 import java.util.Date
 import kotlinx.coroutines.Dispatchers
@@ -72,9 +81,16 @@ fun ProjectDetailRoute(
     onEditProject: (String) -> Unit,
     onProjectDeleted: () -> Unit,
     onOpenGuide: (String) -> Unit,
-    onEditDraft: (String) -> Unit
+    onEditDraft: (String) -> Unit,
+    onOpenSection: (ProjectSection) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val exportFeedback by viewModel.exportFeedback.collectAsStateWithLifecycle()
+
+    // Coming back from Focus Mode or the Draft editor can change a guide's Start/Continue state.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.refreshGuideEntries()
+    }
 
     LaunchedEffect(viewModel) {
         viewModel.deletedEvents.collect {
@@ -96,7 +112,11 @@ fun ProjectDetailRoute(
         onEditDraft = onEditDraft,
         onCreateGuide = viewModel::createGuide,
         onCreateGuideFromPdf = viewModel::createGuideFromPdf,
-        onUnassignTool = viewModel::unassignTool
+        onUnassignTool = viewModel::unassignTool,
+        onOpenSection = onOpenSection,
+        exportFeedback = exportFeedback,
+        onExportProject = viewModel::exportProject,
+        onDismissExportFeedback = viewModel::dismissExportFeedback
     )
 }
 
@@ -110,7 +130,11 @@ fun ProjectDetailScreen(
     onCreateGuide: (String) -> Unit,
     onCreateGuideFromPdf: (String, ByteArray) -> Unit,
     onUnassignTool: (ToolItem) -> Unit,
-    modifier: Modifier = Modifier
+    onOpenSection: (ProjectSection) -> Unit,
+    modifier: Modifier = Modifier,
+    exportFeedback: ProjectExportFeedback? = null,
+    onExportProject: (ProjectExportFormat, suspend (String) -> Unit) -> Unit = { _, _ -> },
+    onDismissExportFeedback: () -> Unit = {}
 ) {
     when (uiState) {
         ProjectDetailUiState.Loading -> {
@@ -149,6 +173,10 @@ fun ProjectDetailScreen(
                 onCreateGuide = onCreateGuide,
                 onCreateGuideFromPdf = onCreateGuideFromPdf,
                 onUnassignTool = onUnassignTool,
+                onOpenSection = onOpenSection,
+                exportFeedback = exportFeedback,
+                onExportProject = onExportProject,
+                onDismissExportFeedback = onDismissExportFeedback,
                 modifier = modifier
             )
         }
@@ -165,6 +193,10 @@ private fun ProjectDetailContent(
     onCreateGuide: (String) -> Unit,
     onCreateGuideFromPdf: (String, ByteArray) -> Unit,
     onUnassignTool: (ToolItem) -> Unit,
+    onOpenSection: (ProjectSection) -> Unit,
+    exportFeedback: ProjectExportFeedback?,
+    onExportProject: (ProjectExportFormat, suspend (String) -> Unit) -> Unit,
+    onDismissExportFeedback: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showDeleteConfirmation by remember { mutableStateOf(false) }
@@ -191,6 +223,27 @@ private fun ProjectDetailContent(
             }
         }
     }
+
+    // One launcher per format, since CreateDocument fixes its MIME type up front.
+    fun exportTo(format: ProjectExportFormat): (Uri?) -> Unit = { uri ->
+        if (uri != null) {
+            onExportProject(format) { content ->
+                withContext(Dispatchers.IO) {
+                    val stream = context.contentResolver.openOutputStream(uri)
+                        ?: throw IOException("Could not open the chosen document for writing.")
+                    stream.use { OutputStreamWriter(it, Charsets.UTF_8).use { writer -> writer.write(content) } }
+                }
+            }
+        }
+    }
+    val exportJsonLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument(ProjectExportFormat.JSON.mimeType),
+        onResult = exportTo(ProjectExportFormat.JSON)
+    )
+    val exportMarkdownLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument(ProjectExportFormat.MARKDOWN.mimeType),
+        onResult = exportTo(ProjectExportFormat.MARKDOWN)
+    )
 
     Column(
         modifier = modifier
@@ -243,6 +296,9 @@ private fun ProjectDetailContent(
 
         ProjectHeaderCard(project = project)
 
+        Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
+        ProjectSectionLinks(onOpenSection = onOpenSection)
+
         if (state.deleteFailed) {
             Text(
                 text = stringResource(R.string.project_delete_error),
@@ -269,6 +325,14 @@ private fun ProjectDetailContent(
         ToolsSection(
             assignedTools = state.assignedTools,
             onUnassignTool = onUnassignTool
+        )
+
+        Spacer(modifier = Modifier.height(StitchbookSpacing.large))
+        ExportSection(
+            feedback = exportFeedback,
+            onExportJson = { exportJsonLauncher.launch(projectExportFileName(project.name, ProjectExportFormat.JSON)) },
+            onExportMarkdown = { exportMarkdownLauncher.launch(projectExportFileName(project.name, ProjectExportFormat.MARKDOWN)) },
+            onDismissFeedback = onDismissExportFeedback
         )
     }
 
@@ -498,6 +562,52 @@ private fun GuidesSection(
  * there is deliberately no "add tool" action in this section -- only a way
  * to remove this project's side of an existing assignment.
  */
+/** Per-project exports into the user's own storage: restorable JSON and readable Markdown. */
+@Composable
+private fun ExportSection(
+    feedback: ProjectExportFeedback?,
+    onExportJson: () -> Unit,
+    onExportMarkdown: () -> Unit,
+    onDismissFeedback: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
+        SectionHeader(title = stringResource(R.string.project_export_title))
+        QuietText(text = stringResource(R.string.project_export_description))
+        SecondaryActionButton(
+            text = stringResource(R.string.project_export_json),
+            onClick = onExportJson,
+            modifier = Modifier.fillMaxWidth()
+        )
+        SecondaryActionButton(
+            text = stringResource(R.string.project_export_markdown),
+            onClick = onExportMarkdown,
+            modifier = Modifier.fillMaxWidth()
+        )
+        if (feedback != null) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(
+                        when (feedback) {
+                            ProjectExportFeedback.SAVED -> R.string.project_export_saved
+                            ProjectExportFeedback.FAILED -> R.string.project_export_failed
+                        }
+                    ),
+                    color = if (feedback == ProjectExportFeedback.FAILED) MaterialTheme.colorScheme.error else Color.Unspecified,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = onDismissFeedback) {
+                    Text(text = stringResource(R.string.settings_dismiss))
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun ToolsSection(
     assignedTools: List<ToolItem>,
@@ -620,6 +730,56 @@ private fun GuideListItem(
 }
 
 @Composable
+private fun ProjectSectionLinks(onOpenSection: (ProjectSection) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
+        ProjectSection.entries.forEach { section ->
+            Surface(
+                onClick = { onOpenSection(section) },
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(StitchbookSpacing.medium)
+                ) {
+                    Surface(
+                        shape = MaterialTheme.shapes.medium,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    ) {
+                        Icon(
+                            imageVector = section.icon,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .padding(StitchbookSpacing.small)
+                                .size(20.dp)
+                        )
+                    }
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(start = StitchbookSpacing.medium)
+                    ) {
+                        Text(text = stringResource(section.title), style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            text = stringResource(section.description),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.textSecondary
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.textSecondary
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun ProjectHeaderCard(project: Project) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -646,7 +806,7 @@ private fun ProjectHeaderCard(project: Project) {
                 style = MaterialTheme.typography.headlineMedium
             )
             Text(
-                text = stringResource(project.projectType.labelResource()),
+                text = project.typeDisplayLabel(),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.textSecondary,
                 modifier = Modifier.padding(top = StitchbookSpacing.extraSmall)
@@ -664,6 +824,22 @@ private fun ProjectHeaderCard(project: Project) {
                     label = stringResource(R.string.project_updated_label),
                     value = formatTimestamp(project.updatedAt)
                 )
+            }
+
+            if (!project.description.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
+                Text(text = project.description, style = MaterialTheme.typography.bodyLarge)
+            }
+
+            val details = listOfNotNull(
+                project.constructionMethod?.let { stringResource(R.string.project_construction_label) to it },
+                project.startDate?.let { stringResource(R.string.project_start_date_label) to it },
+                project.targetDate?.let { stringResource(R.string.project_target_date_label) to it },
+                project.completedDate?.let { stringResource(R.string.project_completed_date_label) to it }
+            )
+            if (details.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+                details.forEach { (label, value) -> DetailLine(label = label, value = value) }
             }
 
             if (!project.notes.isNullOrBlank()) {
@@ -777,7 +953,8 @@ private fun ProjectDetailPreview() {
             onEditDraft = {},
             onCreateGuide = {},
             onCreateGuideFromPdf = { _, _ -> },
-            onUnassignTool = {}
+            onUnassignTool = {},
+            onOpenSection = {}
         )
     }
 }

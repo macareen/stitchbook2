@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.Checklist
+import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -69,7 +70,8 @@ fun HomeRoute(
     onOpenProjects: () -> Unit,
     onOpenLibrary: () -> Unit,
     onOpenStash: () -> Unit,
-    onResumeGuide: (String) -> Unit
+    onResumeGuide: (String) -> Unit,
+    onOpenStatistics: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -80,7 +82,8 @@ fun HomeRoute(
         onOpenProjects = onOpenProjects,
         onOpenLibrary = onOpenLibrary,
         onOpenStash = onOpenStash,
-        onResumeGuide = onResumeGuide
+        onResumeGuide = onResumeGuide,
+        onOpenStatistics = onOpenStatistics
     )
 }
 
@@ -93,7 +96,8 @@ fun HomeScreen(
     onOpenLibrary: () -> Unit,
     onOpenStash: () -> Unit,
     onResumeGuide: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onOpenStatistics: () -> Unit = {}
 ) {
     when (uiState) {
         HomeUiState.Loading -> {
@@ -130,6 +134,7 @@ fun HomeScreen(
                 onOpenLibrary = onOpenLibrary,
                 onOpenStash = onOpenStash,
                 onResumeGuide = onResumeGuide,
+                onOpenStatistics = onOpenStatistics,
                 modifier = modifier
             )
         }
@@ -145,7 +150,8 @@ private fun HomeContent(
     onOpenLibrary: () -> Unit,
     onOpenStash: () -> Unit,
     onResumeGuide: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onOpenStatistics: () -> Unit = {}
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -173,7 +179,8 @@ private fun HomeContent(
             QuickNavRow(
                 onOpenProjects = onOpenProjects,
                 onOpenStash = onOpenStash,
-                onOpenLibrary = onOpenLibrary
+                onOpenLibrary = onOpenLibrary,
+                onOpenStatistics = onOpenStatistics
             )
         }
 
@@ -377,7 +384,8 @@ private data class QuickNavItem(
 private fun QuickNavRow(
     onOpenProjects: () -> Unit,
     onOpenStash: () -> Unit,
-    onOpenLibrary: () -> Unit
+    onOpenLibrary: () -> Unit,
+    onOpenStatistics: () -> Unit
 ) {
     val items = listOf(
         QuickNavItem(
@@ -406,6 +414,15 @@ private fun QuickNavRow(
             containerColor = MaterialTheme.colorScheme.tertiaryContainer,
             onContainerColor = MaterialTheme.colorScheme.onTertiaryContainer,
             onClick = onOpenLibrary
+        ),
+        QuickNavItem(
+            icon = Icons.Outlined.Insights,
+            titleRes = R.string.home_quick_nav_statistics_title,
+            descriptionRes = R.string.home_quick_nav_statistics_description,
+            ctaRes = R.string.home_quick_nav_statistics_cta,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            onContainerColor = MaterialTheme.colorScheme.onSurface,
+            onClick = onOpenStatistics
         )
     )
 

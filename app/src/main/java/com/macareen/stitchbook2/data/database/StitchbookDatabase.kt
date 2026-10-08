@@ -27,9 +27,15 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ToolTemplateEntity::class,
         ProjectToolAssignmentEntity::class,
         CounterEntity::class,
-        CounterNoteEntity::class
+        CounterNoteEntity::class,
+        YarnAllocationEntity::class,
+        ProjectPatternLinkEntity::class,
+        MilestoneEntity::class,
+        PhotoEntity::class,
+        JournalEntryEntity::class,
+        CraftingSessionEntity::class
     ],
-    version = 14,
+    version = 18,
     exportSchema = true
 )
 abstract class StitchbookDatabase : RoomDatabase() {
@@ -42,6 +48,9 @@ abstract class StitchbookDatabase : RoomDatabase() {
     abstract fun toolDao(): ToolDao
     abstract fun counterDao(): CounterDao
     abstract fun counterNoteDao(): CounterNoteDao
+    abstract fun materialsDao(): MaterialsDao
+    abstract fun journalDao(): JournalDao
+    abstract fun craftingSessionDao(): CraftingSessionDao
 
     companion object {
         private const val DATABASE_NAME = "stitchbook.db"
@@ -55,27 +64,40 @@ abstract class StitchbookDatabase : RoomDatabase() {
                     context.applicationContext,
                     StitchbookDatabase::class.java,
                     DATABASE_NAME
-                ).addMigrations(
-                    MIGRATION_1_2,
-                    MIGRATION_2_3,
-                    MIGRATION_3_4,
-                    MIGRATION_4_5,
-                    MIGRATION_5_6,
-                    MIGRATION_6_7,
-                    MIGRATION_7_8,
-                    MIGRATION_8_9,
-                    MIGRATION_9_10,
-                    MIGRATION_10_11,
-                    MIGRATION_11_12,
-                    MIGRATION_12_13,
-                    MIGRATION_13_14
-                )
+                ).addMigrations(*ALL_MIGRATIONS)
                     .build()
                     .also { instance = it }
             }
         }
     }
 }
+
+/**
+ * Every migration in order. A getter (not a stored property) so it never
+ * observes a not-yet-initialized migration declared further down the file.
+ * Append each new migration here and in StitchbookMigrationTest's
+ * CURRENT_SCHEMA_VERSION.
+ */
+val ALL_MIGRATIONS: Array<Migration>
+    get() = arrayOf(
+        MIGRATION_1_2,
+        MIGRATION_2_3,
+        MIGRATION_3_4,
+        MIGRATION_4_5,
+        MIGRATION_5_6,
+        MIGRATION_6_7,
+        MIGRATION_7_8,
+        MIGRATION_8_9,
+        MIGRATION_9_10,
+        MIGRATION_10_11,
+        MIGRATION_11_12,
+        MIGRATION_12_13,
+        MIGRATION_13_14,
+        MIGRATION_14_15,
+        MIGRATION_15_16,
+        MIGRATION_16_17,
+        MIGRATION_17_18
+    )
 
 val MIGRATION_1_2 = object : Migration(1, 2) {
     override fun migrate(db: SupportSQLiteDatabase) {
@@ -783,5 +805,173 @@ val MIGRATION_13_14 = object : Migration(13, 14) {
         db.execSQL("ALTER TABLE `stash_items` ADD COLUMN `purchase_source` TEXT")
         db.execSQL("ALTER TABLE `stash_items` ADD COLUMN `purchase_price` REAL")
         db.execSQL("ALTER TABLE `stash_items` ADD COLUMN `purchase_date` TEXT")
+    }
+}
+
+/**
+ * Phase 2's remaining project fields (ROADMAP.md: description, construction
+ * method, relevant dates, custom project-type labels). All plain nullable
+ * TEXT columns with no foreign keys, so `ALTER TABLE ADD COLUMN` suffices and
+ * every existing row keeps its values with the new fields null.
+ */
+val MIGRATION_14_15 = object : Migration(14, 15) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `projects` ADD COLUMN `description` TEXT")
+        db.execSQL("ALTER TABLE `projects` ADD COLUMN `construction_method` TEXT")
+        db.execSQL("ALTER TABLE `projects` ADD COLUMN `custom_type_label` TEXT")
+        db.execSQL("ALTER TABLE `projects` ADD COLUMN `start_date` TEXT")
+        db.execSQL("ALTER TABLE `projects` ADD COLUMN `target_date` TEXT")
+        db.execSQL("ALTER TABLE `projects` ADD COLUMN `completed_date` TEXT")
+    }
+}
+
+/**
+ * Phases 4 and 6 remainder: partial-skein weights on stash items, pattern
+ * metadata on library items (all plain nullable columns), plus two new
+ * join tables -- yarn allocations (with their own quantities and a
+ * surrogate id) and pure-membership project-pattern links. Purely
+ * additive; no existing table is recreated.
+ */
+val MIGRATION_15_16 = object : Migration(15, 16) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `stash_items` ADD COLUMN `weight_per_unit_grams` REAL")
+        db.execSQL("ALTER TABLE `stash_items` ADD COLUMN `remaining_weight_grams` REAL")
+        db.execSQL("ALTER TABLE `library_items` ADD COLUMN `gauge` TEXT")
+        db.execSQL("ALTER TABLE `library_items` ADD COLUMN `sizes` TEXT")
+        db.execSQL("ALTER TABLE `library_items` ADD COLUMN `yardage_required` REAL")
+        db.execSQL("ALTER TABLE `library_items` ADD COLUMN `recommended_tools` TEXT")
+        db.execSQL("ALTER TABLE `library_items` ADD COLUMN `ravelry_pattern_id` TEXT")
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `yarn_allocations` (
+                `id` TEXT NOT NULL,
+                `project_id` TEXT NOT NULL,
+                `stash_item_id` TEXT NOT NULL,
+                `quantity_reserved` REAL NOT NULL,
+                `quantity_used` REAL NOT NULL,
+                `notes` TEXT,
+                `created_at` INTEGER NOT NULL,
+                `updated_at` INTEGER NOT NULL,
+                PRIMARY KEY(`id`),
+                FOREIGN KEY(`project_id`) REFERENCES `projects`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                FOREIGN KEY(`stash_item_id`) REFERENCES `stash_items`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_yarn_allocations_project_id` ON `yarn_allocations` (`project_id`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_yarn_allocations_stash_item_id` ON `yarn_allocations` (`stash_item_id`)")
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `project_pattern_links` (
+                `project_id` TEXT NOT NULL,
+                `library_item_id` TEXT NOT NULL,
+                PRIMARY KEY(`project_id`, `library_item_id`),
+                FOREIGN KEY(`project_id`) REFERENCES `projects`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                FOREIGN KEY(`library_item_id`) REFERENCES `library_items`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_project_pattern_links_library_item_id` ON `project_pattern_links` (`library_item_id`)"
+        )
+    }
+}
+
+/**
+ * Phase 7: milestones, photo references, and journal entries. Three new
+ * tables, nothing existing touched. Milestones are created before photos
+ * because `photos.milestone_id` references them (ON DELETE SET NULL -- a
+ * removed milestone detaches its photos rather than deleting them).
+ */
+val MIGRATION_16_17 = object : Migration(16, 17) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `milestones` (
+                `id` TEXT NOT NULL,
+                `project_id` TEXT NOT NULL,
+                `title` TEXT NOT NULL,
+                `reached_date` TEXT,
+                `notes` TEXT,
+                `position` INTEGER NOT NULL,
+                `created_at` INTEGER NOT NULL,
+                `updated_at` INTEGER NOT NULL,
+                PRIMARY KEY(`id`),
+                FOREIGN KEY(`project_id`) REFERENCES `projects`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_milestones_project_id` ON `milestones` (`project_id`)")
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `photos` (
+                `id` TEXT NOT NULL,
+                `project_id` TEXT,
+                `stash_item_id` TEXT,
+                `uri` TEXT NOT NULL,
+                `display_name` TEXT,
+                `caption` TEXT,
+                `taken_date` TEXT,
+                `milestone_id` TEXT,
+                `role` TEXT NOT NULL,
+                `created_at` INTEGER NOT NULL,
+                `updated_at` INTEGER NOT NULL,
+                PRIMARY KEY(`id`),
+                FOREIGN KEY(`project_id`) REFERENCES `projects`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                FOREIGN KEY(`stash_item_id`) REFERENCES `stash_items`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                FOREIGN KEY(`milestone_id`) REFERENCES `milestones`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_photos_project_id` ON `photos` (`project_id`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_photos_stash_item_id` ON `photos` (`stash_item_id`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_photos_milestone_id` ON `photos` (`milestone_id`)")
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `journal_entries` (
+                `id` TEXT NOT NULL,
+                `project_id` TEXT NOT NULL,
+                `entry_date` TEXT NOT NULL,
+                `title` TEXT,
+                `body` TEXT NOT NULL,
+                `created_at` INTEGER NOT NULL,
+                `updated_at` INTEGER NOT NULL,
+                PRIMARY KEY(`id`),
+                FOREIGN KEY(`project_id`) REFERENCES `projects`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_journal_entries_project_id` ON `journal_entries` (`project_id`)")
+    }
+}
+
+/**
+ * Phase 8: timed crafting sessions. Only timestamps are stored, so an
+ * active session survives process death. `project_id` is SET_NULL so
+ * deleting a project keeps its time in overall statistics.
+ */
+val MIGRATION_17_18 = object : Migration(17, 18) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `crafting_sessions` (
+                `id` TEXT NOT NULL,
+                `project_id` TEXT,
+                `started_at` INTEGER NOT NULL,
+                `ended_at` INTEGER,
+                `paused_at` INTEGER,
+                `paused_total_millis` INTEGER NOT NULL,
+                `zone_id` TEXT NOT NULL,
+                `rows_completed` INTEGER,
+                `stitches_per_row` INTEGER,
+                `notes` TEXT,
+                `created_at` INTEGER NOT NULL,
+                `updated_at` INTEGER NOT NULL,
+                PRIMARY KEY(`id`),
+                FOREIGN KEY(`project_id`) REFERENCES `projects`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_crafting_sessions_project_id` ON `crafting_sessions` (`project_id`)")
     }
 }

@@ -12,6 +12,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.macareen.stitchbook2.StitchbookApplication
 import com.macareen.stitchbook2.domain.execution.GuideId
+import com.macareen.stitchbook2.feature.cards.ShareCardRoute
+import com.macareen.stitchbook2.feature.cards.ShareCardViewModel
 import com.macareen.stitchbook2.feature.counters.CountersRoute
 import com.macareen.stitchbook2.feature.counters.CountersViewModel
 import com.macareen.stitchbook2.feature.draft.DraftEditorRoute
@@ -20,19 +22,28 @@ import com.macareen.stitchbook2.feature.focus.GuideFocusRoute
 import com.macareen.stitchbook2.feature.focus.GuideFocusViewModel
 import com.macareen.stitchbook2.feature.home.HomeRoute
 import com.macareen.stitchbook2.feature.home.HomeViewModel
+import com.macareen.stitchbook2.feature.journal.ProjectJournalRoute
+import com.macareen.stitchbook2.feature.journal.ProjectJournalViewModel
 import com.macareen.stitchbook2.feature.library.LibraryRoute
 import com.macareen.stitchbook2.feature.library.PdfViewerRoute
 import com.macareen.stitchbook2.feature.library.PdfViewerViewModel
 import com.macareen.stitchbook2.feature.library.LibraryViewModel
+import com.macareen.stitchbook2.feature.materials.ProjectMaterialsRoute
+import com.macareen.stitchbook2.feature.materials.ProjectMaterialsViewModel
 import com.macareen.stitchbook2.feature.projects.ProjectDetailRoute
 import com.macareen.stitchbook2.feature.projects.ProjectDetailViewModel
 import com.macareen.stitchbook2.feature.projects.ProjectFormRoute
 import com.macareen.stitchbook2.feature.projects.ProjectFormViewModel
 import com.macareen.stitchbook2.feature.projects.ProjectsRoute
 import com.macareen.stitchbook2.feature.projects.ProjectsViewModel
+import com.macareen.stitchbook2.feature.projects.route
+import com.macareen.stitchbook2.feature.sessions.ProjectSessionsRoute
+import com.macareen.stitchbook2.feature.sessions.ProjectSessionsViewModel
 import com.macareen.stitchbook2.feature.settings.SettingsRoute
 import com.macareen.stitchbook2.feature.settings.SettingsViewModel
 import com.macareen.stitchbook2.feature.stash.StashRoute
+import com.macareen.stitchbook2.feature.statistics.StatisticsRoute
+import com.macareen.stitchbook2.feature.statistics.StatisticsViewModel
 import com.macareen.stitchbook2.feature.stash.StashViewModel
 import com.macareen.stitchbook2.feature.tools.BulkToolCreationRoute
 import com.macareen.stitchbook2.feature.tools.BulkToolCreationViewModel
@@ -57,6 +68,10 @@ fun StitchbookNavHost(
     val counterNoteRepository = application.container.counterNoteRepository
     val backupService = application.container.backupService
     val createGuideFromPdfUseCase = application.container.createGuideFromPdfUseCase
+    val userPreferencesRepository = application.container.userPreferencesRepository
+    val materialsRepository = application.container.materialsRepository
+    val journalRepository = application.container.journalRepository
+    val sessionRepository = application.container.sessionRepository
 
     NavHost(
         navController = navController,
@@ -90,8 +105,62 @@ fun StitchbookNavHost(
                 },
                 onResumeGuide = { guideId ->
                     navController.navigate(GuideFocusDestination.route(guideId))
+                },
+                onOpenStatistics = {
+                    navController.navigate(ProjectDestination.STATISTICS_ROUTE)
                 }
             )
+        }
+        composable(ProjectDestination.STATISTICS_ROUTE) {
+            val viewModel: StatisticsViewModel = viewModel(
+                factory = StatisticsViewModel.factory(
+                    projectRepository = projectRepository,
+                    sessionRepository = sessionRepository,
+                    materialsRepository = materialsRepository,
+                    stashRepository = stashRepository
+                )
+            )
+            StatisticsRoute(
+                viewModel = viewModel,
+                onShareSummary = { navController.navigate(ProjectDestination.SUMMARY_CARD_ROUTE) }
+            )
+        }
+        composable(ProjectDestination.SUMMARY_CARD_ROUTE) {
+            val viewModel: ShareCardViewModel = viewModel(
+                factory = ShareCardViewModel.factory(
+                    projectId = null,
+                    projectRepository = projectRepository,
+                    journalRepository = journalRepository,
+                    sessionRepository = sessionRepository,
+                    materialsRepository = materialsRepository,
+                    stashRepository = stashRepository
+                )
+            )
+            ShareCardRoute(viewModel = viewModel)
+        }
+        composable(
+            route = ProjectDestination.CARD_ROUTE,
+            arguments = listOf(
+                navArgument(ProjectDestination.PROJECT_ID_ARGUMENT) {
+                    type = NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val projectId = backStackEntry.arguments?.getString(
+                ProjectDestination.PROJECT_ID_ARGUMENT
+            )
+                .orEmpty()
+            val viewModel: ShareCardViewModel = viewModel(
+                factory = ShareCardViewModel.factory(
+                    projectId = projectId,
+                    projectRepository = projectRepository,
+                    journalRepository = journalRepository,
+                    sessionRepository = sessionRepository,
+                    materialsRepository = materialsRepository,
+                    stashRepository = stashRepository
+                )
+            )
+            ShareCardRoute(viewModel = viewModel)
         }
         composable(TopLevelDestination.Projects.route) {
             val viewModel: ProjectsViewModel = viewModel(
@@ -140,7 +209,7 @@ fun StitchbookNavHost(
         }
         composable(TopLevelDestination.Stash.route) {
             val viewModel: StashViewModel = viewModel(
-                factory = StashViewModel.factory(stashRepository)
+                factory = StashViewModel.factory(stashRepository, materialsRepository, journalRepository)
             )
             StashRoute(viewModel = viewModel)
         }
@@ -185,7 +254,7 @@ fun StitchbookNavHost(
         }
         composable(TopLevelDestination.Settings.route) {
             val viewModel: SettingsViewModel = viewModel(
-                factory = SettingsViewModel.factory(backupService)
+                factory = SettingsViewModel.factory(backupService, userPreferencesRepository)
             )
             SettingsRoute(viewModel = viewModel)
         }
@@ -221,7 +290,8 @@ fun StitchbookNavHost(
                     guideRepository = guideRepository,
                     executionRepository = executionRepository,
                     toolRepository = toolRepository,
-                    createGuideFromPdfUseCase = createGuideFromPdfUseCase
+                    createGuideFromPdfUseCase = createGuideFromPdfUseCase,
+                    backupService = backupService
                 )
             )
             ProjectDetailRoute(
@@ -240,8 +310,76 @@ fun StitchbookNavHost(
                 },
                 onEditDraft = { guideId ->
                     navController.navigate(DraftEditorDestination.route(guideId))
+                },
+                onOpenSection = { section ->
+                    navController.navigate(section.route(projectId))
                 }
             )
+        }
+        composable(
+            route = ProjectDestination.MATERIALS_ROUTE,
+            arguments = listOf(
+                navArgument(ProjectDestination.PROJECT_ID_ARGUMENT) {
+                    type = NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val projectId = backStackEntry.arguments?.getString(
+                ProjectDestination.PROJECT_ID_ARGUMENT
+            )
+                .orEmpty()
+            val viewModel: ProjectMaterialsViewModel = viewModel(
+                factory = ProjectMaterialsViewModel.factory(
+                    projectId = projectId,
+                    projectRepository = projectRepository,
+                    stashRepository = stashRepository,
+                    libraryRepository = libraryRepository,
+                    materialsRepository = materialsRepository
+                )
+            )
+            ProjectMaterialsRoute(viewModel = viewModel)
+        }
+        composable(
+            route = ProjectDestination.JOURNAL_ROUTE,
+            arguments = listOf(
+                navArgument(ProjectDestination.PROJECT_ID_ARGUMENT) {
+                    type = NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val projectId = backStackEntry.arguments?.getString(
+                ProjectDestination.PROJECT_ID_ARGUMENT
+            )
+                .orEmpty()
+            val viewModel: ProjectJournalViewModel = viewModel(
+                factory = ProjectJournalViewModel.factory(
+                    projectId = projectId,
+                    projectRepository = projectRepository,
+                    journalRepository = journalRepository
+                )
+            )
+            ProjectJournalRoute(viewModel = viewModel)
+        }
+        composable(
+            route = ProjectDestination.SESSIONS_ROUTE,
+            arguments = listOf(
+                navArgument(ProjectDestination.PROJECT_ID_ARGUMENT) {
+                    type = NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val projectId = backStackEntry.arguments?.getString(
+                ProjectDestination.PROJECT_ID_ARGUMENT
+            )
+                .orEmpty()
+            val viewModel: ProjectSessionsViewModel = viewModel(
+                factory = ProjectSessionsViewModel.factory(
+                    projectId = projectId,
+                    projectRepository = projectRepository,
+                    sessionRepository = sessionRepository
+                )
+            )
+            ProjectSessionsRoute(viewModel = viewModel)
         }
         composable(
             route = DraftEditorDestination.ROUTE,
