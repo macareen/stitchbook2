@@ -14,5 +14,9 @@
     <string name="pattern_guides_name_field">Guide name</string>
     <string name="pattern_guides_create">Create and edit</string>
     <string name="pattern_guides_create_failed">The guide couldn\'t be created. Try again.</string>
+    <string name="pattern_guides_fill_from_pdf">Fill from the pattern</string>
+    <string name="pattern_guides_fill_from_pdf_hint">Reads the PDF and keeps only this size\'s numbers. You review every step before knitting.</string>
+    <string name="pattern_guides_pdf_unreadable">The pattern\'s PDF couldn\'t be opened. Check it\'s still in your pattern folder, or create the guide empty.</string>
+    <string name="pattern_guides_pdf_no_text">No text was found in the pattern\'s PDF. Create the guide empty and add the steps yourself.</string>
     <string name="project_use_pattern_guide">Use a pattern guide</string>
 </resources>

@@ -103,6 +103,57 @@ class CreateGuideFromPdfUseCaseTest {
         val success = result as CreateGuideFromPdfUseCase.Result.Success
         assertEquals(1, success.issueCount)
     }
+    @Test
+    fun `a pattern guide keeps only its size's numbers`() = runBlocking {
+        val document = ExtractedDocument(
+            pageCount = 1,
+            lines = listOf(
+                ExtractedLine("Sizes: S (M, L)", SourceReference(1, 1)),
+                ExtractedLine("Cast on 60 (66, 72) sts.", SourceReference(1, 2))
+            )
+        )
+        val repository = FakeGuideRepository()
+        val useCase = CreateGuideFromPdfUseCase(FakePdfTextExtractor(document), repository, idGenerator())
+
+        val result = useCase.forPattern("pattern-1", "m", null, "Cardigan · M", ByteArrayInputStream(ByteArray(0)))
+
+        assertEquals(0, (result as CreateGuideFromPdfUseCase.Result.Success).issueCount)
+        assertEquals(listOf("pattern-1" to "m"), repository.patternGuidesCreated)
+        val texts = repository.lastSavedDraft!!.nodes.mapNotNull { it.instructionText }
+        assertTrue(texts.toString(), texts.any { it.startsWith("Cast on 66 sts.") })
+    }
+
+    @Test
+    fun `the Library sizes are used when the PDF has no size list`() = runBlocking {
+        val document = ExtractedDocument(1, listOf(ExtractedLine("Cast on 60 (66, 72) sts.", SourceReference(1, 1))))
+        val repository = FakeGuideRepository()
+        val useCase = CreateGuideFromPdfUseCase(FakePdfTextExtractor(document), repository, idGenerator())
+
+        useCase.forPattern("pattern-1", "L", "S, M, L", "Cardigan · L", ByteArrayInputStream(ByteArray(0)))
+
+        val texts = repository.lastSavedDraft!!.nodes.mapNotNull { it.instructionText }
+        assertTrue(texts.toString(), texts.any { it.startsWith("Cast on 72 sts.") })
+    }
+
+    @Test
+    fun `a size the pattern doesn't list keeps every number and says so`() = runBlocking {
+        val document = ExtractedDocument(
+            pageCount = 1,
+            lines = listOf(
+                ExtractedLine("Sizes: S (M, L)", SourceReference(1, 1)),
+                ExtractedLine("Cast on 60 (66, 72) sts.", SourceReference(1, 2))
+            )
+        )
+        val repository = FakeGuideRepository()
+        val useCase = CreateGuideFromPdfUseCase(FakePdfTextExtractor(document), repository, idGenerator())
+
+        val result = useCase.forPattern("pattern-1", "XL", null, "Cardigan · XL", ByteArrayInputStream(ByteArray(0)))
+
+        assertEquals(1, (result as CreateGuideFromPdfUseCase.Result.Success).issueCount)
+        val texts = repository.lastSavedDraft!!.nodes.mapNotNull { it.instructionText }
+        assertTrue(texts.any { it.startsWith("Cast on 60 (66, 72) sts.") })
+        assertTrue(texts.toString(), texts.any { "Size XL isn't one of the pattern's sizes (S, M, L)" in it })
+    }
 }
 
 private class FakePdfTextExtractor(private val document: ExtractedDocument) : PdfTextExtractor {
@@ -146,6 +197,16 @@ private class FakeGuideRepository : GuideRepository {
             nodes = emptyList()
         )
         return guide
+    }
+
+    val patternGuidesCreated = mutableListOf<Pair<String, String>>()
+
+    override suspend fun createPatternGuide(libraryItemId: String, sizeLabel: String, name: String): Guide {
+        patternGuidesCreated += libraryItemId to sizeLabel
+        val guide = createGuide("unused", name, null)
+        val owned = guide.copy(projectId = null, libraryItemId = libraryItemId, sizeLabel = sizeLabel)
+        guides[guide.id.value] = owned
+        return owned
     }
 
     override suspend fun updateGuideMetadata(guideId: GuideId, name: String, notes: String?): Guide? =

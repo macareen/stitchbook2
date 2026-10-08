@@ -3,6 +3,7 @@ package com.macareen.stitchbook2.feature.library
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,7 +11,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -61,7 +64,7 @@ fun PatternGuidesScreen(
     uiState: PatternGuidesUiState,
     onOpenPdf: (String) -> Unit,
     onEditGuide: (String) -> Unit,
-    onCreateGuide: (String, String) -> Unit,
+    onCreateGuide: (String, String, Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     when (uiState) {
@@ -82,7 +85,7 @@ private fun Content(
     state: PatternGuidesUiState.Content,
     onOpenPdf: (String) -> Unit,
     onEditGuide: (String) -> Unit,
-    onCreateGuide: (String, String) -> Unit,
+    onCreateGuide: (String, String, Boolean) -> Unit,
     modifier: Modifier
 ) {
     var showNewGuide by rememberSaveable { mutableStateOf(false) }
@@ -112,9 +115,15 @@ private fun Content(
             enabled = !state.isCreating,
             modifier = Modifier.fillMaxWidth()
         )
-        if (state.createFailed) {
+        val problem = when {
+            state.pdfProblem == PatternPdfProblem.NO_TEXT -> R.string.pattern_guides_pdf_no_text
+            state.pdfProblem == PatternPdfProblem.UNREADABLE -> R.string.pattern_guides_pdf_unreadable
+            state.createFailed -> R.string.pattern_guides_create_failed
+            else -> null
+        }
+        if (problem != null) {
             Text(
-                text = stringResource(R.string.pattern_guides_create_failed),
+                text = stringResource(problem),
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium
             )
@@ -124,9 +133,11 @@ private fun Content(
     if (showNewGuide) {
         NewGuideDialog(
             patternTitle = state.pattern.title,
-            onCreate = { size, name ->
+            sizeChoices = state.sizeChoices,
+            canFillFromPattern = state.pattern.pdfUri != null,
+            onCreate = { size, name, fromPattern ->
                 showNewGuide = false
-                onCreateGuide(size, name)
+                onCreateGuide(size, name, fromPattern)
             },
             onDismiss = { showNewGuide = false }
         )
@@ -155,14 +166,32 @@ private fun GuideRow(entry: PatternGuideEntry, onClick: () -> Unit) {
 }
 
 @Composable
-private fun NewGuideDialog(patternTitle: String, onCreate: (String, String) -> Unit, onDismiss: () -> Unit) {
+private fun NewGuideDialog(
+    patternTitle: String,
+    sizeChoices: List<String>,
+    canFillFromPattern: Boolean,
+    onCreate: (String, String, Boolean) -> Unit,
+    onDismiss: () -> Unit
+) {
     var size by rememberSaveable { mutableStateOf("") }
     var name by rememberSaveable { mutableStateOf("") }
+    var fromPattern by rememberSaveable { mutableStateOf(canFillFromPattern) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.pattern_guides_new)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
+                if (sizeChoices.isNotEmpty()) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
+                        sizeChoices.forEach { choice ->
+                            FilterChip(
+                                selected = size.trim().equals(choice, ignoreCase = true),
+                                onClick = { size = choice },
+                                label = { Text(choice) }
+                            )
+                        }
+                    }
+                }
                 OutlinedTextField(
                     value = size,
                     onValueChange = { size = it },
@@ -178,10 +207,19 @@ private fun NewGuideDialog(patternTitle: String, onCreate: (String, String) -> U
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+                if (canFillFromPattern) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = fromPattern, onCheckedChange = { fromPattern = it })
+                        Column {
+                            Text(stringResource(R.string.pattern_guides_fill_from_pdf), style = MaterialTheme.typography.bodyLarge)
+                            QuietText(text = stringResource(R.string.pattern_guides_fill_from_pdf_hint))
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
-            TextButton(onClick = { onCreate(size, name) }, enabled = size.isNotBlank()) {
+            TextButton(onClick = { onCreate(size, name, canFillFromPattern && fromPattern) }, enabled = size.isNotBlank()) {
                 Text(stringResource(R.string.pattern_guides_create))
             }
         },
@@ -212,7 +250,7 @@ private fun PatternGuidesPreview() {
             uiState = PatternGuidesUiState.Content(pattern, listOf(PatternGuideEntry(guide, true)), false, false),
             onOpenPdf = {},
             onEditGuide = {},
-            onCreateGuide = { _, _ -> }
+            onCreateGuide = { _, _, _ -> }
         )
     }
 }
