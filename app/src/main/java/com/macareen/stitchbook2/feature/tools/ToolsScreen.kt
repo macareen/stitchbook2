@@ -1,5 +1,9 @@
 package com.macareen.stitchbook2.feature.tools
 
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.ui.graphics.Color
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -463,7 +467,14 @@ private fun ToolsContent(
                 value = uiState.filter.searchQuery,
                 onValueChange = onSearchQueryChanged,
                 singleLine = true,
-                label = { Text(text = stringResource(R.string.tools_search_placeholder)) },
+                placeholder = { Text(text = stringResource(R.string.tools_search_placeholder)) },
+                leadingIcon = { Icon(imageVector = Icons.Outlined.Search, contentDescription = null) },
+                shape = CircleShape,
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                    unfocusedBorderColor = Color.Transparent
+                ),
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(StitchbookSpacing.small))
@@ -476,6 +487,13 @@ private fun ToolsContent(
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
+        }
+
+        if (!uiState.needleGrid.isEmpty) {
+            item {
+                NeedleGridCard(grid = uiState.needleGrid)
+                Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
+            }
         }
 
         if (uiState.items.isEmpty()) {

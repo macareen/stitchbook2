@@ -9,6 +9,7 @@ import com.macareen.stitchbook2.data.csv.ToolsCsvImportReport
 import com.macareen.stitchbook2.data.csv.ToolsCsvRowError
 import com.macareen.stitchbook2.data.csv.parseToolsCsv
 import com.macareen.stitchbook2.data.csv.toolItemsToCsv
+import com.macareen.stitchbook2.domain.model.NeedleGrid
 import com.macareen.stitchbook2.domain.model.Project
 import com.macareen.stitchbook2.domain.model.ToolCategory
 import com.macareen.stitchbook2.domain.model.ToolItem
@@ -43,7 +44,9 @@ sealed interface ToolsUiState {
         /** Every persisted set, for the add/edit dialog's set picker -- ignores the current search/category filter. */
         val sets: List<ToolSet>,
         /** Every persisted project, for the "Assign to Projects" dialog's picker. */
-        val projects: List<Project>
+        val projects: List<Project>,
+        /** Size × kind overview of every needle and hook, ignoring the search/category filter. */
+        val needleGrid: NeedleGrid = NeedleGrid.EMPTY
     ) : ToolsUiState
 }
 
@@ -95,7 +98,8 @@ class ToolsViewModel(
             filter = filter,
             hasAnyItems = items.isNotEmpty(),
             sets = sets,
-            projects = projects
+            projects = projects,
+            needleGrid = NeedleGrid.from(items)
         ) as ToolsUiState
     }
         .catch { emit(ToolsUiState.Error) }
