@@ -205,7 +205,7 @@ A future parser should:
 
 Parsing is explicitly excluded from early phases. Local AI assistance is experimental, optional, on-device where feasible, and must not upload private pattern contents automatically.
 
-A reviewed manual or generated guide should eventually run through the deterministic execution engine specified in [docs/EXECUTION_ENGINE_SPEC.md](docs/EXECUTION_ENGINE_SPEC.md). **Focus mode** presents the current executable instruction with its section, range, and repeat context for low-distraction crafting. **Pattern Map** presents the same guide and progress as a navigable hierarchy, derives container progress from executable steps, and supports explicit jumps without treating skipped work as complete. Both are later features and must share one persisted execution state rather than maintaining competing progress models.
+A reviewed manual or generated guide should eventually run through the deterministic execution engine specified in [docs/EXECUTION_ENGINE_SPEC.md](docs/EXECUTION_ENGINE_SPEC.md). **Focus mode** presents the current executable instruction with its section, range, and repeat context for low-distraction crafting. **Pattern Map** presents the same guide and progress as a navigable hierarchy, derives container progress from executable steps, and supports explicit jumps without treating skipped work as complete. Both now exist: Focus Mode shows the step, its row position, stitch-weighted progress, worked time, and the source PDF page, and its *Overview* sheet is the Pattern Map, a navigable hierarchy with done, current and to-do marks and explicit jumps. They share one persisted execution state per guide and project rather than competing progress models.
 
 ### 6.7 Yarn stash — later
 

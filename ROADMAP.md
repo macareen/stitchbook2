@@ -4,6 +4,27 @@ This roadmap sequences product work; it is not a promise of dates. Each phase sh
 
 Every phase that adds durable user records must also extend the current versioned, user-accessible safety export and its compatibility tests. This incremental export is intentionally smaller than Phase 10's complete library backup/restore. Every UI phase must also meet the existing accessibility baseline—scalable text, meaningful semantics, usable focus order, adequate contrast, and appropriate touch targets—rather than deferring accessibility to Phase 14.
 
+## Core flow: pattern → size guide → project → knitting view
+
+The product's centre, cutting across the phases below. Status as of 2026-10-08:
+
+1. **Pattern folder (done):** one chosen folder (on the phone or in Drive) fills the Library; files are referenced, never copied.
+2. **Guides by size (done):** a guide belongs to a pattern and a size, and any project can use it (schema v19). Progress is kept per project (schema v20).
+3. **Size-aware drafts (done for "a (b, c)" groups):** *Fill from the pattern* keeps one size's numbers and drops the size list. Charts, "for size L only" lines, and on-device AI help remain open (Phases 12–13).
+4. **Guide overview (done):** a scannable list of sections, spans, repeats and steps with done, current and to-do marks; tap to jump.
+5. **Knitting view (done):**
+   - The step and "Row 4 of 10".
+   - Stitch-weighted %, labelled as an estimate where counts are carried.
+   - Total time and time on this step, from crafting sessions.
+   - The PDF opened at the step's page.
+6. **Hub cohesion (done):**
+   - Using a pattern guide links its pattern to the project.
+   - Knitting makes a planned project active.
+   - Home's Continue card shows progress.
+   - The hub names the craft.
+
+   Open: guides in the per-project export.
+
 ## Phase 0 — Working Compose app and repository setup
 
 **Status:** Complete.
@@ -33,7 +54,7 @@ Every phase that adds durable user records must also extend the current versione
 
 ## Phase 1 — Application shell, theme, navigation, and basic settings
 
-**Status:** Mostly complete. The shell has a warm Material 3 light/dark theme, one Navigation Compose host, bottom navigation, and the design-system foundation in [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md). Basic local preferences now exist: theme behaviour (system, light, or dark) and measurement display (imperial or metric), stored on the device with `SharedPreferences` behind `UserPreferencesRepository`, edited from a Settings card, and provided to every screen through `LocalMeasurementSystem`. Display conversion only changes how lengths are shown; stored values keep their original unit. Shared surfaces, date fields, photo thumbnails, and duration text live in `ui/components`. Still open: larger-screen adaptation. The Compose instrumented tests run and pass on an API 36 emulator.
+**Status:** Mostly complete. The shell has a warm Material 3 light/dark theme, one Navigation Compose host, bottom navigation, and the design-system foundation in [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md). Basic local preferences now exist: theme behaviour (system, light, or dark) and measurement display (imperial or metric), stored on the device with `SharedPreferences` behind `UserPreferencesRepository`, edited from a Settings card, and provided to every screen through `LocalMeasurementSystem`. Display conversion only changes how lengths are shown; stored values keep their original unit. Shared surfaces, date fields, photo thumbnails, and duration text live in `ui/components`. An adaptive vector launcher icon with a themed (monochrome) layer is in place. Still open: larger-screen adaptation. The Compose instrumented tests run and pass on an API 36 emulator.
 
 **Goal:** Create an accessible offline shell ready to host features.
 
@@ -369,7 +390,7 @@ Guide-definition persistence follows these v1 constraints: a Guide belongs to on
 
 ## Phase 12 — Deterministic PDF pattern parsing
 
-**Status: the PDF-parsing prototype (all four planned increments) is complete; deterministic step generation for real-world phrasing beyond this prototype's scope remains open.** PDF digital-text extraction with page/line source references is implemented (see ARCHITECTURE.md's "Current PDF text extraction"): `domain/parsing`'s `ExtractedDocument`/`ExtractedLine`/`SourceReference` model and `PdfTextExtractor` contract, backed by a PdfBox-Android implementation in `data/parsing`. Deterministic parsing of that extracted text into sections, row/round ranges, and repeats -- with an issue list for anything ambiguous -- is also implemented (`domain/parsing/PatternTextParser.kt`/`ParsedPattern.kt`), for a small explicit subset of pattern-text phrasing. Mapping that parsed output into a real, editable `GuideDraft` is implemented too (`domain/parsing/ParsedPatternMapper.kt`, `domain/usecase/CreateGuideFromPdfUseCase.kt`), reachable from a Project's guide list via a "Create from PDF" action -- provenance and ambiguity are kept visible as annotated/flagged text directly in the existing Draft editor rather than a new schema field or review screen, and nothing is ever auto-published. A page with no digital text layer at all now falls back to on-device OCR (`data/parsing/PdfPageOcr.kt`/`MlKitPdfPageOcr.kt`, ML Kit's bundled Latin recognizer, no network dependency) before being reported as unreadable. Abbreviations, simultaneous/conditional instructions, sizes, size selection, and step generation for phrasing beyond this prototype's small explicit grammar remain later Phase 12 work.
+**Status: the PDF-parsing prototype (all four planned increments) is complete; deterministic step generation for real-world phrasing beyond this prototype's scope remains open.** PDF digital-text extraction with page/line source references is implemented (see ARCHITECTURE.md's "Current PDF text extraction"): `domain/parsing`'s `ExtractedDocument`/`ExtractedLine`/`SourceReference` model and `PdfTextExtractor` contract, backed by a PdfBox-Android implementation in `data/parsing`. Deterministic parsing of that extracted text into sections, row/round ranges, and repeats -- with an issue list for anything ambiguous -- is also implemented (`domain/parsing/PatternTextParser.kt`/`ParsedPattern.kt`), for a small explicit subset of pattern-text phrasing. Mapping that parsed output into a real, editable `GuideDraft` is implemented too (`domain/parsing/ParsedPatternMapper.kt`, `domain/usecase/CreateGuideFromPdfUseCase.kt`), reachable from a Project's guide list via a "Create from PDF" action -- provenance and ambiguity are kept visible as annotated/flagged text directly in the existing Draft editor rather than a new schema field or review screen, and nothing is ever auto-published. A page with no digital text layer at all now falls back to on-device OCR (`data/parsing/PdfPageOcr.kt`/`MlKitPdfPageOcr.kt`, ML Kit's bundled Latin recognizer, no network dependency) before being reported as unreadable. Size selection for "a (b, c)" groups is done (see "Size selection" below). Abbreviations, simultaneous and conditional instructions, size-specific lines and charts, and step generation for phrasing beyond this prototype's small explicit grammar remain later Phase 12 work.
 
 **Real-world clean-up (done).** `PatternTextCleanup` runs before parsing:
 - It drops bare page numbers, and headers or footers repeated at the top or bottom of at least half the pages. Lines that look like pattern structure are never dropped.

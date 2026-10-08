@@ -1,8 +1,15 @@
 # Stitchbook
 
-Stitchbook is a planned private, local-first fibre-craft companion for Android. Knitting, crochet, Tunisian crochet, loom knitting, and other fibre crafts are intended to be first-class rather than variations of one knitting-centric model. The app is intended to help people manage projects, counters, patterns, yarn, tools, photos, work sessions, and statistics while retaining ownership and access to all of their data.
+Stitchbook is a private, local-first fibre-craft companion for Android. Knitting, crochet, Tunisian crochet, loom knitting, and other fibre crafts are first-class rather than variations of one knitting-centric model.
 
-The project is in **active development**. The repository contains a working Jetpack Compose application with real project management, a manual guide-authoring editor with Publish and Focus Mode execution, a pattern library, a yarn/tools stash, JSON backup/restore, and a deterministic PDF-parsing prototype -- see "Currently implemented" below for specifics. Counters, yarn allocations, photos, a journal, crafting sessions with statistics, share cards, and a reviewed backup/restore are implemented too; Ravelry integration, AI assistance, and a user-chosen library folder are still plans.
+The heart of the app is one path from a pattern to finished knitting:
+
+1. **Patterns** live in a folder you choose (on the phone or in Drive), and every PDF there appears in the Library. The files are never copied or changed.
+2. **Guides by size:** for each pattern you make one guide per size. *Fill from the pattern* reads the PDF and keeps only your size's numbers ("60 (66, 72) sts" becomes "66 sts"), and you review every step in the Draft editor before publishing.
+3. **Projects** use a pattern's size guide and gather its yarn, needles, counters, journal, and time around it on a small hub.
+4. **The knitting view** shows the step, "Row 4 of 10", how far through the whole guide you are (weighted by stitches), total time and time on this step, an overview of the guide, and a button that opens the original PDF at the step's page.
+
+Everything works offline with no account or subscription, and a full JSON backup carries every record, including guides and progress. The project is in **active development**; see "Currently implemented" below and [ROADMAP.md](ROADMAP.md).
 
 ## Core principles
 
@@ -14,17 +21,13 @@ The project is in **active development**. The repository contains a working Jetp
 - **Portable by design:** exports use JSON, CSV, Markdown, and PNG; PDF exports are planned.
 - **Original implementation:** learn from useful craft workflows without copying proprietary code, branding, text, prompts, or UI.
 
-## Planned capabilities
+## What's next
 
-- Projects with status, construction, gauge, notes, milestones, photos, counters, sessions, yarn use, and exportable summaries
-- Configurable project and standalone counters, including goals, schedules, links, and notification actions
-- A pattern library for PDFs, web links, publications, personal designs, and manual instructions
-- Yarn stash and tool inventories, including partial skeins and grouped interchangeable sets
-- Session tracking and clearly labelled recorded versus estimated statistics
-- Private journals and selectable, exportable PNG project cards
-- User-controlled library storage, portable metadata, backup, and restore
-- Later, carefully controlled Ravelry import/synchronization and deterministic pattern parsing
-- Experimental, optional local AI assistance only after deterministic parsing and user-review workflows exist
+- Size-aware parsing beyond "a (b, c)" groups: charts, "for size L only" lines, and per-size stitch tables
+- Optional on-device AI help for patterns the deterministic parser can't read, always reviewed before use
+- Downloading Ravelry pattern PDFs straight into the pattern folder
+- Guides in the per-project JSON and Markdown export, and a PDF export
+- Manufacturer tool templates and richer skein modelling
 
 See [PRODUCT_SPEC.md](PRODUCT_SPEC.md) for structured requirements and [ROADMAP.md](ROADMAP.md) for sequencing.
 
@@ -32,7 +35,8 @@ See [PRODUCT_SPEC.md](PRODUCT_SPEC.md) for structured requirements and [ROADMAP.
 
 - A warm, editorial Material 3 light/dark theme (ivory/rose/serif-headline palette) ported from the approved webapp design reference, with an adaptive yarn-ball launcher icon (themed-icon ready) -- see [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)
 - Navigation Compose with Home, Projects, Library, Stash, Tools, Counters, and Settings destinations, each with real content (not placeholders) and a header-less mobile shell matching the design reference
-- Guides by size: each pattern has its own screen with one guide per size, and any project can use one of them.
+- Guides by size: each pattern has its own screen (tap its Library card) with one guide per size, and any project can use one of them; using it also links the pattern to the project. *Fill from the pattern* builds the draft from the PDF with only that size's numbers, and says so in the draft when the size isn't one the pattern lists.
+- The knitting view (Focus Mode) shows a stitch-weighted progress bar, labelled as an estimate when some rows don't state a count; total time and time on this step from the project's crafting sessions, with a Pause/Resume timer that starts on your first Complete; an *Overview* of the whole guide where tapping a line jumps there; and *Pattern, p.N*, which opens the PDF at the current step's page. Knitting in a *Planned* project makes it *Active*, and progress is kept separately per project when two projects use one guide.
 - Pattern folder: choose one folder (on the phone, or a cloud folder your phone can open) and every PDF in it, including subfolders, appears in Library. Files stay where they are.
 - Optional Ravelry pull (Settings → Ravelry): bring your stash yarn, needles, projects, and library patterns in with your own personal key, which is kept encrypted on the phone. Read-only from Ravelry, reviewed before saving, and never deletes anything.
 - Import with an assistant: turn a pattern PDF into a draft guide by copying a request to Claude (a free account works) or another assistant and pasting the structured reply back. The app itself sends nothing.
@@ -51,7 +55,7 @@ See [PRODUCT_SPEC.md](PRODUCT_SPEC.md) for structured requirements and [ROADMAP.
 - PNG share cards (progress, completed, milestone, before/after, yarn, weekly, annual) with field and photo selection, an exact preview, save to a chosen file, and the Android share sheet. Private notes are never on by default
 - Theme (system, light, dark) and measurement display (imperial, metric) preferences in Settings
 - A versioned JSON backup (format 3) of every record type above, including guides with their drafts, published revisions, and progress, with a reviewed restore: a preview of new, identical, conflicting, and local-only records, then **Merge** (adds new records only, never overwrites) or **Replace** (confirmed twice, naming what it removes). Afterwards Settings lists what was written, conflicts kept, links Merge had to clear or skip, and files to relink. Version 1 and 2 backups still restore, leaving guides untouched. Project detail also exports a single project as JSON or Markdown
-- Full local reset via Settings
+- Full local reset via Settings, including pattern guides that belong to no project
 - A Tools inventory destination (search, category filtering, and a category-adaptive add/edit form covering needles, hooks, interchangeable tips/cables, looms, and notions) backed by Room and included in the JSON backup, plus a Bulk Create Tools screen that generates one item per size from a numeric range or custom list -- with a live, deduplicated preview -- and can group the generated items as a new set, plus CSV export/import (a `setId`/`setName` column pair reconstitutes grouped-set membership, creating or reusing a set by name when only `setName` is given), reusable user templates, a Tool Sets screen for browsing/renaming/deleting sets, and many-to-many project-tool assignment; manufacturer templates are not built -- see ROADMAP.md Phase 5
 - A Counters destination: create/edit/delete a counter with a name, a free-text unit label (rows, rounds, motifs, or any user-defined term), an optional goal (shown with a progress bar and a "goal reached" accent color), and an optional owning Project (or standalone); increment/decrement controls and a reset action (with confirmation) persist immediately, and counters are included in the JSON backup. Each counter also supports value-specific notes (a note attached to whatever value it read at the time, e.g. "Row 42: switched to smaller needles"), also included in the JSON backup. A counter may optionally link to one other counter: every N increments of the source, the target is bumped by a fixed amount (e.g. every 4 rows, bump the round counter by 1) -- decrementing or resetting the source never triggers the link, and a link that would create a cycle between counters is rejected before it can be saved. A counter with a goal can also be set to automatically reset to 0 the moment it reaches that goal (the classic "row counter resets each repeat" pattern), independently of any link -- both can fire from the same increment. A counter can also be given a repeating reset schedule (every N days); since the app has no background-execution mechanism, a due schedule fires the next time the Counters screen loads, not at the exact scheduled moment. Focus Mode's in-progress screen now shows a compact strip of the current guide's project's counters with inline increment/decrement, so a project's counters can be tracked without leaving the active-crafting session. While Focus Mode is open, a persistent notification shows the project's counters and offers increment/decrement for the first one
 - A deterministic PDF pattern-parsing prototype, end to end: digital-text extraction with page/line source references (PdfBox-Android-backed `data/parsing/PdfBoxTextExtractor.kt`), on-device OCR fallback for pages with no text layer (ML Kit's bundled Latin recognizer, no network dependency), deterministic parsing of the resulting text into sections/row-round ranges/repeats with an ambiguity-issue list (`domain/parsing/PatternTextParser.kt`), and a "Create from PDF" action on a Project's guide list that maps the result into a real, editable, unpublished Guide Draft with provenance kept visible in the existing Draft editor -- see ARCHITECTURE.md for what this prototype's small explicit grammar does and doesn't yet cover
