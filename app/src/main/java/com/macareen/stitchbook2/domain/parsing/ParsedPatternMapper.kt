@@ -30,6 +30,14 @@ object ParsedPatternMapper {
     fun toDraftNodes(pattern: ParsedPattern, newNodeId: () -> String): DraftMappingResult {
         val nodes = mutableListOf<DraftNode>()
         val rootIds = mutableListOf<NodeId>()
+        var lastPage = 0
+
+        // Steps note their page only where it changes, so the text stays readable.
+        fun withProvenance(text: String, source: SourceReference): String {
+            if (source.pageNumber == lastPage) return text
+            lastPage = source.pageNumber
+            return "$text (p.${source.pageNumber})"
+        }
 
         fun mapNode(node: ParsedNode): NodeId {
             val id = NodeId(newNodeId())
@@ -85,9 +93,6 @@ object ParsedPatternMapper {
 
         return DraftMappingResult(rootNodeIds = rootIds.toList(), nodes = nodes.toList())
     }
-
-    // Steps show their page only: enough to find the source without crowding every line.
-    private fun withProvenance(text: String, source: SourceReference) = "$text (p.${source.pageNumber})"
 
     private fun formatSource(source: SourceReference) = "(p.${source.pageNumber} l.${source.lineNumber})"
 }

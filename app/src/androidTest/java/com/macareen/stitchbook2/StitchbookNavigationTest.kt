@@ -47,9 +47,9 @@ class StitchbookNavigationTest {
     @Test
     fun topLevelNavigation_reachesEveryDestination() {
         val destinations = listOf(
-            R.string.destination_library to R.string.library_header_title,
-            R.string.destination_stash to R.string.stash_header_title,
-            R.string.destination_settings to R.string.settings_header_title
+            R.string.destination_library to R.string.library_header_subtitle,
+            R.string.destination_stash to R.string.stash_header_subtitle,
+            R.string.destination_settings to R.string.settings_header_subtitle
         )
 
         val projects = composeTestRule.activity.getString(R.string.destination_projects)
@@ -74,7 +74,7 @@ class StitchbookNavigationTest {
             .performClick()
 
         composeTestRule
-            .onNodeWithText(composeTestRule.activity.getString(R.string.tools_header_title))
+            .onNodeWithText(composeTestRule.activity.getString(R.string.tools_header_subtitle))
             .assertIsDisplayed()
         composeTestRule.navigationItem(stash).assertIsSelected()
     }

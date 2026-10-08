@@ -1,6 +1,6 @@
 <resources>
-    <string name="settings_preferences_title">Display Preferences</string>
-    <string name="settings_theme_label">Appearance</string>
+    <string name="settings_preferences_title">Appearance</string>
+    <string name="settings_theme_label">Theme</string>
     <string name="settings_theme_system">Match device</string>
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_dark">Dark</string>

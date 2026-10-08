@@ -622,13 +622,22 @@ private fun FocusCounterChip(
 @Composable
 private fun PositionLine(position: StructuralPosition) {
     val text = when (position) {
-        is StructuralPosition.RangePosition -> stringResource(
-            R.string.focus_range_position,
-            position.unitLabel.replaceFirstChar { it.uppercase() },
-            position.currentValue,
-            position.startInclusive,
-            position.endInclusive
-        )
+        is StructuralPosition.RangePosition -> if (position.startInclusive == 1) {
+            stringResource(
+                R.string.focus_range_position_from_one,
+                position.unitLabel.replaceFirstChar { it.uppercase() },
+                position.currentValue,
+                position.endInclusive
+            )
+        } else {
+            stringResource(
+                R.string.focus_range_position,
+                position.unitLabel.replaceFirstChar { it.uppercase() },
+                position.currentValue,
+                position.startInclusive,
+                position.endInclusive
+            )
+        }
 
         is StructuralPosition.RepeatPosition -> {
             val label = position.label

@@ -65,6 +65,11 @@ fun ProjectStatus.pillColors(): Pair<Color, Color> = when (this) {
         MaterialTheme.colorScheme.surfaceContainerHigh to MaterialTheme.colorScheme.textSecondary
 }
 
+/** The project's type, or null for a plain "Other" with no name of its own, which says nothing. */
+@Composable
+fun Project.typeLabelOrNull(): String? =
+    if (projectType == ProjectType.OTHER && customTypeLabel.isNullOrBlank()) null else typeDisplayLabel()
+
 /** The project's type as the user named it: a custom label wins for [ProjectType.OTHER]. */
 @Composable
 fun Project.typeDisplayLabel(): String {

@@ -1,5 +1,7 @@
 package com.macareen.stitchbook2.feature.stash
 
+import androidx.compose.ui.unit.dp
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -33,6 +35,11 @@ fun StashHost(
 ) {
     var tab by rememberSaveable { mutableStateOf(StashTab.YARN) }
     Column(modifier = modifier.fillMaxSize()) {
+        Text(
+            text = stringResource(R.string.stash_header_title),
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.padding(start = StitchbookSpacing.medium, end = StitchbookSpacing.medium, top = 20.dp)
+        )
         SingleChoiceSegmentedButtonRow(
             modifier = Modifier
                 .fillMaxWidth()

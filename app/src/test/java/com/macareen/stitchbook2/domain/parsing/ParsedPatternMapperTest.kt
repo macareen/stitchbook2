@@ -149,4 +149,21 @@ class ParsedPatternMapperTest {
         assertEquals(allIds.size, allIds.toSet().size)
         assertNotNull(NodeId("node-0")) // sanity: the generator's id format is a plain NodeId
     }
+
+    @Test
+    fun `steps note their page only where it changes`() {
+        val pattern = ParsedPattern(
+            rootNodes = listOf(
+                ParsedInstruction("Cast on.", SourceReference(1, 1)),
+                ParsedInstruction("Knit.", SourceReference(1, 2)),
+                ParsedInstruction("Purl.", SourceReference(2, 1))
+            ),
+            issues = emptyList()
+        )
+        var next = 0
+
+        val texts = ParsedPatternMapper.toDraftNodes(pattern) { "n${next++}" }.nodes.map { it.instructionText }
+
+        assertEquals(listOf("Cast on. (p.1)", "Knit.", "Purl. (p.2)"), texts)
+    }
 }

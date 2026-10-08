@@ -121,6 +121,8 @@ class CreateGuideFromPdfUseCaseTest {
         assertEquals(listOf("pattern-1" to "m"), repository.patternGuidesCreated)
         val texts = repository.lastSavedDraft!!.nodes.mapNotNull { it.instructionText }
         assertTrue(texts.toString(), texts.any { it.startsWith("Cast on 66 sts.") })
+        // A guide is one size, so the pattern's list of sizes isn't a step.
+        assertTrue(texts.toString(), texts.none { it.startsWith("Sizes:") })
     }
 
     @Test

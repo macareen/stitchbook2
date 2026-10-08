@@ -1,5 +1,6 @@
 package com.macareen.stitchbook2.feature.draft
 
+import androidx.compose.material3.CardDefaults
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -370,7 +371,8 @@ private fun DraftOutlineRowItem(
             .padding(
                 start = StitchbookSpacing.medium * row.depth,
                 bottom = StitchbookSpacing.small
-            )
+            ),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
         Column(modifier = Modifier.padding(StitchbookSpacing.medium)) {
             Text(text = row.node.summary(), style = MaterialTheme.typography.bodyLarge)
@@ -634,7 +636,10 @@ private fun DraftNodeType.hint(): String = when (this) {
 private fun DraftNode.summary(): String = when (type) {
     DraftNodeType.SECTION -> title.orEmpty()
     DraftNodeType.INSTRUCTION -> instructionText.orEmpty()
-    DraftNodeType.RANGE -> "${rangeUnitLabel.orEmpty()} $rangeStartInclusive–$rangeEndInclusive"
+    DraftNodeType.RANGE -> {
+        val unit = rangeUnitLabel.orEmpty().replaceFirstChar { it.uppercase() }
+        if (rangeStartInclusive == rangeEndInclusive) "$unit $rangeStartInclusive" else "${unit}s $rangeStartInclusive–$rangeEndInclusive"
+    }
     DraftNodeType.REPEAT -> if (repeatLabel.isNullOrBlank()) {
         "×$repeatCount"
     } else {

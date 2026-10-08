@@ -320,7 +320,7 @@ private fun ProjectDetailContent(
             onAddGuide = { showAddGuideDialog = true }
         )
 
-        ProjectNodeMap(centreLabel = project.typeDisplayLabel(), nodes = nodes)
+        ProjectNodeMap(centreLabel = project.typeLabelOrNull() ?: stringResource(project.craft.labelResource()), nodes = nodes)
 
         if (ProjectNode.entries.all { hubState.connections.count(it) == 0 }) {
             EmptyHubHint()

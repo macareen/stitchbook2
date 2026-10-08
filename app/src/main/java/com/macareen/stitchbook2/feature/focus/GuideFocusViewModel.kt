@@ -1,5 +1,7 @@
 package com.macareen.stitchbook2.feature.focus
 
+import com.macareen.stitchbook2.domain.model.ProjectStatus
+import com.macareen.stitchbook2.domain.repository.ProjectRepository
 import kotlinx.coroutines.flow.update
 import java.util.UUID
 import java.time.ZoneId
@@ -162,7 +164,9 @@ class GuideFocusViewModel(
     /** The project's crafting sessions, which time the knitting. */
     private val sessionRepository: SessionRepository? = null,
     private val clock: () -> Long = System::currentTimeMillis,
-    private val zone: () -> ZoneId = ZoneId::systemDefault
+    private val zone: () -> ZoneId = ZoneId::systemDefault,
+    /** Moves a planned project to active once its knitting starts. */
+    private val projectRepository: ProjectRepository? = null
 ) : ViewModel() {
 
     /** The Library pattern to open from Focus, decided once per load. */
@@ -252,11 +256,12 @@ class GuideFocusViewModel(
         _uiState.value = latest.copy(projectCounters = counters)
     }
 
-    /** Completing a step means knitting is happening, so an idle timer starts for this project. */
+    /** Completing a step means knitting is happening: an idle timer starts and a planned project becomes active. */
     fun onComplete() {
         val projectId = (_uiState.value as? GuideFocusUiState.InProgress)?.projectId.orEmpty()
         applyTransition { executionId, version ->
             startTimerIfIdle(projectId)
+            markProjectActive(projectId)
             executionRepository.applyComplete(executionId, version)
         }
     }
@@ -284,6 +289,21 @@ class GuideFocusViewModel(
             } catch (_: Exception) {
                 // The timer is a convenience; the step and its place are unaffected.
             }
+        }
+    }
+
+    private suspend fun markProjectActive(projectId: String) {
+        val projects = projectRepository ?: return
+        if (projectId.isEmpty()) return
+        try {
+            val project = projects.observeProject(projectId).first() ?: return
+            if (project.status == ProjectStatus.PLANNED) {
+                projects.saveProject(project.copy(status = ProjectStatus.ACTIVE, updatedAt = clock()))
+            }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            // The status is a convenience; starting the guide matters more.
         }
     }
 
@@ -352,6 +372,7 @@ class GuideFocusViewModel(
                     return@launch
                 }
                 val execution = executionRepository.createExecution(guideId, revisionId, projectId.ifEmpty { null })
+                markProjectActive(projectId)
                 val projectCounters = counterRepository.observeCountersByProject(projectId).first()
                 applyExecutionResult(guideName, projectId, execution, projectCounters)
             } catch (error: CancellationException) {
@@ -520,7 +541,16 @@ class GuideFocusViewModel(
             overview = OverviewEntry.overviewOf(validated, execution.state.completedAddresses, currentAddress)
                 .map { it.copy(text = withoutSourcePage(it.text)) },
             pattern = patternLibraryItemId?.let { id ->
-                PatternPage(id, SOURCE_PAGE.find(instruction.text)?.groupValues?.get(1)?.toIntOrNull())
+                // Imported steps name their page only where it changes, so look back to the last one that does.
+                val page = traversal.occurrences()
+                    .takeWhile { it.address != currentAddress }
+                    .plus(traversal.resolve(currentAddress))
+                    .mapNotNull { occurrence ->
+                        (validated.node(occurrence.address.instructionNodeId) as? Instruction)?.text
+                            ?.let { SOURCE_PAGE.find(it)?.groupValues?.get(1)?.toIntOrNull() }
+                    }
+                    .lastOrNull()
+                PatternPage(id, page)
             }
         )
     }
@@ -570,7 +600,8 @@ class GuideFocusViewModel(
             counterRepository: CounterRepository,
             projectId: String? = null,
             materialsRepository: MaterialsRepository? = null,
-            sessionRepository: SessionRepository? = null
+            sessionRepository: SessionRepository? = null,
+            projectRepository: ProjectRepository? = null
         ): ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 GuideFocusViewModel(
@@ -580,7 +611,8 @@ class GuideFocusViewModel(
                     counterRepository,
                     projectId = projectId,
                     materialsRepository = materialsRepository,
-                    sessionRepository = sessionRepository
+                    sessionRepository = sessionRepository,
+                    projectRepository = projectRepository
                 )
             }
         }

@@ -23,13 +23,14 @@ import androidx.compose.ui.Modifier
 data class HeaderAction(val label: String, val onClick: () -> Unit)
 
 /**
- * A screen title with its occasional actions (bulk tools, CSV import and
+ * A screen title (or, under a host that shows the title, just its line of
+ * context) with its occasional actions (bulk tools, CSV import and
  * export) tucked into one overflow menu, so the screen opens on its content
  * rather than a row of buttons.
  */
 @Composable
 fun ScreenHeader(
-    title: String,
+    title: String?,
     subtitle: String?,
     menuDescription: String,
     actions: List<HeaderAction>,
@@ -38,7 +39,7 @@ fun ScreenHeader(
     var menuOpen by remember { mutableStateOf(false) }
     Row(verticalAlignment = Alignment.Top, modifier = modifier) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, style = MaterialTheme.typography.headlineMedium)
+            title?.let { Text(text = it, style = MaterialTheme.typography.headlineMedium) }
             subtitle?.let { QuietText(text = it) }
         }
         if (actions.isNotEmpty()) {
