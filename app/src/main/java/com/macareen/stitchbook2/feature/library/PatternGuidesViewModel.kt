@@ -1,5 +1,11 @@
 package com.macareen.stitchbook2.feature.library
 
+import com.macareen.stitchbook2.domain.model.ProjectFromPattern
+import com.macareen.stitchbook2.domain.model.ProjectPatternLink
+import com.macareen.stitchbook2.domain.repository.MaterialsRepository
+import com.macareen.stitchbook2.domain.repository.ProjectRepository
+import java.util.UUID
+import kotlinx.coroutines.flow.first
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -52,12 +58,16 @@ sealed interface PatternGuidesUiState {
  */
 class PatternGuidesViewModel(
     private val libraryItemId: String,
-    libraryRepository: LibraryRepository,
+    private val libraryRepository: LibraryRepository,
     private val guideRepository: GuideRepository,
     externalScope: CoroutineScope? = null,
     private val createGuideFromPdf: CreateGuideFromPdfUseCase? = null,
     /** Reads the pattern's file by its stored address; null when it can't be opened. */
-    private val readPatternFile: suspend (String) -> ByteArray? = { null }
+    private val readPatternFile: suspend (String) -> ByteArray? = { null },
+    private val projectRepository: ProjectRepository? = null,
+    private val materialsRepository: MaterialsRepository? = null,
+    private val newId: () -> String = { UUID.randomUUID().toString() },
+    private val clock: () -> Long = System::currentTimeMillis
 ) : ViewModel() {
 
     private val scope: CoroutineScope = externalScope ?: viewModelScope
@@ -66,6 +76,30 @@ class PatternGuidesViewModel(
 
     /** The new guide's id once created; the screen opens it in the Draft editor. */
     val createdGuideId: StateFlow<String?> = created.asStateFlow()
+
+    private val startedProject = MutableStateFlow<String?>(null)
+
+    /** The project just started from this pattern; the screen opens it. */
+    val startedProjectId: StateFlow<String?> = startedProject.asStateFlow()
+
+    /**
+     * Starts a Planned project filled in from this pattern (title, craft, a
+     * type read from the title, description) and links the pattern to it.
+     */
+    fun startProject() {
+        val projects = projectRepository ?: return
+        scope.launch {
+            val pattern = libraryRepository.observeLibraryItem(libraryItemId).first() ?: return@launch
+            val project = ProjectFromPattern.project(pattern, newId(), clock())
+            projects.saveProject(project)
+            materialsRepository?.linkPattern(ProjectPatternLink(project.id, pattern.id))
+            startedProject.value = project.id
+        }
+    }
+
+    fun consumeStartedProject() {
+        startedProject.value = null
+    }
 
     private data class CreationState(
         val isCreating: Boolean = false,
@@ -145,7 +179,9 @@ class PatternGuidesViewModel(
             libraryRepository: LibraryRepository,
             guideRepository: GuideRepository,
             createGuideFromPdf: CreateGuideFromPdfUseCase,
-            readPatternFile: suspend (String) -> ByteArray?
+            readPatternFile: suspend (String) -> ByteArray?,
+            projectRepository: ProjectRepository? = null,
+            materialsRepository: MaterialsRepository? = null
         ): ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 PatternGuidesViewModel(
@@ -153,7 +189,9 @@ class PatternGuidesViewModel(
                     libraryRepository,
                     guideRepository,
                     createGuideFromPdf = createGuideFromPdf,
-                    readPatternFile = readPatternFile
+                    readPatternFile = readPatternFile,
+                    projectRepository = projectRepository,
+                    materialsRepository = materialsRepository
                 )
             }
         }

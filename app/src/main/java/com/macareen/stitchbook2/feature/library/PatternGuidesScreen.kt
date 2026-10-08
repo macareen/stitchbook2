@@ -45,17 +45,25 @@ import com.macareen.stitchbook2.ui.theme.StitchbookTheme
 fun PatternGuidesRoute(
     viewModel: PatternGuidesViewModel,
     onOpenPdf: (String) -> Unit,
-    onEditGuide: (String) -> Unit
+    onEditGuide: (String) -> Unit,
+    onOpenProject: (String) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val createdGuideId by viewModel.createdGuideId.collectAsStateWithLifecycle()
+    val startedProjectId by viewModel.startedProjectId.collectAsStateWithLifecycle()
     LaunchedEffect(createdGuideId) {
         createdGuideId?.let {
             viewModel.consumeCreatedGuide()
             onEditGuide(it)
         }
     }
-    PatternGuidesScreen(uiState, onOpenPdf, onEditGuide, viewModel::createGuide)
+    LaunchedEffect(startedProjectId) {
+        startedProjectId?.let {
+            viewModel.consumeStartedProject()
+            onOpenProject(it)
+        }
+    }
+    PatternGuidesScreen(uiState, onOpenPdf, onEditGuide, viewModel::createGuide, onStartProject = viewModel::startProject)
 }
 
 /** A pattern, its original file, and its guides by size. */
@@ -65,7 +73,8 @@ fun PatternGuidesScreen(
     onOpenPdf: (String) -> Unit,
     onEditGuide: (String) -> Unit,
     onCreateGuide: (String, String, Boolean) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onStartProject: () -> Unit = {}
 ) {
     when (uiState) {
         PatternGuidesUiState.Loading -> Box(modifier.fillMaxSize()) {
@@ -76,7 +85,7 @@ fun PatternGuidesScreen(
             QuietText(text = stringResource(R.string.pattern_guides_missing))
         }
 
-        is PatternGuidesUiState.Content -> Content(uiState, onOpenPdf, onEditGuide, onCreateGuide, modifier)
+        is PatternGuidesUiState.Content -> Content(uiState, onOpenPdf, onEditGuide, onCreateGuide, onStartProject, modifier)
     }
 }
 
@@ -86,6 +95,7 @@ private fun Content(
     onOpenPdf: (String) -> Unit,
     onEditGuide: (String) -> Unit,
     onCreateGuide: (String, String, Boolean) -> Unit,
+    onStartProject: () -> Unit,
     modifier: Modifier
 ) {
     var showNewGuide by rememberSaveable { mutableStateOf(false) }
@@ -100,9 +110,19 @@ private fun Content(
         listOfNotNull(state.pattern.author, state.pattern.sizes?.let { stringResource(R.string.pattern_guides_sizes, it) })
             .takeIf { it.isNotEmpty() }
             ?.let { QuietText(text = it.joinToString(" · ")) }
+        PrimaryActionButton(
+            text = stringResource(R.string.pattern_guides_start_project),
+            onClick = onStartProject,
+            modifier = Modifier.fillMaxWidth()
+        )
         if (state.pattern.pdfUri != null) {
-            SecondaryActionButton(text = stringResource(R.string.pattern_guides_open_pattern), onClick = { onOpenPdf(state.pattern.id) })
+            SecondaryActionButton(
+                text = stringResource(R.string.pattern_guides_open_pattern),
+                onClick = { onOpenPdf(state.pattern.id) },
+                modifier = Modifier.fillMaxWidth()
+            )
         }
+        PatternDetailsCard(state.pattern)
 
         Text(text = stringResource(R.string.pattern_guides_title), style = MaterialTheme.typography.titleMedium)
         if (state.guides.isEmpty()) {
@@ -252,5 +272,29 @@ private fun PatternGuidesPreview() {
             onEditGuide = {},
             onCreateGuide = { _, _, _ -> }
         )
+    }
+}
+
+/** What the pattern says about itself: its description, gauge, tools and yardage, when known. */
+@Composable
+private fun PatternDetailsCard(pattern: LibraryItem) {
+    val lines = listOfNotNull(
+        pattern.gauge?.let { stringResource(R.string.pattern_details_gauge, it) },
+        pattern.recommendedTools?.let { stringResource(R.string.pattern_details_tools, it) },
+        pattern.yardageRequired?.let { stringResource(R.string.pattern_details_yardage, it.toInt()) }
+    )
+    if (pattern.notes == null && lines.isEmpty()) return
+    Surface(
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(StitchbookSpacing.medium),
+            verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)
+        ) {
+            pattern.notes?.let { Text(text = it, style = MaterialTheme.typography.bodyMedium) }
+            lines.forEach { line -> QuietText(text = line) }
+        }
     }
 }
