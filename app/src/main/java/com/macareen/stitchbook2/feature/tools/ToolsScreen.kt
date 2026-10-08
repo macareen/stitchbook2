@@ -65,6 +65,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.macareen.stitchbook2.R
 import com.macareen.stitchbook2.data.csv.ToolsCsvImportReport
 import com.macareen.stitchbook2.data.csv.toolsCsvTemplate
+import com.macareen.stitchbook2.ui.components.HeaderAction
+import com.macareen.stitchbook2.ui.components.ScreenHeader
 import com.macareen.stitchbook2.domain.model.Project
 import com.macareen.stitchbook2.domain.model.ToolCategory
 import com.macareen.stitchbook2.domain.model.ToolItem
@@ -441,31 +443,18 @@ private fun ToolsContent(
         verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)
     ) {
         item {
-            Text(
-                text = stringResource(R.string.tools_header_title),
-                style = MaterialTheme.typography.headlineMedium
+            ScreenHeader(
+                title = stringResource(R.string.tools_header_title),
+                subtitle = stringResource(R.string.tools_header_subtitle),
+                menuDescription = stringResource(R.string.inventory_more_actions),
+                actions = listOf(
+                    HeaderAction(stringResource(R.string.tools_bulk_create_link), onBulkCreate),
+                    HeaderAction(stringResource(R.string.tools_manage_sets_link), onManageSets),
+                    HeaderAction(stringResource(R.string.tools_export_csv_action), onExportCsvClick),
+                    HeaderAction(stringResource(R.string.tools_import_csv_action), onImportCsvClick),
+                    HeaderAction(stringResource(R.string.tools_download_csv_template_action), onTemplateCsvClick)
+                )
             )
-            QuietText(text = stringResource(R.string.tools_header_subtitle))
-            Spacer(modifier = Modifier.height(StitchbookSpacing.small))
-            Row(horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
-                TextButton(onClick = onBulkCreate) {
-                    Text(text = stringResource(R.string.tools_bulk_create_link))
-                }
-                TextButton(onClick = onManageSets) {
-                    Text(text = stringResource(R.string.tools_manage_sets_link))
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
-                TextButton(onClick = onExportCsvClick) {
-                    Text(text = stringResource(R.string.tools_export_csv_action))
-                }
-                TextButton(onClick = onImportCsvClick) {
-                    Text(text = stringResource(R.string.tools_import_csv_action))
-                }
-                TextButton(onClick = onTemplateCsvClick) {
-                    Text(text = stringResource(R.string.tools_download_csv_template_action))
-                }
-            }
             Spacer(modifier = Modifier.height(StitchbookSpacing.small))
         }
 
