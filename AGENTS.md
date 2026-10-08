@@ -18,7 +18,7 @@ The product may be inspired by the useful capabilities of existing craft applica
 - It uses Kotlin, Jetpack Compose, Material 3, Navigation Compose, and Gradle Kotlin DSL.
 - The current minimum SDK is 26 and the application ID is `com.macareen.stitchbook`.
 - Room-backed features: projects (with dates, description, and construction method), guides with Focus Mode, counters, library patterns with SAF-referenced PDFs, stash with yarn allocations, tools, photo references, journal entries, milestones, crafting sessions with statistics, and PNG share cards. Dependencies are wired manually through `AppContainer`, with screen-level ViewModels and repository interfaces.
-- The Room database is schema version 18, with every migration in `ALL_MIGRATIONS` (`data/database/StitchbookDatabase.kt`) and schemas 1–18 exported under `app/schemas`. Future schema changes require explicit migrations and updated schema/test fixtures; do not add a silent destructive-migration fallback.
+- The Room database is schema version 19, with every migration in `ALL_MIGRATIONS` (`data/database/StitchbookDatabase.kt`) and schemas 1–19 exported under `app/schemas`. Future schema changes require explicit migrations and updated schema/test fixtures; do not add a silent destructive-migration fallback.
 - The full-library backup is versioned JSON (format 2) with reviewed Merge/Replace restore, plus per-project JSON and Markdown export; see ARCHITECTURE.md "Current backup format". PDFs and photos are referenced, never copied.
 - WorkManager is still unused: nothing runs in the background except the Focus-Mode-scoped counter notification service.
 - Avoid premature module splitting and do not create empty package structures.

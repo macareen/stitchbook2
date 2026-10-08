@@ -43,6 +43,8 @@ class InvalidDraftTreeException(
 fun GuideEntity.toDomain() = Guide(
     id = GuideId(id),
     projectId = projectId,
+    libraryItemId = libraryItemId,
+    sizeLabel = sizeLabel,
     name = name,
     notes = notes,
     createdAt = createdAt,
@@ -52,6 +54,8 @@ fun GuideEntity.toDomain() = Guide(
 fun Guide.toEntity() = GuideEntity(
     id = id.value,
     projectId = projectId,
+    libraryItemId = libraryItemId,
+    sizeLabel = sizeLabel,
     name = name,
     notes = notes,
     createdAt = createdAt,

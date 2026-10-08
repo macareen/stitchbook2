@@ -12,13 +12,19 @@ value class DraftId(val value: String) {
     }
 }
 
+/**
+ * A guide is a project's own ([projectId]) or a pattern's guide for one size
+ * ([libraryItemId] + [sizeLabel]) that any project can use, or both.
+ */
 data class Guide(
     val id: GuideId,
-    val projectId: String,
+    val projectId: String?,
     val name: String,
     val notes: String?,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val libraryItemId: String? = null,
+    val sizeLabel: String? = null
 )
 
 enum class DraftNodeType {

@@ -11,6 +11,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     entities = [
         ProjectEntity::class,
         GuideEntity::class,
+        ProjectGuideLinkEntity::class,
         GuideDraftEntity::class,
         DraftNodeEntity::class,
         DefinitionRevisionEntity::class,
@@ -35,7 +36,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         JournalEntryEntity::class,
         CraftingSessionEntity::class
     ],
-    version = 18,
+    version = 19,
     exportSchema = true
 )
 abstract class StitchbookDatabase : RoomDatabase() {
@@ -96,7 +97,8 @@ val ALL_MIGRATIONS: Array<Migration>
         MIGRATION_14_15,
         MIGRATION_15_16,
         MIGRATION_16_17,
-        MIGRATION_17_18
+        MIGRATION_17_18,
+        MIGRATION_18_19
     )
 
 val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -973,5 +975,70 @@ val MIGRATION_17_18 = object : Migration(17, 18) {
             """.trimIndent()
         )
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_crafting_sessions_project_id` ON `crafting_sessions` (`project_id`)")
+    }
+}
+
+/**
+ * Lets a guide belong to a pattern and size instead of (or as well as) a
+ * project: `guides.project_id` becomes optional and gains `library_item_id`
+ * and `size_label`, and `project_guides` records which pattern guides a
+ * project uses.
+ *
+ * SQLite can't relax NOT NULL in place, so `guides` is rebuilt with its
+ * documented rename-and-copy procedure. `legacy_alter_table` keeps the child
+ * tables (drafts, revisions, executions) pointing at the name `guides` during
+ * the rename, so dropping the old table can never cascade into them, whatever
+ * the foreign-key setting. Every row is copied, and the migration fails
+ * rather than finishing with a broken reference.
+ */
+val MIGRATION_18_19 = object : Migration(18, 19) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("PRAGMA legacy_alter_table = ON")
+        try {
+            db.execSQL("ALTER TABLE `guides` RENAME TO `guides_v18`")
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `guides` (
+                    `id` TEXT NOT NULL,
+                    `project_id` TEXT,
+                    `library_item_id` TEXT,
+                    `size_label` TEXT,
+                    `name` TEXT NOT NULL,
+                    `notes` TEXT,
+                    `created_at` INTEGER NOT NULL,
+                    `updated_at` INTEGER NOT NULL,
+                    PRIMARY KEY(`id`),
+                    FOREIGN KEY(`project_id`) REFERENCES `projects`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                    FOREIGN KEY(`library_item_id`) REFERENCES `library_items`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL
+                )
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                INSERT INTO `guides` (`id`, `project_id`, `library_item_id`, `size_label`, `name`, `notes`, `created_at`, `updated_at`)
+                SELECT `id`, `project_id`, NULL, NULL, `name`, `notes`, `created_at`, `updated_at` FROM `guides_v18`
+                """.trimIndent()
+            )
+            db.execSQL("DROP TABLE `guides_v18`")
+        } finally {
+            db.execSQL("PRAGMA legacy_alter_table = OFF")
+        }
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_guides_project_id` ON `guides` (`project_id`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_guides_library_item_id` ON `guides` (`library_item_id`)")
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `project_guides` (
+                `project_id` TEXT NOT NULL,
+                `guide_id` TEXT NOT NULL,
+                PRIMARY KEY(`project_id`, `guide_id`),
+                FOREIGN KEY(`project_id`) REFERENCES `projects`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                FOREIGN KEY(`guide_id`) REFERENCES `guides`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_project_guides_guide_id` ON `project_guides` (`guide_id`)")
+        db.query("PRAGMA foreign_key_check").use { cursor ->
+            check(!cursor.moveToFirst()) { "Guide migration left a broken reference in ${cursor.getString(0)}." }
+        }
     }
 }

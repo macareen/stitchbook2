@@ -5,6 +5,7 @@ import com.macareen.stitchbook2.data.database.DraftNotFoundException
 import com.macareen.stitchbook2.data.database.GuideDao
 import com.macareen.stitchbook2.data.database.GuideDraftEntity
 import com.macareen.stitchbook2.data.database.GuideEntity
+import com.macareen.stitchbook2.data.database.ProjectGuideLinkEntity
 import com.macareen.stitchbook2.data.database.InvalidDraftForPublicationException
 import com.macareen.stitchbook2.data.database.InvalidDraftTreeException
 import com.macareen.stitchbook2.data.database.toDomain
@@ -65,6 +66,45 @@ class LocalGuideRepository(
         )
         guideDao.insertGuideWithDraft(guide, draft)
         return guide.toDomain()
+    }
+
+    override fun observePatternGuides(libraryItemId: String): Flow<List<Guide>> =
+        guideDao.observeByLibraryItem(libraryItemId).map { guides -> guides.map { it.toDomain() } }
+
+    override suspend fun createPatternGuide(libraryItemId: String, sizeLabel: String, name: String): Guide {
+        val normalizedName = name.trim()
+        val normalizedSize = sizeLabel.trim()
+        require(normalizedName.isNotEmpty()) { "Guide name must not be blank." }
+        require(normalizedSize.isNotEmpty()) { "Size must not be blank." }
+        val now = currentTimeMillis()
+        val guide = GuideEntity(
+            id = newId(),
+            projectId = null,
+            libraryItemId = libraryItemId,
+            sizeLabel = normalizedSize,
+            name = normalizedName,
+            notes = null,
+            createdAt = now,
+            updatedAt = now
+        )
+        val draft = GuideDraftEntity(
+            id = newId(),
+            guideId = guide.id,
+            baseRevisionId = null,
+            createdAt = now,
+            updatedAt = now,
+            version = 0
+        )
+        guideDao.insertGuideWithDraft(guide, draft)
+        return guide.toDomain()
+    }
+
+    override suspend fun useGuideInProject(projectId: String, guideId: GuideId) {
+        guideDao.insertProjectGuideLink(ProjectGuideLinkEntity(projectId = projectId, guideId = guideId.value))
+    }
+
+    override suspend fun stopUsingGuideInProject(projectId: String, guideId: GuideId) {
+        guideDao.deleteProjectGuideLink(projectId, guideId.value)
     }
 
     override suspend fun updateGuideMetadata(
