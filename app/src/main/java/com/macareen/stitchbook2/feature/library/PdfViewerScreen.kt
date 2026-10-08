@@ -47,12 +47,13 @@ import com.macareen.stitchbook2.ui.components.QuietText
 import com.macareen.stitchbook2.ui.theme.StitchbookSpacing
 
 @Composable
-fun PdfViewerRoute(viewModel: PdfViewerViewModel) {
+fun PdfViewerRoute(viewModel: PdfViewerViewModel, startPage: Int? = null) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     PdfViewerScreen(
         uiState = uiState,
-        onPageChanged = viewModel::updateLastViewedPage
+        onPageChanged = viewModel::updateLastViewedPage,
+        startPage = startPage
     )
 }
 
@@ -60,7 +61,9 @@ fun PdfViewerRoute(viewModel: PdfViewerViewModel) {
 fun PdfViewerScreen(
     uiState: PdfViewerUiState,
     onPageChanged: (LibraryItem, Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** A 1-based page to open at instead of the last page viewed, such as a guide step's page. */
+    startPage: Int? = null
 ) {
     when (uiState) {
         PdfViewerUiState.Loading -> {
@@ -85,6 +88,7 @@ fun PdfViewerScreen(
             PdfPageViewer(
                 item = uiState.item,
                 onPageChanged = { page -> onPageChanged(uiState.item, page) },
+                startPage = startPage,
                 modifier = modifier
             )
         }
@@ -101,13 +105,14 @@ private sealed interface PageLoadState {
 private fun PdfPageViewer(
     item: LibraryItem,
     onPageChanged: (Int) -> Unit,
+    startPage: Int?,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     var renderer by remember(item.pdfUri) { mutableStateOf<PdfRenderer?>(null) }
     var loadState by remember(item.pdfUri) { mutableStateOf<PageLoadState>(PageLoadState.Loading) }
     var currentPage by remember(item.pdfUri) {
-        mutableIntStateOf(item.pdfLastViewedPage?.coerceAtLeast(0) ?: 0)
+        mutableIntStateOf(startPage?.minus(1)?.coerceAtLeast(0) ?: item.pdfLastViewedPage?.coerceAtLeast(0) ?: 0)
     }
     var bitmap by remember(item.pdfUri) { mutableStateOf<Bitmap?>(null) }
 

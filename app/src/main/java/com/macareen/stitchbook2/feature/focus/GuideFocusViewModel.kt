@@ -1,5 +1,8 @@
 package com.macareen.stitchbook2.feature.focus
 
+import com.macareen.stitchbook2.domain.repository.MaterialsRepository
+import com.macareen.stitchbook2.domain.execution.OverviewEntry
+import com.macareen.stitchbook2.domain.execution.GuideProgressSummary
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -102,7 +105,13 @@ sealed interface GuideFocusUiState {
         val projectCounters: List<Counter> = emptyList(),
         val jumpToFirstIncompleteTarget: ExecutionAddress? = null,
         val isBusy: Boolean = false,
-        val feedback: FocusFeedback? = null
+        val feedback: FocusFeedback? = null,
+        /** How far through the whole guide, weighted by stitches where the guide states them. */
+        val progress: GuideProgressSummary? = null,
+        /** The whole guide as a scannable list, for the overview. */
+        val overview: List<OverviewEntry> = emptyList(),
+        /** The pattern this guide follows, at the current step's page when the step names one. */
+        val pattern: PatternPage? = null
     ) : GuideFocusUiState
 
     data class Completed(
@@ -123,6 +132,9 @@ sealed interface GuideFocusUiState {
  * and never computes container progress beyond formatting the ancestry
  * frames and container bounds/counts the guide definition already has.
  */
+/** A pattern's PDF in the Library, and the 1-based page to open it at. */
+data class PatternPage(val libraryItemId: String, val page: Int?)
+
 class GuideFocusViewModel(
     private val guideId: GuideId,
     private val guideRepository: GuideRepository,
@@ -130,8 +142,13 @@ class GuideFocusViewModel(
     private val counterRepository: CounterRepository,
     externalScope: CoroutineScope? = null,
     /** The project this knitting belongs to; falls back to the guide's own project. */
-    private val projectId: String? = null
+    private val projectId: String? = null,
+    /** Finds the project's pattern when the guide doesn't name one itself. */
+    private val materialsRepository: MaterialsRepository? = null
 ) : ViewModel() {
+
+    /** The Library pattern to open from Focus, decided once per load. */
+    private var patternLibraryItemId: String? = null
 
     private val scope: CoroutineScope = externalScope ?: viewModelScope
     private val incrementCounter = IncrementCounterUseCase(counterRepository)
@@ -225,6 +242,14 @@ class GuideFocusViewModel(
         executionRepository.applyPrevious(executionId, version)
     }
 
+    /** Moves to [target], a step picked from the overview. */
+    fun onJumpTo(target: ExecutionAddress) {
+        if (_uiState.value !is GuideFocusUiState.InProgress) return
+        applyTransition { executionId, version ->
+            executionRepository.applyJump(executionId, version, target)
+        }
+    }
+
     fun onJumpToFirstIncomplete() {
         val current = _uiState.value as? GuideFocusUiState.InProgress ?: return
         val target = current.jumpToFirstIncompleteTarget ?: return
@@ -310,6 +335,10 @@ class GuideFocusViewModel(
             // A pattern guide opened on its own has no project, so no project counters.
             val contextProjectId = this.projectId ?: guide.projectId
             val projectId = contextProjectId.orEmpty()
+            patternLibraryItemId = guide.libraryItemId ?: contextProjectId?.let { id ->
+                // Only a project with exactly one pattern file says which pattern to open.
+                materialsRepository?.observePatternsForProject(id)?.first()?.filter { it.pdfUri != null }?.singleOrNull()?.id
+            }
             val active = executionRepository.getActiveExecution(guideId, contextProjectId)
             if (active != null) {
                 val projectCounters = contextProjectId?.let { counterRepository.observeCountersByProject(it).first() }.orEmpty()
@@ -383,14 +412,23 @@ class GuideFocusViewModel(
             projectId = projectId,
             executionId = execution.state.executionId,
             version = execution.version,
-            instructionText = instruction.text,
+            // The page shows on the Pattern button, so steps read without their "(p.N)".
+            instructionText = withoutSourcePage(instruction.text),
             breadcrumbs = breadcrumbs,
             positions = positions,
             projectCounters = projectCounters,
             jumpToFirstIncompleteTarget = jumpTarget,
-            feedback = feedback
+            feedback = feedback,
+            progress = GuideProgressSummary.of(validated, execution.state.completedAddresses),
+            overview = OverviewEntry.overviewOf(validated, execution.state.completedAddresses, currentAddress)
+                .map { it.copy(text = withoutSourcePage(it.text)) },
+            pattern = patternLibraryItemId?.let { id ->
+                PatternPage(id, SOURCE_PAGE.find(instruction.text)?.groupValues?.get(1)?.toIntOrNull())
+            }
         )
     }
+
+    private fun withoutSourcePage(text: String): String = SOURCE_PAGE.replace(text, "").trimEnd()
 
     private fun structuralPositionFor(
         guide: ValidatedGuideDefinition,
@@ -425,15 +463,26 @@ class GuideFocusViewModel(
     }
 
     companion object {
+        /** The "(p.N)" an imported step ends with, naming its page in the original PDF. */
+        private val SOURCE_PAGE = Regex("""\(p\.(\d+)\)\s*$""")
+
         fun factory(
             guideId: GuideId,
             guideRepository: GuideRepository,
             executionRepository: ExecutionRepository,
             counterRepository: CounterRepository,
-            projectId: String? = null
+            projectId: String? = null,
+            materialsRepository: MaterialsRepository? = null
         ): ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                GuideFocusViewModel(guideId, guideRepository, executionRepository, counterRepository, projectId = projectId)
+                GuideFocusViewModel(
+                    guideId,
+                    guideRepository,
+                    executionRepository,
+                    counterRepository,
+                    projectId = projectId,
+                    materialsRepository = materialsRepository
+                )
             }
         }
     }

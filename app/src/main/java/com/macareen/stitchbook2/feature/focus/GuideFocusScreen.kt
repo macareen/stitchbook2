@@ -1,5 +1,22 @@
 package com.macareen.stitchbook2.feature.focus
 
+import com.macareen.stitchbook2.domain.execution.ProgressBasis
+import com.macareen.stitchbook2.domain.execution.OverviewStatus
+import com.macareen.stitchbook2.domain.execution.OverviewEntry
+import com.macareen.stitchbook2.domain.execution.GuideProgressSummary
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.clickable
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -61,7 +78,7 @@ import com.macareen.stitchbook2.ui.theme.screenTitle
 import com.macareen.stitchbook2.ui.theme.sectionLabel
 
 @Composable
-fun GuideFocusRoute(viewModel: GuideFocusViewModel) {
+fun GuideFocusRoute(viewModel: GuideFocusViewModel, onOpenPattern: (PatternPage) -> Unit = {}) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
@@ -104,7 +121,9 @@ fun GuideFocusRoute(viewModel: GuideFocusViewModel) {
         onJumpToFirstIncomplete = viewModel::onJumpToFirstIncomplete,
         onStartNext = viewModel::onStartNext,
         onIncrementCounter = viewModel::onIncrementCounter,
-        onDecrementCounter = viewModel::onDecrementCounter
+        onDecrementCounter = viewModel::onDecrementCounter,
+        onJumpTo = viewModel::onJumpTo,
+        onOpenPattern = onOpenPattern
     )
 }
 
@@ -118,7 +137,9 @@ fun GuideFocusScreen(
     onStartNext: () -> Unit,
     onIncrementCounter: (Counter) -> Unit,
     onDecrementCounter: (Counter) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onJumpTo: (ExecutionAddress) -> Unit = {},
+    onOpenPattern: (PatternPage) -> Unit = {}
 ) {
     when (uiState) {
         GuideFocusUiState.Loading -> LoadingState(modifier)
@@ -154,6 +175,8 @@ fun GuideFocusScreen(
             onJumpToFirstIncomplete = onJumpToFirstIncomplete,
             onIncrementCounter = onIncrementCounter,
             onDecrementCounter = onDecrementCounter,
+            onJumpTo = onJumpTo,
+            onOpenPattern = onOpenPattern,
             modifier = modifier
         )
 
@@ -261,8 +284,11 @@ private fun InProgressContent(
     onJumpToFirstIncomplete: () -> Unit,
     onIncrementCounter: (Counter) -> Unit,
     onDecrementCounter: (Counter) -> Unit,
+    onJumpTo: (ExecutionAddress) -> Unit,
+    onOpenPattern: (PatternPage) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var showOverview by rememberSaveable { mutableStateOf(false) }
     Column(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -280,6 +306,36 @@ private fun InProgressContent(
             )
             if (state.breadcrumbs.isNotEmpty()) {
                 QuietText(text = state.breadcrumbs.joinToString(separator = " › "))
+            }
+            state.progress?.let { progress ->
+                LinearProgressIndicator(
+                    progress = { progress.fraction.toFloat() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = StitchbookSpacing.extraSmall)
+                )
+                QuietText(text = progressText(progress))
+            }
+        }
+
+        if (state.overview.isNotEmpty() || state.pattern != null) {
+            Row(
+                modifier = Modifier.padding(horizontal = StitchbookSpacing.small),
+                horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.extraSmall)
+            ) {
+                if (state.overview.isNotEmpty()) {
+                    TextButton(onClick = { showOverview = true }, modifier = Modifier.heightIn(min = 48.dp)) {
+                        Text(stringResource(R.string.focus_overview_action))
+                    }
+                }
+                state.pattern?.let { pattern ->
+                    TextButton(onClick = { onOpenPattern(pattern) }, modifier = Modifier.heightIn(min = 48.dp)) {
+                        Text(
+                            pattern.page?.let { stringResource(R.string.focus_open_pattern_page_action, it) }
+                                ?: stringResource(R.string.focus_open_pattern_action)
+                        )
+                    }
+                }
             }
         }
 
@@ -375,6 +431,87 @@ private fun InProgressContent(
                     Text(text = stringResource(R.string.focus_jump_to_incomplete_action))
                 }
             }
+        }
+    }
+
+    if (showOverview) {
+        OverviewSheet(
+            entries = state.overview,
+            onJumpTo = { target ->
+                showOverview = false
+                onJumpTo(target)
+            },
+            onDismiss = { showOverview = false }
+        )
+    }
+}
+
+@Composable
+private fun progressText(progress: GuideProgressSummary): String = when (progress.basis) {
+    ProgressBasis.STITCHES -> stringResource(R.string.focus_progress_stitches, progress.percent)
+    ProgressBasis.STITCHES_ESTIMATED -> stringResource(R.string.focus_progress_stitches_estimated, progress.percent)
+    ProgressBasis.STEPS -> stringResource(R.string.focus_progress_steps, progress.percent, progress.completedSteps, progress.totalSteps)
+}
+
+/** The whole guide at a glance; tapping a line moves there. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun OverviewSheet(entries: List<OverviewEntry>, onJumpTo: (ExecutionAddress) -> Unit, onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Text(
+            text = stringResource(R.string.focus_overview_title),
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(horizontal = StitchbookSpacing.large, vertical = StitchbookSpacing.small)
+        )
+        LazyColumn(contentPadding = PaddingValues(bottom = StitchbookSpacing.large)) {
+            items(entries, key = { it.nodeId.value }) { entry -> OverviewLine(entry, onClick = { onJumpTo(entry.jumpTarget) }) }
+        }
+    }
+}
+
+@Composable
+private fun OverviewLine(entry: OverviewEntry, onClick: () -> Unit) {
+    val statusLabel = stringResource(
+        when (entry.status) {
+            OverviewStatus.DONE -> R.string.focus_overview_done
+            OverviewStatus.CURRENT -> R.string.focus_overview_current
+            OverviewStatus.TO_DO -> R.string.focus_overview_to_do
+        }
+    )
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .heightIn(min = 48.dp)
+            .padding(
+                start = StitchbookSpacing.large + (entry.depth * 16).dp,
+                end = StitchbookSpacing.large,
+                top = StitchbookSpacing.extraSmall,
+                bottom = StitchbookSpacing.extraSmall
+            )
+            .semantics(mergeDescendants = true) { stateDescription = statusLabel }
+    ) {
+        Text(
+            text = when (entry.status) {
+                OverviewStatus.DONE -> "✓"
+                OverviewStatus.CURRENT -> "▶"
+                OverviewStatus.TO_DO -> "○"
+            },
+            color = if (entry.status == OverviewStatus.CURRENT) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.clearAndSetSemantics {}
+        )
+        Text(
+            text = entry.text,
+            style = if (entry.kind == OverviewEntry.Kind.SECTION) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge,
+            color = if (entry.status == OverviewStatus.DONE) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        if (entry.totalSteps > 1) {
+            QuietText(text = stringResource(R.string.focus_overview_count, entry.completedSteps, entry.totalSteps))
         }
     }
 }
