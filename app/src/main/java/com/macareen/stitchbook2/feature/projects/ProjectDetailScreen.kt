@@ -353,7 +353,8 @@ private fun ProjectDetailContent(
                 onOpenGuide = { openSheet = null; onOpenGuide(it) },
                 onEditDraft = { openSheet = null; onEditDraft(it) },
                 onAddGuide = { showAddGuideDialog = true },
-                onCreateGuideFromPdf = { showCreateFromPdfDialog = true }
+                onCreateGuideFromPdf = { showCreateFromPdfDialog = true },
+                onImportWithAssistant = { openSheet = null; onOpenSection(ProjectSection.ASSISTED_IMPORT) }
             )
         }
         HubSheet.TOOLS -> HubBottomSheet(onDismiss = { openSheet = null }) {
@@ -514,7 +515,8 @@ private fun GuidesSection(
     onOpenGuide: (String) -> Unit,
     onEditDraft: (String) -> Unit,
     onAddGuide: () -> Unit,
-    onCreateGuideFromPdf: () -> Unit
+    onCreateGuideFromPdf: () -> Unit,
+    onImportWithAssistant: () -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -544,6 +546,9 @@ private fun GuidesSection(
     }
 
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+        TextButton(onClick = onImportWithAssistant, enabled = !isImportingPdf && !isCreatingGuide) {
+            Text(text = stringResource(R.string.assist_section_title), style = MaterialTheme.typography.labelLarge)
+        }
         TextButton(
             onClick = onCreateGuideFromPdf,
             enabled = !isImportingPdf && !isCreatingGuide
