@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Stitchbook 2</string>
+    <string name="app_name">Stitchbook</string>
     <string name="navigate_back">Back</string>
     <string name="destination_home">Home</string>
     <string name="destination_projects">Projects</string>
@@ -20,12 +20,12 @@
     <string name="home_active_projects_empty">No active projects right now.</string>
     <string name="home_active_projects_empty_cta">Start a new project</string>
 
-    <string name="library_header_title">Pattern Library</string>
-    <string name="library_header_subtitle">Store pattern references, technique notes, and bookmarked craft guides.</string>
-    <string name="add_library_item">Add Library Pattern</string>
+    <string name="library_header_title">Library</string>
+    <string name="library_header_subtitle">Your patterns, and the guides you make from them.</string>
+    <string name="add_library_item">Add pattern</string>
     <string name="library_search_placeholder">Search by title, author, or tag</string>
     <string name="library_filter_all_crafts">All Crafts</string>
-    <string name="library_bookmarks_only">Bookmarks Only</string>
+    <string name="library_bookmarks_only">Bookmarked</string>
     <string name="library_export_csv_action">Export CSV</string>
     <string name="library_import_csv_action">Import CSV</string>
     <string name="library_download_csv_template_action">Download Template</string>
@@ -34,14 +34,14 @@
     <string name="library_csv_import_row_error">Row %1$d: %2$s</string>
     <string name="library_csv_import_more_errors">…and %1$d more row(s) with errors.</string>
     <string name="library_csv_import_dismiss_action">OK</string>
-    <string name="library_empty_title">No pattern references found</string>
-    <string name="library_empty_description">Add a pattern reference to keep it accessible here.</string>
+    <string name="library_empty_title">No patterns yet</string>
+    <string name="library_empty_description">Choose a pattern folder above, or add one by hand.</string>
     <string name="library_item_author">By %1$s</string>
     <string name="library_item_source_link">Source ↗</string>
     <string name="library_toggle_bookmark">Toggle bookmark</string>
     <string name="edit_library_item">Edit pattern reference</string>
     <string name="delete_library_item">Delete pattern reference</string>
-    <string name="library_form_title_add">Add Library Pattern</string>
+    <string name="library_form_title_add">Add pattern</string>
     <string name="library_form_title_edit">Edit Library Pattern</string>
     <string name="library_field_title">Pattern Title</string>
     <string name="library_field_title_required">Enter a pattern title.</string>
@@ -77,17 +77,17 @@
     <string name="stash_category_needles_hooks">Needles &amp; Hooks</string>
     <string name="stash_category_notions">Notions &amp; Tools</string>
     <string name="stash_category_materials">Other Materials</string>
-    <string name="stash_header_title">Yarn &amp; Tools Stash</string>
-    <string name="stash_header_subtitle">Keep a private inventory of your yarns, hooks, needles, and notions.</string>
-    <string name="add_stash_item">Add Stash Item</string>
+    <string name="stash_header_title">Stash</string>
+    <string name="stash_header_subtitle">Your yarn and notions, and what each project uses.</string>
+    <string name="add_stash_item">Add to stash</string>
     <string name="stash_search_placeholder">Search by name, brand, or colorway</string>
     <string name="stash_filter_all_categories">All Categories</string>
     <string name="stash_empty_title">Your stash is empty</string>
-    <string name="stash_empty_description">Add a yarn, tool, or notion to start tracking your inventory.</string>
+    <string name="stash_empty_description">Add a yarn or notion to see what you have at a glance.</string>
     <string name="stash_yardage_per_unit">%1$s yds / unit</string>
     <string name="edit_stash_item">Edit stash item</string>
     <string name="delete_stash_item">Delete stash item</string>
-    <string name="stash_form_title_add">Add Stash Item</string>
+    <string name="stash_form_title_add">Add to stash</string>
     <string name="stash_form_title_edit">Edit Stash Item</string>
     <string name="stash_field_name">Item Name</string>
     <string name="stash_field_name_required">Enter an item name.</string>
@@ -136,17 +136,17 @@
     <string name="tools_category_end_stopper">End Stopper</string>
     <string name="tools_category_tightening_key">Tightening Key</string>
     <string name="tools_category_other_notion">Other Notion</string>
-    <string name="tools_header_title">Tools Inventory</string>
-    <string name="tools_header_subtitle">Track needles, hooks, interchangeable systems, and notions.</string>
-    <string name="add_tool_item">Add Tool</string>
+    <string name="tools_header_title">Tools</string>
+    <string name="tools_header_subtitle">Your needles, hooks and notions.</string>
+    <string name="add_tool_item">Add tool</string>
     <string name="tools_search_placeholder">Search by name, brand, or material</string>
     <string name="tools_filter_all_categories">All Categories</string>
-    <string name="tools_empty_title">Your tools inventory is empty</string>
-    <string name="tools_empty_description">Add a needle, hook, or notion to start tracking your tools.</string>
+    <string name="tools_empty_title">No tools yet</string>
+    <string name="tools_empty_description">Add your needles and hooks to see sizes at a glance and spot gaps.</string>
     <string name="tools_quantity_pill">×%1$d</string>
     <string name="edit_tool_item">Edit tool</string>
     <string name="delete_tool_item">Delete tool</string>
-    <string name="tools_form_title_add">Add Tool</string>
+    <string name="tools_form_title_add">Add tool</string>
     <string name="tools_form_title_edit">Edit Tool</string>
     <string name="tools_field_name">Tool Name</string>
     <string name="tools_field_name_required">Enter a tool name.</string>
@@ -273,11 +273,11 @@
     <string name="counter_notes_delete_action">Delete note</string>
     <string name="counter_notes_close_action">Done</string>
 
-    <string name="settings_header_title">Settings &amp; Data Ownership</string>
-    <string name="settings_header_subtitle">Manage portable exports, local data backups, and application status.</string>
-    <string name="settings_guardrails_title">Private &amp; Local-First Guardrails</string>
-    <string name="settings_guardrails_description">Stitchbook stores your project notes, pattern references, and stash records directly on this device. Your craft records belong to you and work fully offline, without a mandatory account or subscription.</string>
-    <string name="settings_backup_title">Portable Data Backup &amp; Export</string>
+    <string name="settings_header_title">Settings</string>
+    <string name="settings_header_subtitle">How Stitchbook looks, and keeping your records safe.</string>
+    <string name="settings_guardrails_title">Your records stay yours</string>
+    <string name="settings_guardrails_description">Everything lives on this phone and works offline. No account, no subscription, and your pattern files stay where you keep them.</string>
+    <string name="settings_backup_title">Backup &amp; export</string>
     <string name="settings_backup_export_description">Download a JSON backup of your projects, pattern library, and stash.</string>
     <string name="settings_export_action">Download JSON Backup</string>
     <string name="settings_backup_import_description">Restore from a previously downloaded JSON backup file.</string>
@@ -346,7 +346,7 @@
     <string name="backup_type_journal_entries">Journal entries</string>
     <string name="backup_type_sessions">Crafting sessions</string>
     <string name="projects_empty_title">No projects yet</string>
-    <string name="projects_empty_description">Add a project to start keeping its basic details close at hand.</string>
+    <string name="projects_empty_description">Start one to keep its guide, yarn, needles and notes together.</string>
     <string name="projects_list_title">Your projects</string>
     <string name="projects_load_error_title">Projects could not be loaded</string>
     <string name="projects_load_error_description">Close and reopen this screen to try again.</string>
@@ -367,7 +367,7 @@
     <string name="project_delete_error">The project could not be deleted. Please try again.</string>
     <string name="project_more_actions">More project actions</string>
     <string name="inventory_more_actions">More actions</string>
-    <string name="pattern_folder_hint">Keep your patterns in one folder (on this phone or a cloud folder) and they appear here automatically. Files stay where they are.</string>
+    <string name="pattern_folder_hint">Pick the folder where you keep your PDFs, on this phone or in Drive. New patterns appear here on their own, and the files stay put.</string>
     <string name="pattern_folder_choose">Choose pattern folder</string>
     <string name="pattern_folder_change">Change pattern folder</string>
     <string name="pattern_folder_forget">Stop using pattern folder</string>
@@ -548,6 +548,7 @@
     <string name="focus_start_next_error">A new execution could not be started. Please try again.</string>
 
     <string name="focus_range_position">%1$s %2$d of %3$d–%4$d</string>
+    <string name="focus_range_position_from_one">%1$s %2$d of %3$d</string>
     <string name="focus_repeat_position_labeled">%1$s: repeat %2$d of %3$d</string>
     <string name="focus_repeat_position">Repeat %1$d of %2$d</string>
 

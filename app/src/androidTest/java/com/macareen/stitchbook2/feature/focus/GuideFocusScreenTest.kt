@@ -106,7 +106,7 @@ class GuideFocusScreenTest {
             )
         )
 
-        composeTestRule.onNodeWithText("Round 4 of 1–10").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Round 4 of 10").assertIsDisplayed()
     }
 
     @Test
@@ -151,7 +151,7 @@ class GuideFocusScreenTest {
         )
 
         composeTestRule.onNodeWithText("Band: repeat 2 of 3").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Round 3 of 1–4").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Round 3 of 4").assertIsDisplayed()
     }
 
     @Test

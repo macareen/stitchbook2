@@ -390,7 +390,7 @@ private fun StashContent(
     ) {
         item {
             ScreenHeader(
-                title = stringResource(R.string.stash_header_title),
+                title = null,
                 subtitle = stringResource(R.string.stash_header_subtitle),
                 menuDescription = stringResource(R.string.inventory_more_actions),
                 actions = listOf(

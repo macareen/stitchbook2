@@ -79,6 +79,13 @@ fun ProjectsScreen(
             }
 
             ProjectsUiState.Empty -> {
+                Text(
+                    text = stringResource(R.string.projects_list_title),
+                    style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(start = 16.dp, top = 20.dp)
+                )
                 EmptyProjects(
                     modifier = Modifier
                         .align(Alignment.Center)
@@ -228,12 +235,14 @@ private fun ProjectListItem(
                 style = MaterialTheme.typography.cardTitle,
                 fontWeight = FontWeight.SemiBold
             )
-            Text(
-                text = project.typeDisplayLabel(),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.textSecondary,
-                modifier = Modifier.padding(top = 2.dp)
-            )
+            project.typeLabelOrNull()?.let { type ->
+                Text(
+                    text = type,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.textSecondary,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
             Spacer(modifier = Modifier.height(12.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),

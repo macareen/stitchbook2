@@ -444,7 +444,7 @@ private fun ToolsContent(
     ) {
         item {
             ScreenHeader(
-                title = stringResource(R.string.tools_header_title),
+                title = null,
                 subtitle = stringResource(R.string.tools_header_subtitle),
                 menuDescription = stringResource(R.string.inventory_more_actions),
                 actions = listOf(

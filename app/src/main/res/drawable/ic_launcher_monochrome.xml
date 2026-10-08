@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed-icon layer: the same ball and needles as one tintable shape, strands cut out. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Scaled about the centre so the round mask never clips the needles or the loose end. -->
+    <group android:pivotX="54" android:pivotY="54" android:scaleX="0.84" android:scaleY="0.84">
+    <path
+        android:pathData="M31,33 L77,79 M77,33 L31,79"
+        android:strokeColor="#000000"
+        android:strokeWidth="3.4"
+        android:strokeLineCap="round" />
+    <path
+        android:fillColor="#000000"
+        android:pathData="M26.5,33 a4.5,4.5 0 1,0 9,0 a4.5,4.5 0 1,0 -9,0z M72.5,33 a4.5,4.5 0 1,0 9,0 a4.5,4.5 0 1,0 -9,0z" />
+    <group>
+        <clip-path android:pathData="M35,55 a19,19 0 1,0 38,0 a19,19 0 1,0 -38,0z" />
+        <path
+            android:fillColor="#000000"
+            android:pathData="M30,30h50v50h-50z" />
+    </group>
+    <path
+        android:pathData="M68,68 C73,74 78,71 79,75 C80,78 77,79 75.5,77"
+        android:strokeColor="#000000"
+        android:strokeWidth="2.6"
+        android:strokeLineCap="round" />
+    </group>
+</vector>
