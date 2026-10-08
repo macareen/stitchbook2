@@ -166,4 +166,21 @@ class ParsedPatternMapperTest {
 
         assertEquals(listOf("Cast on. (p.1)", "Knit.", "Purl. (p.2)"), texts)
     }
+
+    @Test
+    fun `a heading with nothing under it is dropped instead of blocking publish`() {
+        val pattern = ParsedPattern(
+            rootNodes = listOf(
+                ParsedSection("Designer notes", emptyList(), source(1)),
+                ParsedSection("Body", listOf(ParsedInstruction("Knit all stitches.", source(3))), source(2))
+            ),
+            issues = emptyList()
+        )
+
+        val result = ParsedPatternMapper.toDraftNodes(pattern, newIdGenerator())
+
+        assertEquals(1, result.rootNodeIds.size)
+        assertEquals("Body", nodesById(result.nodes).getValue(result.rootNodeIds.single()).title)
+        assertTrue(result.nodes.none { it.title == "Designer notes" })
+    }
 }

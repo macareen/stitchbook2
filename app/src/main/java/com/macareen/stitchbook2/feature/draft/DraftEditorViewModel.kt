@@ -10,6 +10,7 @@ import com.macareen.stitchbook2.domain.execution.NodeId
 import com.macareen.stitchbook2.domain.guide.DraftNode
 import com.macareen.stitchbook2.domain.guide.DraftNodeType
 import com.macareen.stitchbook2.domain.guide.GuideDraft
+import com.macareen.stitchbook2.domain.repository.DraftProblem
 import com.macareen.stitchbook2.domain.repository.DraftValidationException
 import com.macareen.stitchbook2.domain.repository.DraftVersionConflictException
 import com.macareen.stitchbook2.domain.repository.ExecutionRepository
@@ -231,13 +232,23 @@ class DraftEditorViewModel(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: DraftValidationException) {
-                showError(error.message ?: "This draft isn't ready to publish yet.")
+                showError(friendlyMessage(error.problem))
             } catch (error: DraftVersionConflictException) {
                 reloadAfterConflict()
             } catch (_: Exception) {
                 showError("This guide could not be published. Try again.")
             }
         }
+    }
+
+    /** Says what to fix in plain words; the raw validation text is for logs, never the screen. */
+    private fun friendlyMessage(problem: DraftProblem): String = when (problem) {
+        DraftProblem.EMPTY_SECTION ->
+            "Some sections don't have any steps yet. Add a step under each one, or delete the empty sections."
+        DraftProblem.NOTHING_TO_KNIT -> "Add at least one step first."
+        DraftProblem.MISSING_DETAIL ->
+            "A step is missing something: its text, a row range, or a repeat count. Fill it in and try again."
+        DraftProblem.OTHER -> "This draft isn't ready yet. Check the steps and try again."
     }
 
     fun dismissError() {
@@ -303,7 +314,7 @@ class DraftEditorViewModel(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: DraftValidationException) {
-                showError(error.message ?: "This draft isn't structured correctly.")
+                showError(friendlyMessage(error.problem))
             } catch (error: DraftVersionConflictException) {
                 reloadAfterConflict()
             } catch (_: Exception) {

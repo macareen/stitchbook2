@@ -1,5 +1,7 @@
 package com.macareen.stitchbook2.data.repository
 
+import com.macareen.stitchbook2.domain.execution.GuideDefinitionError
+import com.macareen.stitchbook2.domain.repository.DraftProblem
 import com.macareen.stitchbook2.data.database.DraftConflictException
 import com.macareen.stitchbook2.data.database.DraftNotFoundException
 import com.macareen.stitchbook2.data.database.GuideDao
@@ -194,9 +196,9 @@ class LocalGuideRepository(
                 createdAt = currentTimeMillis()
             ).toDomain()
         } catch (error: InvalidDraftForPublicationException) {
-            throw DraftValidationException(error.message.orEmpty())
+            throw DraftValidationException(error.message.orEmpty(), DraftProblem.MISSING_DETAIL)
         } catch (error: InvalidGuideDefinitionException) {
-            throw DraftValidationException(error.message.orEmpty())
+            throw DraftValidationException(error.message.orEmpty(), problemOf(error.errors))
         } catch (_: DraftNotFoundException) {
             // The draft this publish targeted is gone -- from the caller's
             // perspective that is exactly what a version conflict already
@@ -207,4 +209,18 @@ class LocalGuideRepository(
             throw DraftVersionConflictException(guideId)
         }
     }
+}
+
+/** The most useful single thing to tell the user about why a definition is invalid. */
+internal fun problemOf(errors: List<GuideDefinitionError>): DraftProblem = when {
+    errors.any { it is GuideDefinitionError.EmptyDefinition } -> DraftProblem.NOTHING_TO_KNIT
+    errors.any {
+        it is GuideDefinitionError.EmptyChildren || it is GuideDefinitionError.ContainerWithoutExecutableDescendant
+    } -> DraftProblem.EMPTY_SECTION
+    errors.any {
+        it is GuideDefinitionError.InvalidRangeBounds ||
+            it is GuideDefinitionError.BlankRangeUnitLabel ||
+            it is GuideDefinitionError.NonPositiveRepeatCount
+    } -> DraftProblem.MISSING_DETAIL
+    else -> DraftProblem.OTHER
 }

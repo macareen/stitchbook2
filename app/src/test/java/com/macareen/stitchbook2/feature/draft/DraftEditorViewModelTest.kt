@@ -15,6 +15,7 @@ import com.macareen.stitchbook2.domain.guide.DraftNode
 import com.macareen.stitchbook2.domain.guide.DraftNodeType
 import com.macareen.stitchbook2.domain.guide.Guide
 import com.macareen.stitchbook2.domain.guide.GuideDraft
+import com.macareen.stitchbook2.domain.repository.DraftProblem
 import com.macareen.stitchbook2.domain.repository.DraftValidationException
 import com.macareen.stitchbook2.domain.repository.DraftVersionConflictException
 import com.macareen.stitchbook2.domain.repository.ExecutionRepository
@@ -205,7 +206,7 @@ class DraftEditorViewModelTest {
         viewModel.addNode(type = DraftNodeType.INSTRUCTION, parentId = null, instructionText = "Second step")
 
         val content = contentState(viewModel)
-        assertEquals("Draft references missing node: bogus", content.errorMessage)
+        assertEquals("This draft isn't ready yet. Check the steps and try again.", content.errorMessage)
         assertEquals(1, content.rows.size)
         assertFalse(content.isSaving)
     }
@@ -279,13 +280,13 @@ class DraftEditorViewModelTest {
     @Test
     fun invalidDraftShowsRecoverableValidationFeedbackOnPublish() {
         val repository = FakeGuideRepository(guide = guide, draft = emptyDraft())
-        repository.nextPublishError = DraftValidationException("Draft has no steps yet.")
+        repository.nextPublishError = DraftValidationException("Draft has no steps yet.", DraftProblem.NOTHING_TO_KNIT)
         val viewModel = viewModel(repository)
 
         viewModel.publish()
 
         val content = contentState(viewModel)
-        assertEquals("Draft has no steps yet.", content.errorMessage)
+        assertEquals("Add at least one step first.", content.errorMessage)
         assertFalse(content.isPublished)
         assertFalse(content.isSaving)
     }
