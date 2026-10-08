@@ -46,6 +46,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.macareen.stitchbook2.R
 import com.macareen.stitchbook2.domain.execution.GuideId
@@ -84,6 +86,11 @@ fun ProjectDetailRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val exportFeedback by viewModel.exportFeedback.collectAsStateWithLifecycle()
+
+    // Coming back from Focus Mode or the Draft editor can change a guide's Start/Continue state.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.refreshGuideEntries()
+    }
 
     LaunchedEffect(viewModel) {
         viewModel.deletedEvents.collect {

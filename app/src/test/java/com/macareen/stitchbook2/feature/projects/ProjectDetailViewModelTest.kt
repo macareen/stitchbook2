@@ -94,6 +94,24 @@ class ProjectDetailViewModelTest {
     }
 
     @Test
+    fun refreshingAfterAnExecutionStartsElsewhereSwitchesStartToContinue() {
+        val guide = guide("guide-1")
+        val guides = FakeGuideRepository(guides = listOf(guide))
+            .withRevision(guide.id, revisionId("rev-1"))
+        val executions = FakeExecutionRepository()
+        val viewModel = viewModel(guides = guides, executions = executions)
+        assertEquals(GuideEntryAction.START, contentState(viewModel).guideEntries.single().action)
+
+        // Focus Mode starts the Execution; no guide row changes.
+        executions.withActiveExecution(guide.id)
+        assertEquals(GuideEntryAction.START, contentState(viewModel).guideEntries.single().action)
+
+        viewModel.refreshGuideEntries()
+
+        assertEquals(GuideEntryAction.CONTINUE, contentState(viewModel).guideEntries.single().action)
+    }
+
+    @Test
     fun guideWithActiveExecutionOffersContinueEvenWithARevisionPresent() {
         val guide = guide("guide-1")
         val guides = FakeGuideRepository(guides = listOf(guide))

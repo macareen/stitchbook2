@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
@@ -100,6 +101,7 @@ class ProjectDetailViewModel(
     private val createGuideState = MutableStateFlow(CreateGuideState())
     private val pdfImportState = MutableStateFlow(PdfImportState())
     private val _exportFeedback = MutableStateFlow<ProjectExportFeedback?>(null)
+    private val entryRefresh = MutableStateFlow(0)
 
     /** Outcome of the last project export, kept apart from [uiState]'s already-wide combine. */
     val exportFeedback: StateFlow<ProjectExportFeedback?> = _exportFeedback.asStateFlow()
@@ -109,7 +111,8 @@ class ProjectDetailViewModel(
             repository.observeProject(projectId)
                 .map<Project?, ProjectLoadState> { ProjectLoadState.Loaded(it) }
                 .catch { emit(ProjectLoadState.Failed) },
-            guideRepository.observeGuides(projectId)
+            // Execution state has no Flow, so a refresh re-resolves each entry action.
+            combine(guideRepository.observeGuides(projectId), entryRefresh) { guides, _ -> guides }
                 .map { guides -> guides.map { guide -> GuideListEntry(guide, resolveEntryAction(guide)) } }
                 .catch { emit(emptyList()) },
             deleteState,
@@ -263,6 +266,15 @@ class ProjectDetailViewModel(
                 // actually persisted on the next emission.
             }
         }
+    }
+
+    /**
+     * Re-reads each guide's Start/Continue state. Starting or finishing an
+     * Execution happens on another screen and changes no guide row, so the
+     * screen calls this whenever it returns to the foreground.
+     */
+    fun refreshGuideEntries() {
+        entryRefresh.update { it + 1 }
     }
 
     /**

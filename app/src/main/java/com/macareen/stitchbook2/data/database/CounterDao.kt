@@ -3,6 +3,7 @@ package com.macareen.stitchbook2.data.database
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
@@ -46,6 +47,27 @@ interface CounterDao {
     @Upsert
     suspend fun upsert(counter: CounterEntity)
 
+    /**
+     * Deletes [counter] and clears the whole link on every counter that
+     * pointed at it. The foreign key's ON DELETE SET NULL only clears
+     * `linked_counter_id`; the interval and amount mean nothing without a
+     * target, so they are cleared in the same transaction.
+     */
+    @Transaction
+    suspend fun delete(counter: CounterEntity) {
+        clearLinksTo(counter.id)
+        deleteRow(counter)
+    }
+
+    @Query(
+        """
+        UPDATE counters
+        SET link_increment_interval = NULL, link_increment_amount = NULL
+        WHERE linked_counter_id = :id
+        """
+    )
+    suspend fun clearLinksTo(id: String)
+
     @Delete
-    suspend fun delete(counter: CounterEntity)
+    suspend fun deleteRow(counter: CounterEntity)
 }
