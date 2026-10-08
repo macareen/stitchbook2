@@ -93,7 +93,8 @@ import kotlinx.coroutines.withContext
 @Composable
 fun LibraryRoute(
     viewModel: LibraryViewModel,
-    onOpenPdf: (String) -> Unit
+    onOpenPdf: (String) -> Unit,
+    onOpenGuides: (String) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val importReport by viewModel.importReport.collectAsStateWithLifecycle()
@@ -115,7 +116,8 @@ fun LibraryRoute(
         folderState = folderState,
         onChooseFolder = viewModel::chooseFolder,
         onSyncFolder = viewModel::syncFolder,
-        onForgetFolder = viewModel::forgetFolder
+        onForgetFolder = viewModel::forgetFolder,
+        onOpenGuides = onOpenGuides
     )
 }
 
@@ -137,7 +139,8 @@ fun LibraryScreen(
     folderState: PatternFolderUiState = PatternFolderUiState(),
     onChooseFolder: (String) -> Unit = {},
     onSyncFolder: () -> Unit = {},
-    onForgetFolder: () -> Unit = {}
+    onForgetFolder: () -> Unit = {},
+    onOpenGuides: (String) -> Unit = {}
 ) {
     var editingItem by remember { mutableStateOf<LibraryItem?>(null) }
     var isAddingItem by remember { mutableStateOf(false) }
@@ -229,7 +232,8 @@ fun LibraryScreen(
                     folderState = folderState,
                     onChooseFolderClick = { folderLauncher.launch(null) },
                     onSyncFolder = onSyncFolder,
-                    onForgetFolder = onForgetFolder
+                    onForgetFolder = onForgetFolder,
+                    onOpenGuides = onOpenGuides
                 )
             }
         }
@@ -411,7 +415,8 @@ private fun LibraryContent(
     folderState: PatternFolderUiState = PatternFolderUiState(),
     onChooseFolderClick: () -> Unit = {},
     onSyncFolder: () -> Unit = {},
-    onForgetFolder: () -> Unit = {}
+    onForgetFolder: () -> Unit = {},
+    onOpenGuides: (String) -> Unit = {}
 ) {
     LazyColumn(
         contentPadding = PaddingValues(
@@ -488,7 +493,8 @@ private fun LibraryContent(
                     onToggleBookmark = { onToggleBookmark(libraryItem) },
                     onEdit = { onEditItem(libraryItem) },
                     onDelete = { onDeleteRequested(libraryItem) },
-                    onOpenPdf = { onOpenPdf(libraryItem.id) }
+                    onOpenPdf = { onOpenPdf(libraryItem.id) },
+                    onOpenGuides = { onOpenGuides(libraryItem.id) }
                 )
             }
         }
@@ -550,7 +556,8 @@ private fun LibraryItemCard(
     onToggleBookmark: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onOpenPdf: () -> Unit
+    onOpenPdf: () -> Unit,
+    onOpenGuides: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -680,14 +687,8 @@ private fun LibraryItemCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (item.sourceUrl != null) {
-                    Text(
-                        text = stringResource(R.string.library_item_source_link),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                } else {
-                    Spacer(modifier = Modifier)
+                TextButton(onClick = onOpenGuides) {
+                    Text(text = stringResource(R.string.pattern_guides_link))
                 }
                 Row {
                     IconButton(onClick = onEdit) {

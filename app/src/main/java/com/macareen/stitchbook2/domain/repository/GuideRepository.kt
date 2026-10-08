@@ -6,6 +6,7 @@ import com.macareen.stitchbook2.domain.guide.DefinitionRevision
 import com.macareen.stitchbook2.domain.guide.Guide
 import com.macareen.stitchbook2.domain.guide.GuideDraft
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 
 /**
  * Thrown by [GuideRepository.saveDraft] when the given draft's node tree is
@@ -57,8 +58,10 @@ interface GuideRepository {
     ): Guide?
 
     /** A pattern's guides, one per size. */
-    fun observePatternGuides(libraryItemId: String): Flow<List<Guide>> =
-        throw UnsupportedOperationException("Pattern guides are not supported here.")
+    fun observePatternGuides(libraryItemId: String): Flow<List<Guide>> = flowOf(emptyList())
+
+    /** Every pattern's guides, for choosing one to use in a project. */
+    fun observeAllPatternGuides(): Flow<List<Guide>> = flowOf(emptyList())
 
     /** Creates a pattern's guide for one size, with an empty draft, owned by no project. */
     suspend fun createPatternGuide(libraryItemId: String, sizeLabel: String, name: String): Guide =
