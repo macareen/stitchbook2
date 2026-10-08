@@ -6,6 +6,7 @@ import com.macareen.stitchbook2.domain.backup.BackupRecordType
 import com.macareen.stitchbook2.domain.backup.BackupService
 import com.macareen.stitchbook2.domain.backup.BackupSnapshot
 import com.macareen.stitchbook2.domain.backup.CURRENT_BACKUP_FORMAT_VERSION
+import com.macareen.stitchbook2.domain.backup.GuideBackupGraph
 import com.macareen.stitchbook2.domain.backup.GuideBackupStore
 import com.macareen.stitchbook2.domain.backup.RestoreMode
 import com.macareen.stitchbook2.domain.backup.planGuideMerge
@@ -135,6 +136,9 @@ class LocalBackupService(
     }
 
     override suspend fun resetAllData() {
+        // Guides go first and all at once: pattern guides belong to no project, so
+        // deleting projects alone would leave them (and their progress) behind.
+        guideBackupStore?.replace(GuideBackupGraph())
         projectRepository.observeProjects().first().forEach { projectRepository.deleteProject(it) }
         libraryRepository.observeLibraryItems().first().forEach { libraryRepository.deleteLibraryItem(it) }
         stashRepository.observeStashItems().first().forEach { stashRepository.deleteStashItem(it) }
