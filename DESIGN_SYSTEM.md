@@ -2,7 +2,7 @@
 
 ## 1. Status
 
-This document covers the visual-foundation decisions introduced alongside Focus Mode's visual refinement (PR 9.1, §§2–9) and the subsequent webapp-to-Compose visual migration across Home/Projects/Library/Stash/Settings and the navigation shell (§§10–11). It is not a complete design system and does not document speculative components, screens, or interactions that do not exist yet. Extend it incrementally as future phases add UI, the same way `ARCHITECTURE.md` and `ROADMAP.md` are extended.
+This document covers the visual-foundation decisions introduced alongside Focus Mode's visual refinement (PR 9.1, §§2–9) and the subsequent webapp-to-Compose visual migration across Home/Projects/Library/Stash/Settings and the navigation shell (§§10–11), then the shared surfaces, share-card palette, and statistics chart added with Phases 7–10 (§§12–14). It is not a complete design system and does not document speculative components, screens, or interactions that do not exist yet. Extend it incrementally as future phases add UI, the same way `ARCHITECTURE.md` and `ROADMAP.md` are extended.
 
 ## 2. Design personality
 
@@ -128,3 +128,42 @@ Extends §7's component set to cover the card-based screens ported from the appr
 ## 11. Navigation shell
 
 Top-level destinations (Home/Projects/Library/Stash/Settings) render with no `TopAppBar` at all — each already carries its own in-content headline, and a static app-name bar above it would be redundant administrative chrome the webapp itself doesn't show on mobile (`Navigation.tsx`'s header is desktop-only). Every other destination gets a minimal, title-less bar whose only job is a visible back arrow, since some screens (Project detail in particular) have no other in-UI way back besides the system back gesture/button.
+
+## 12. Shared surfaces and fields
+
+The Phase 7–10 screens (Materials, Journal, Sessions, Statistics, Cards, Settings restore) use one shared set of building blocks so they read as one product. Prefer these over re-implementing the pattern privately in a screen.
+
+- **`ContentCard`** (`ui/components/StitchbookSurfaces.kt`): the standard raised card, `surfaceContainerLowest` with the `extraLarge` radius (§10).
+- **`SectionHeader`**: a quiet serif heading with an optional trailing action and a hairline divider. It is the editorial separator §2 prefers over boxing every section in its own card.
+- **`EmptyState`**: a soft icon tile, a short title, and one sentence of guidance, small enough to sit inside a section.
+- **`ChoiceChipRow`**: a single-choice row of filter chips for small enums (theme, units, card templates, statistics range).
+- **`DetailLine`**: a label/value pair merged into one TalkBack stop.
+- **`DateField`** (`ui/components/DateField.kt`): an ISO local-date text field (`yyyy-MM-dd`) with a calendar button. Typing stays possible for keyboard and accessibility users; conversion to and from the Material picker uses UTC on both sides, so the date never shifts by a day in negative-offset zones.
+- **`PhotoThumbnail`** (`ui/components/PhotoThumbnail.kt`): a rounded, cropped tile for a referenced photo. A missing original shows a clear placeholder instead of failing, so the screen can offer relinking.
+- **`formatDuration` / `formatStopwatch`** (`ui/components/DurationText.kt`): "1 h 05 min" for totals, rounded down to whole minutes, and "1:02:03" for a live timer.
+- **`LocalMeasurementSystem`**: the user's display-only imperial/metric preference, provided once at the activity root.
+
+Destructive choices in dialogs (Replace on restore, Reset) use the `error` content colour on a text button and always sit beside a plain Cancel. An action that deletes records the user can't see asks a second time and names what it will remove.
+
+## 13. Share-card palette
+
+Exported PNG cards (`ui/cards/ShareCardRenderer.kt`, 1080 × 1350 px) use a fixed light palette. They don't follow the app's dark mode, because a shared image should look the same wherever it is viewed:
+
+| Role | Value | Use |
+| --- | --- | --- |
+| Background | `#FBF7F2` | Warm ivory page |
+| Ink | `#2E2A27` | Title and primary facts |
+| Muted | `#6F665F` | Labels and secondary facts |
+| Accent | `#9C4A5E` | One dusty-rose accent: the template label above the title |
+| Tile | `#F2EAE2` | Photo frame behind a card photo |
+
+They match the light theme's warm roles and are fixed so the renderer needs no Compose theme. Text contrast on Background: Ink 13.3:1, Muted 5.3:1, Accent 5.5:1, all above WCAG AA's 4.5:1. Cards use the serif/sans pairing of §4, no textures or gradients (§2), and carry no location or camera metadata.
+
+## 14. Statistics chart
+
+The Statistics screen's eight-week trend (`WeeklyBars` in `feature/statistics/StatisticsScreen.kt`) is the app's only chart. It follows these rules:
+
+- Plain bars in `primary` on a 1dp `outlineVariant` baseline, with only the data end rounded (4dp). No gridlines, gradients, or 3D effects.
+- Only the first and last week are labelled on the axis; a quiet line above names the peak week and its total.
+- The whole chart is one TalkBack stop whose description reads every week and its minutes, so the data never depends on seeing the bars.
+- Every figure beside the chart is labelled recorded, derived, or estimated (ARCHITECTURE.md "Current crafting sessions and statistics").

@@ -1,7 +1,7 @@
 package com.macareen.stitchbook2
 
 import android.content.Context
-import android.net.Uri
+import androidx.core.net.toUri
 import com.macareen.stitchbook2.data.backup.LocalBackupService
 import com.macareen.stitchbook2.data.database.StitchbookDatabase
 import com.macareen.stitchbook2.data.parsing.MlKitPdfPageOcr
@@ -125,7 +125,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
  */
 private suspend fun isContentAccessible(context: Context, uri: String): Boolean = withContext(Dispatchers.IO) {
     try {
-        context.contentResolver.openFileDescriptor(Uri.parse(uri), "r")?.close() != null
+        context.contentResolver.openFileDescriptor(uri.toUri(), "r")?.close() != null
     } catch (_: Exception) {
         false
     }

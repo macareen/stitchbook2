@@ -307,7 +307,6 @@
     <string name="settings_backup_paste_description">Or paste a backup JSON string directly.</string>
     <string name="settings_import_text_action">Import JSON Text</string>
     <string name="settings_export_failed">The backup could not be created. Please try again.</string>
-    <string name="settings_import_succeeded">Backup imported successfully.</string>
     <string name="settings_import_failed">This file is not a valid Stitchbook backup.</string>
     <string name="settings_danger_zone_title">Reset Application Data</string>
     <string name="settings_danger_zone_description">Permanently deletes all projects, pattern references, and stash records on this device. Export a backup first if you want to keep a copy.</string>
