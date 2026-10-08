@@ -61,6 +61,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.macareen.stitchbook2.R
 import com.macareen.stitchbook2.domain.preferences.MeasurementSystem
 import com.macareen.stitchbook2.domain.preferences.yardsToMeters
+import com.macareen.stitchbook2.ui.components.HeaderAction
+import com.macareen.stitchbook2.ui.components.ScreenHeader
 import com.macareen.stitchbook2.ui.components.LocalMeasurementSystem
 import com.macareen.stitchbook2.data.csv.StashCsvImportReport
 import com.macareen.stitchbook2.data.csv.stashCsvTemplate
@@ -387,23 +389,16 @@ private fun StashContent(
         verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)
     ) {
         item {
-            Text(
-                text = stringResource(R.string.stash_header_title),
-                style = MaterialTheme.typography.headlineMedium
+            ScreenHeader(
+                title = stringResource(R.string.stash_header_title),
+                subtitle = stringResource(R.string.stash_header_subtitle),
+                menuDescription = stringResource(R.string.inventory_more_actions),
+                actions = listOf(
+                    HeaderAction(stringResource(R.string.stash_export_csv_action), onExportCsvClick),
+                    HeaderAction(stringResource(R.string.stash_import_csv_action), onImportCsvClick),
+                    HeaderAction(stringResource(R.string.stash_download_csv_template_action), onTemplateCsvClick)
+                )
             )
-            QuietText(text = stringResource(R.string.stash_header_subtitle))
-            Spacer(modifier = Modifier.height(StitchbookSpacing.small))
-            Row(horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
-                TextButton(onClick = onExportCsvClick) {
-                    Text(text = stringResource(R.string.stash_export_csv_action))
-                }
-                TextButton(onClick = onImportCsvClick) {
-                    Text(text = stringResource(R.string.stash_import_csv_action))
-                }
-                TextButton(onClick = onTemplateCsvClick) {
-                    Text(text = stringResource(R.string.stash_download_csv_template_action))
-                }
-            }
             Spacer(modifier = Modifier.height(StitchbookSpacing.small))
         }
 

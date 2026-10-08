@@ -366,6 +366,7 @@
     <string name="project_save_error">The project could not be saved. Please try again.</string>
     <string name="project_delete_error">The project could not be deleted. Please try again.</string>
     <string name="project_more_actions">More project actions</string>
+    <string name="inventory_more_actions">More actions</string>
     <string name="home_continue_label">Continue</string>
     <string name="home_project_meta">%1$s · updated %2$s</string>
     <string name="stash_tab_yarn">Yarn &amp; materials</string>
