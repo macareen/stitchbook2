@@ -5,6 +5,7 @@ import androidx.core.net.toUri
 import com.macareen.stitchbook2.data.backup.LocalBackupService
 import com.macareen.stitchbook2.data.database.StitchbookDatabase
 import com.macareen.stitchbook2.data.parsing.MlKitPdfPageOcr
+import com.macareen.stitchbook2.data.library.SafPatternFolder
 import com.macareen.stitchbook2.data.parsing.PdfBoxTextExtractor
 import com.macareen.stitchbook2.data.parsing.StructuredGuideJsonDecoder
 import com.macareen.stitchbook2.data.ravelry.HttpRavelryApi
@@ -22,6 +23,8 @@ import com.macareen.stitchbook2.data.repository.LocalSessionRepository
 import com.macareen.stitchbook2.data.repository.LocalStashRepository
 import com.macareen.stitchbook2.data.repository.LocalToolRepository
 import com.macareen.stitchbook2.domain.backup.BackupService
+import com.macareen.stitchbook2.domain.library.PatternFolder
+import com.macareen.stitchbook2.domain.library.SyncPatternFolder
 import com.macareen.stitchbook2.domain.parsing.PdfTextExtractor
 import com.macareen.stitchbook2.domain.parsing.StructuredGuideDecoder
 import com.macareen.stitchbook2.domain.ravelry.RavelryCredentialStore
@@ -61,6 +64,8 @@ interface AppContainer {
     val createGuideFromPdfUseCase: CreateGuideFromPdfUseCase
     val structuredGuideDecoder: StructuredGuideDecoder
     val ravelryCredentialStore: RavelryCredentialStore
+    val patternFolder: PatternFolder
+    val syncPatternFolder: SyncPatternFolder
     val ravelrySync: RavelrySync
     val createGuideFromStructuredGuideUseCase: CreateGuideFromStructuredGuideUseCase
     val userPreferencesRepository: UserPreferencesRepository
@@ -128,6 +133,14 @@ class DefaultAppContainer(context: Context) : AppContainer {
     override val structuredGuideDecoder: StructuredGuideDecoder = StructuredGuideJsonDecoder()
 
     override val ravelryCredentialStore: RavelryCredentialStore = KeystoreRavelryCredentialStore(context)
+
+    override val patternFolder: PatternFolder = SafPatternFolder(context)
+
+    override val syncPatternFolder: SyncPatternFolder = SyncPatternFolder(
+        folder = patternFolder,
+        libraryRepository = libraryRepository,
+        newId = { UUID.randomUUID().toString() }
+    )
 
     override val ravelrySync: RavelrySync = RavelrySync(
         api = HttpRavelryApi(),

@@ -72,6 +72,8 @@ import com.macareen.stitchbook2.data.csv.libraryCsvTemplate
 import com.macareen.stitchbook2.domain.model.Craft
 import com.macareen.stitchbook2.domain.model.LibraryItem
 import com.macareen.stitchbook2.feature.projects.labelResource
+import com.macareen.stitchbook2.ui.components.HeaderAction
+import com.macareen.stitchbook2.ui.components.ScreenHeader
 import com.macareen.stitchbook2.ui.components.LabelPill
 import com.macareen.stitchbook2.ui.components.QuietText
 import com.macareen.stitchbook2.ui.theme.StitchbookSpacing
@@ -95,6 +97,7 @@ fun LibraryRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val importReport by viewModel.importReport.collectAsStateWithLifecycle()
+    val folderState by viewModel.folderState.collectAsStateWithLifecycle()
 
     LibraryScreen(
         uiState = uiState,
@@ -108,7 +111,11 @@ fun LibraryRoute(
         onExportCsv = viewModel::exportCsv,
         onImportCsv = viewModel::importCsv,
         importReport = importReport,
-        onDismissImportReport = viewModel::dismissImportReport
+        onDismissImportReport = viewModel::dismissImportReport,
+        folderState = folderState,
+        onChooseFolder = viewModel::chooseFolder,
+        onSyncFolder = viewModel::syncFolder,
+        onForgetFolder = viewModel::forgetFolder
     )
 }
 
@@ -126,7 +133,11 @@ fun LibraryScreen(
     onImportCsv: (String) -> Unit,
     importReport: LibraryCsvImportReport?,
     onDismissImportReport: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    folderState: PatternFolderUiState = PatternFolderUiState(),
+    onChooseFolder: (String) -> Unit = {},
+    onSyncFolder: () -> Unit = {},
+    onForgetFolder: () -> Unit = {}
 ) {
     var editingItem by remember { mutableStateOf<LibraryItem?>(null) }
     var isAddingItem by remember { mutableStateOf(false) }
@@ -180,6 +191,10 @@ fun LibraryScreen(
         }
     }
 
+    val folderLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri -> if (uri != null) onChooseFolder(uri.toString()) }
+
     Box(modifier = modifier.fillMaxSize()) {
         when (uiState) {
             LibraryUiState.Loading -> {
@@ -210,7 +225,11 @@ fun LibraryScreen(
                     onImportCsvClick = {
                         importCsvLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "*/*"))
                     },
-                    onTemplateCsvClick = { templateCsvLauncher.launch(LIBRARY_CSV_TEMPLATE_FILE_NAME) }
+                    onTemplateCsvClick = { templateCsvLauncher.launch(LIBRARY_CSV_TEMPLATE_FILE_NAME) },
+                    folderState = folderState,
+                    onChooseFolderClick = { folderLauncher.launch(null) },
+                    onSyncFolder = onSyncFolder,
+                    onForgetFolder = onForgetFolder
                 )
             }
         }
@@ -329,6 +348,46 @@ private fun LibraryCsvImportReportDialog(
     )
 }
 
+/**
+ * Where the patterns come from: a prompt to choose a folder, or the folder's
+ * name with what the last check found and a way to check again.
+ */
+@Composable
+private fun PatternFolderLine(state: PatternFolderUiState, onChoose: () -> Unit, onSync: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.weight(1f)) {
+            if (state.hasFolder) {
+                QuietText(text = stringResource(R.string.pattern_folder_from, state.folderName ?: stringResource(R.string.pattern_folder_unnamed)))
+                state.lastResult?.let { result ->
+                    val parts = listOfNotNull(
+                        stringResource(R.string.pattern_folder_added, result.added),
+                        result.missing.takeIf { it > 0 }?.let { stringResource(R.string.pattern_folder_missing, it) }
+                    )
+                    QuietText(text = parts.joinToString(" · "))
+                }
+            } else {
+                QuietText(text = stringResource(R.string.pattern_folder_hint))
+            }
+            state.problem?.let { problem ->
+                Text(
+                    text = stringResource(
+                        if (problem == PatternFolderProblem.NOT_ALLOWED) R.string.pattern_folder_not_allowed else R.string.pattern_folder_unreadable
+                    ),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+        if (state.hasFolder) {
+            TextButton(onClick = onSync, enabled = !state.isSyncing) {
+                Text(stringResource(if (state.isSyncing) R.string.pattern_folder_syncing else R.string.pattern_folder_sync))
+            }
+        } else {
+            TextButton(onClick = onChoose) { Text(stringResource(R.string.pattern_folder_choose)) }
+        }
+    }
+}
+
 private fun libraryCsvFileName(): String {
     val date = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
     return "stitchbook_library_$date.csv"
@@ -348,7 +407,11 @@ private fun LibraryContent(
     onOpenPdf: (String) -> Unit,
     onExportCsvClick: () -> Unit,
     onImportCsvClick: () -> Unit,
-    onTemplateCsvClick: () -> Unit
+    onTemplateCsvClick: () -> Unit,
+    folderState: PatternFolderUiState = PatternFolderUiState(),
+    onChooseFolderClick: () -> Unit = {},
+    onSyncFolder: () -> Unit = {},
+    onForgetFolder: () -> Unit = {}
 ) {
     LazyColumn(
         contentPadding = PaddingValues(
@@ -360,22 +423,22 @@ private fun LibraryContent(
         verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)
     ) {
         item {
-            Text(
-                text = stringResource(R.string.library_header_title),
-                style = MaterialTheme.typography.headlineMedium
+            ScreenHeader(
+                title = stringResource(R.string.library_header_title),
+                subtitle = stringResource(R.string.library_header_subtitle),
+                menuDescription = stringResource(R.string.inventory_more_actions),
+                actions = buildList {
+                    if (folderState.isAvailable) {
+                        add(HeaderAction(stringResource(if (folderState.hasFolder) R.string.pattern_folder_change else R.string.pattern_folder_choose), onChooseFolderClick))
+                        if (folderState.hasFolder) add(HeaderAction(stringResource(R.string.pattern_folder_forget), onForgetFolder))
+                    }
+                    add(HeaderAction(stringResource(R.string.library_export_csv_action), onExportCsvClick))
+                    add(HeaderAction(stringResource(R.string.library_import_csv_action), onImportCsvClick))
+                    add(HeaderAction(stringResource(R.string.library_download_csv_template_action), onTemplateCsvClick))
+                }
             )
-            QuietText(text = stringResource(R.string.library_header_subtitle))
-            Spacer(modifier = Modifier.height(StitchbookSpacing.small))
-            Row(horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
-                TextButton(onClick = onExportCsvClick) {
-                    Text(text = stringResource(R.string.library_export_csv_action))
-                }
-                TextButton(onClick = onImportCsvClick) {
-                    Text(text = stringResource(R.string.library_import_csv_action))
-                }
-                TextButton(onClick = onTemplateCsvClick) {
-                    Text(text = stringResource(R.string.library_download_csv_template_action))
-                }
+            if (folderState.isAvailable) {
+                PatternFolderLine(state = folderState, onChoose = onChooseFolderClick, onSync = onSyncFolder)
             }
             Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
         }

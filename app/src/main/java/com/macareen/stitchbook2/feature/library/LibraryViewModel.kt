@@ -9,6 +9,9 @@ import com.macareen.stitchbook2.data.csv.LibraryCsvImportReport
 import com.macareen.stitchbook2.data.csv.LibraryCsvRowError
 import com.macareen.stitchbook2.data.csv.libraryItemsToCsv
 import com.macareen.stitchbook2.data.csv.parseLibraryCsv
+import com.macareen.stitchbook2.domain.library.PatternFolder
+import com.macareen.stitchbook2.domain.library.PatternFolderSyncResult
+import com.macareen.stitchbook2.domain.library.SyncPatternFolder
 import com.macareen.stitchbook2.domain.model.Craft
 import com.macareen.stitchbook2.domain.model.LibraryItem
 import com.macareen.stitchbook2.domain.model.normalizedLibraryItemTags
@@ -24,6 +27,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class LibraryFilterState(
@@ -42,12 +46,74 @@ sealed interface LibraryUiState {
     ) : LibraryUiState
 }
 
+enum class PatternFolderProblem { NOT_ALLOWED, UNREADABLE }
+
+/** The pattern folder line at the top of Library. */
+data class PatternFolderUiState(
+    val isAvailable: Boolean = false,
+    val hasFolder: Boolean = false,
+    val folderName: String? = null,
+    val isSyncing: Boolean = false,
+    val lastResult: PatternFolderSyncResult? = null,
+    val problem: PatternFolderProblem? = null
+)
+
 class LibraryViewModel(
     private val repository: LibraryRepository,
-    externalScope: CoroutineScope? = null
+    externalScope: CoroutineScope? = null,
+    private val patternFolder: PatternFolder? = null,
+    private val syncPatternFolder: SyncPatternFolder? = null
 ) : ViewModel() {
 
     private val scope: CoroutineScope = externalScope ?: viewModelScope
+    private val _folderState = MutableStateFlow(PatternFolderUiState(isAvailable = patternFolder != null))
+    val folderState: StateFlow<PatternFolderUiState> = _folderState
+
+    init {
+        // Opening Library picks up any PDFs added to the folder since last time.
+        if (patternFolder?.folderUri() != null) syncFolder()
+    }
+
+    /** Uses [uri] (from the system folder picker) as the pattern folder, then reads it. */
+    fun chooseFolder(uri: String) {
+        val folder = patternFolder ?: return
+        scope.launch {
+            if (folder.choose(uri)) {
+                syncFolder()
+            } else {
+                _folderState.update { it.copy(problem = PatternFolderProblem.NOT_ALLOWED) }
+            }
+        }
+    }
+
+    fun syncFolder() {
+        val folder = patternFolder ?: return
+        val sync = syncPatternFolder ?: return
+        if (_folderState.value.isSyncing) return
+        _folderState.update { it.copy(isSyncing = true, problem = null) }
+        scope.launch {
+            val name = folder.folderName()
+            val result = try {
+                sync()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                null.also { _folderState.update { it.copy(problem = PatternFolderProblem.UNREADABLE) } }
+            }
+            _folderState.update {
+                it.copy(hasFolder = folder.folderUri() != null, folderName = name, isSyncing = false, lastResult = result ?: it.lastResult)
+            }
+        }
+    }
+
+    /** Stops reading the folder. Library entries and the files themselves stay. */
+    fun forgetFolder() {
+        val folder = patternFolder ?: return
+        scope.launch {
+            folder.forget()
+            _folderState.value = PatternFolderUiState(isAvailable = true)
+        }
+    }
     private val filterState = MutableStateFlow(LibraryFilterState())
     private val _importReport = MutableStateFlow<LibraryCsvImportReport?>(null)
     val importReport: StateFlow<LibraryCsvImportReport?> = _importReport
@@ -236,9 +302,13 @@ class LibraryViewModel(
     }
 
     companion object {
-        fun factory(repository: LibraryRepository): ViewModelProvider.Factory = viewModelFactory {
+        fun factory(
+            repository: LibraryRepository,
+            patternFolder: PatternFolder? = null,
+            syncPatternFolder: SyncPatternFolder? = null
+        ): ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                LibraryViewModel(repository)
+                LibraryViewModel(repository, patternFolder = patternFolder, syncPatternFolder = syncPatternFolder)
             }
         }
     }
