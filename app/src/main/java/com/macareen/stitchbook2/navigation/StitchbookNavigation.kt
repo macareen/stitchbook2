@@ -288,7 +288,8 @@ fun StitchbookNavHost(
                         }
                     },
                     projectRepository = projectRepository,
-                    materialsRepository = materialsRepository
+                    materialsRepository = materialsRepository,
+                    downloadRavelryPdf = application.container.downloadRavelryPdf
                 )
             )
             PatternGuidesRoute(

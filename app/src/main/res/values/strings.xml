@@ -588,6 +588,25 @@
     <string name="pattern_details_gauge">Gauge: %1$s</string>
     <string name="pattern_details_tools">Needles and tools: %1$s</string>
     <string name="pattern_details_yardage">About %1$d yards</string>
+    <string name="ravelry_pdf_get">Get the PDF from Ravelry</string>
+    <string name="ravelry_pdf_downloading">Getting the PDF…</string>
+    <string name="ravelry_pdf_saved">Saved %1$s to your pattern folder.</string>
+    <string name="ravelry_pdf_linked_existing">%1$s was already in your pattern folder, so it is linked here as it is.</string>
+    <plurals name="ravelry_pdf_more_files">
+        <item quantity="one">This pattern has %1$d more PDF on Ravelry; only the first was saved.</item>
+        <item quantity="other">This pattern has %1$d more PDFs on Ravelry; only the first was saved.</item>
+    </plurals>
+    <string name="ravelry_pdf_not_from_ravelry">This pattern isn\'t linked to your Ravelry library.</string>
+    <string name="ravelry_pdf_no_key">Connect Ravelry in Settings first.</string>
+    <string name="ravelry_pdf_no_folder">Choose a pattern folder in Library first, so the PDF has somewhere to go.</string>
+    <string name="ravelry_pdf_folder_read_only">Stitchbook can only read your pattern folder. Choose it again in Library and allow changes, or pick a folder that allows new files.</string>
+    <string name="ravelry_pdf_key_refused">Ravelry wouldn\'t hand over this PDF with your key. A read-only key may not be allowed to download; try a key with full access.</string>
+    <string name="ravelry_pdf_offline">Couldn\'t reach Ravelry. Check your connection and try again.</string>
+    <string name="ravelry_pdf_not_in_library">This pattern isn\'t in your Ravelry library, so there is no PDF to fetch.</string>
+    <string name="ravelry_pdf_no_pdf">Ravelry has no PDF for this pattern in your library. It may be a printed book or a zip file.</string>
+    <string name="ravelry_pdf_not_a_pdf">Ravelry sent something that isn\'t a PDF, so nothing was saved.</string>
+    <string name="ravelry_pdf_unreadable_answer">Ravelry\'s answer didn\'t make sense to Stitchbook. Nothing was saved.</string>
+    <string name="ravelry_pdf_save_failed">The PDF couldn\'t be saved to your pattern folder. Nothing in the folder was changed.</string>
     <string name="calculators_title">Calculators</string>
     <string name="calculators_shaping_title">Spread increases or decreases</string>
     <string name="calculators_shaping_current">Stitches now</string>

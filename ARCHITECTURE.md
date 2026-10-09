@@ -353,10 +353,11 @@ The Projects feature currently adds centralized create, detail, and edit routes.
 
 Early safety exports should use `ACTION_CREATE_DOCUMENT` so the user explicitly chooses each destination without requiring a permanent library setup. When the pattern library and portable library arrive, the user should select a library directory using `ACTION_OPEN_DOCUMENT_TREE`. Persist URI permissions when the provider grants them and verify access on startup or before work.
 
-**Current pattern folder (linked, read-only).**
+**Current pattern folder (linked).**
 - The person picks one folder with `ACTION_OPEN_DOCUMENT_TREE` from Library's menu. `SafPatternFolder` (`data/library`) keeps the persisted grant: read and write when offered, so downloads can later be saved there, otherwise read only.
 - It walks the folder and its subfolders (up to 5 levels, 5,000 files) for PDFs. `SyncPatternFolder` (`domain/library`) adds a Library entry for each file not already there, matched by document URI or file name, so hand-attached PDFs aren't duplicated.
-- Files are never copied, moved, renamed, or deleted. Entries whose file has gone are counted and kept.
+- Existing files are never copied, moved, renamed, replaced, or deleted. Entries whose file has gone are counted and kept.
+- The one write is a new file the person asked for: `saveNewPdf` creates a PDF at the folder's top level only when the grant includes write (`canSave`) and no top-level file has that name. If writing fails, only that new file is removed.
 - Opening Library re-checks the folder. A revoked or vanished folder is reported, never treated as empty.
 - Cloud folders work when the provider app supports folder access. Google Drive's provider often does not, so a phone-local folder kept in sync by a sync app is the fallback.
 
@@ -458,7 +459,8 @@ Use fakes at domain boundaries; do not mock simple value objects. Keep a small s
 - Ravelry pull (optional, person-started) is the app's only network use, so `INTERNET` is declared for it alone.
   - It uses Ravelry's "Basic Auth: personal account access" key. The read-only key can't reach a person's own stash, and Ravelry's OAuth 2 needs a client secret that an app can't keep.
   - The key is typed on the device and encrypted with an Android Keystore AES-GCM key (`KeystoreRavelryCredentialStore`). It is excluded from Android backup and device transfer, and never included in the JSON backup.
-  - `HttpRavelryApi` only sends GET requests, and never logs the key or responses.
+  - `HttpRavelryApi` sends GET requests, plus one POST (`product_attachments/{id}/generate_download_link`) that asks for a short-lived download link and changes nothing on Ravelry. It never logs the key, responses, or links.
+  - `DownloadRavelryPdf` (`domain/ravelry`) fetches a library pattern's PDF: the volume id comes from the entry's `ravelry-volume-<id>` id (or, for a hand-entered Ravelry pattern ID, from `library/search`); `volumes/{id}.json` lists the attachments; the first `.pdf` is fetched from its link without the key and streamed into the pattern folder. Bytes are written only after the file starts with `%PDF-`, so a sign-in page or zip is never kept. A same-named file already in the folder is linked as it is, never replaced. The entry's `pdfUri`/`pdfFileName` then point at the file, so folder syncs see it as known. The attachment key names and the endpoints' permission needs are not confirmed against Ravelry's signed-in documentation, so the parser accepts several spellings (`volume_attachments`, `product_attachments`, `attachments`) and every failure becomes a plain message.
   - `RavelrySync` previews a plan (`RavelryImportPlanner`) before saving. Records keep stable ids (`ravelry-stash-`, `ravelry-needle-`, `ravelry-project-`, `ravelry-volume-<id>`), so pulls are idempotent. Updates are opt-in and only replace Ravelry's fields. Nothing local is deleted.
 - Assisted pattern import is a person-driven copy/share round trip. The app sends nothing; it only reads a pasted reply. That reply is untrusted input, validated by `StructuredGuideJsonDecoder` with explicit limits, and becomes an unpublished draft.
 - Treat Android Auto Backup and device transfer as explicit privacy decisions. They are not substitutes for user-controlled export, and private pattern content must not be included accidentally.

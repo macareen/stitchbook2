@@ -1,6 +1,8 @@
 package com.macareen.stitchbook2.data.ravelry
 
+import com.macareen.stitchbook2.domain.ravelry.NotAPdfException
 import com.macareen.stitchbook2.domain.ravelry.RavelryApi
+import com.macareen.stitchbook2.domain.ravelry.RavelryAttachment
 import com.macareen.stitchbook2.domain.ravelry.RavelryAuthException
 import com.macareen.stitchbook2.domain.ravelry.RavelryCredentials
 import com.macareen.stitchbook2.domain.ravelry.RavelryNeedle
@@ -9,6 +11,7 @@ import com.macareen.stitchbook2.domain.ravelry.RavelryStashEntry
 import com.macareen.stitchbook2.domain.ravelry.RavelryVolume
 import com.macareen.stitchbook2.domain.ravelry.RavelryUnavailableException
 import java.io.IOException
+import java.io.OutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -18,12 +21,15 @@ import kotlinx.coroutines.withContext
 import org.json.JSONException
 
 /**
- * Talks to api.ravelry.com over HTTPS with HTTP Basic Auth, GET only.
- * Responses and the key are never logged.
+ * Talks to api.ravelry.com over HTTPS with HTTP Basic Auth. Reads are GETs;
+ * the one POST asks for a download link and changes nothing on Ravelry.
+ * Responses, links, and the key are never logged.
  */
 class HttpRavelryApi(
     private val baseUrl: String = "https://api.ravelry.com",
-    private val fetch: (url: String, authorization: String) -> HttpResult = ::httpGet
+    private val fetch: (url: String, authorization: String) -> HttpResult = { url, authorization -> httpCall("GET", url, authorization) },
+    private val post: (url: String, authorization: String) -> HttpResult = { url, authorization -> httpCall("POST", url, authorization) },
+    private val downloadTo: (url: String, into: OutputStream) -> Unit = ::httpDownload
 ) : RavelryApi {
 
     data class HttpResult(val status: Int, val body: String)
@@ -60,11 +66,34 @@ class HttpRavelryApi(
     override suspend fun needles(credentials: RavelryCredentials, username: String): List<RavelryNeedle> =
         parse { RavelryJson.needles(get(credentials, "/people/${encode(username)}/needles/list.json")) }
 
-    private suspend fun get(credentials: RavelryCredentials, path: String): String {
+    override suspend fun volumeAttachments(credentials: RavelryCredentials, volumeId: Long): List<RavelryAttachment> =
+        parse { RavelryJson.volumeAttachments(get(credentials, "/volumes/$volumeId.json")) }
+
+    override suspend fun downloadLink(credentials: RavelryCredentials, attachmentId: Long): String {
+        val body = get(credentials, "/product_attachments/$attachmentId/generate_download_link.json", post)
+        return parse { RavelryJson.downloadUrl(body) }
+            ?: throw RavelryUnavailableException("Ravelry did not send a download link.")
+    }
+
+    override suspend fun downloadFile(url: String, into: OutputStream) {
+        try {
+            withContext(Dispatchers.IO) { downloadTo(url, into) }
+        } catch (e: NotAPdfException) {
+            throw e
+        } catch (e: IOException) {
+            throw RavelryUnavailableException("Could not download the file from Ravelry.", e)
+        }
+    }
+
+    private suspend fun get(
+        credentials: RavelryCredentials,
+        path: String,
+        call: (url: String, authorization: String) -> HttpResult = fetch
+    ): String {
         val token = Base64.getEncoder()
             .encodeToString("${credentials.accessKey}:${credentials.personalKey}".toByteArray(Charsets.UTF_8))
         val result = try {
-            withContext(Dispatchers.IO) { fetch(baseUrl + path, "Basic $token") }
+            withContext(Dispatchers.IO) { call(baseUrl + path, "Basic $token") }
         } catch (e: IOException) {
             throw RavelryUnavailableException("Could not reach Ravelry.", e)
         }
@@ -88,14 +117,18 @@ class HttpRavelryApi(
         private const val MAX_PAGES = 50
         private const val TIMEOUT_MS = 20_000
 
-        private fun httpGet(url: String, authorization: String): HttpResult {
+        private fun httpCall(method: String, url: String, authorization: String): HttpResult {
             val connection = URL(url).openConnection() as HttpURLConnection
             try {
-                connection.requestMethod = "GET"
+                connection.requestMethod = method
                 connection.connectTimeout = TIMEOUT_MS
                 connection.readTimeout = TIMEOUT_MS
                 connection.setRequestProperty("Authorization", authorization)
                 connection.setRequestProperty("Accept", "application/json")
+                if (method == "POST") {
+                    connection.doOutput = true
+                    connection.setFixedLengthStreamingMode(0)
+                }
                 val status = connection.responseCode
                 val stream = if (status in 200..299) connection.inputStream else connection.errorStream
                 val body = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
@@ -104,5 +137,23 @@ class HttpRavelryApi(
                 connection.disconnect()
             }
         }
+
+        /** The link is already signed by Ravelry, so no key goes with it. Only HTTPS is followed. */
+        private fun httpDownload(url: String, into: OutputStream) {
+            if (!url.startsWith("https://")) throw IOException("Download links must use HTTPS.")
+            val connection = URL(url).openConnection() as HttpURLConnection
+            try {
+                connection.connectTimeout = TIMEOUT_MS
+                connection.readTimeout = DOWNLOAD_TIMEOUT_MS
+                connection.instanceFollowRedirects = true
+                val status = connection.responseCode
+                if (status !in 200..299) throw IOException("Download answered HTTP $status.")
+                connection.inputStream.use { it.copyTo(into) }
+            } finally {
+                connection.disconnect()
+            }
+        }
+
+        private const val DOWNLOAD_TIMEOUT_MS = 60_000
     }
 }

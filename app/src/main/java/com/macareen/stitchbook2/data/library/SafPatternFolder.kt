@@ -7,17 +7,19 @@ import android.provider.DocumentsContract
 import androidx.core.content.edit
 import androidx.core.net.toUri
 import com.macareen.stitchbook2.domain.library.FolderPdf
+import com.macareen.stitchbook2.domain.library.PatternFileExistsException
 import com.macareen.stitchbook2.domain.library.PatternFolder
 import java.io.IOException
+import java.io.OutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
  * A pattern folder chosen with the system folder picker (Storage Access
  * Framework). Works with any provider that offers folder access: phone
- * storage, SD cards, and cloud apps that support it. Only reads; the
- * read+write grant is kept so future downloads can be saved into the same
- * folder.
+ * storage, SD cards, and cloud apps that support it. Reads, and saves new
+ * files the person asked for (Ravelry PDFs) when the provider granted
+ * read+write; existing files are never changed.
  */
 class SafPatternFolder(context: Context) : PatternFolder {
 
@@ -67,6 +69,55 @@ class SafPatternFolder(context: Context) : PatternFolder {
         }
         found
     }
+
+    override fun canSave(): Boolean {
+        val tree = folderUri()?.toUri() ?: return false
+        return appContext.contentResolver.persistedUriPermissions.any { it.uri == tree && it.isWritePermission }
+    }
+
+    override suspend fun saveNewPdf(displayName: String, write: suspend (OutputStream) -> Unit): FolderPdf {
+        val (tree, created) = withContext(Dispatchers.IO) {
+            val tree = folderUri()?.toUri() ?: throw IOException("No pattern folder is chosen.")
+            val rootId = DocumentsContract.getTreeDocumentId(tree)
+            if (topLevelNames(tree, rootId).any { it.equals(displayName, ignoreCase = true) }) {
+                throw PatternFileExistsException(displayName)
+            }
+            val root = DocumentsContract.buildDocumentUriUsingTree(tree, rootId)
+            val created = try {
+                DocumentsContract.createDocument(appContext.contentResolver, root, PDF_MIME, displayName)
+            } catch (e: SecurityException) {
+                throw IOException("The pattern folder does not allow new files.", e)
+            } ?: throw IOException("The pattern folder's app did not create the file.")
+            tree to created
+        }
+        try {
+            withContext(Dispatchers.IO) {
+                appContext.contentResolver.openOutputStream(created, "w")?.use { write(it) }
+                    ?: throw IOException("The new file could not be opened for writing.")
+            }
+        } catch (e: Throwable) {
+            // Only the file made just now is removed; nothing that was already there is touched.
+            withContext(Dispatchers.IO) { runCatching { DocumentsContract.deleteDocument(appContext.contentResolver, created) } }
+            throw e
+        }
+        val savedName = withContext(Dispatchers.IO) { displayNameOf(created) } ?: displayName
+        return FolderPdf(
+            documentUri = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getDocumentId(created)).toString(),
+            displayName = savedName
+        )
+    }
+
+    private fun topLevelNames(tree: Uri, rootId: String): List<String> {
+        val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, rootId)
+        val cursor = appContext.contentResolver.query(children, arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME), null, null, null)
+            ?: throw IOException("The pattern folder's app did not answer.")
+        return cursor.use { buildList { while (it.moveToNext()) it.getString(0)?.let(::add) } }
+    }
+
+    private fun displayNameOf(document: Uri): String? = runCatching {
+        appContext.contentResolver.query(document, arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME), null, null, null)
+            ?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+    }.getOrNull()
 
     private fun walk(tree: Uri, documentId: String, depth: Int, found: MutableList<FolderPdf>) {
         if (depth > MAX_DEPTH || found.size >= MAX_FILES) return

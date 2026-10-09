@@ -3,6 +3,8 @@ package com.macareen.stitchbook2.domain.library
 import com.macareen.stitchbook2.domain.model.Craft
 import com.macareen.stitchbook2.domain.model.LibraryItem
 import com.macareen.stitchbook2.domain.repository.LibraryRepository
+import java.io.IOException
+import java.io.OutputStream
 import kotlinx.coroutines.flow.first
 
 /** One PDF found in the pattern folder. The file stays where it is; only its address is kept. */
@@ -10,8 +12,9 @@ data class FolderPdf(val documentUri: String, val displayName: String)
 
 /**
  * The folder the person keeps their patterns in (on the phone, or a cloud
- * folder their phone can open). Stitchbook only reads it: files are never
- * copied, moved, renamed, or deleted.
+ * folder their phone can open). Existing files are never copied, moved,
+ * renamed, replaced, or deleted; the only write is saving a new file the
+ * person asked for (a pattern PDF downloaded from Ravelry).
  */
 interface PatternFolder {
     /** The chosen folder's address, or null when none is chosen. */
@@ -26,7 +29,21 @@ interface PatternFolder {
 
     /** Every PDF in the folder and its subfolders. Throws when the folder can no longer be read. */
     suspend fun listPdfs(): List<FolderPdf>
+
+    /** Whether the folder's grant lets Stitchbook save new files into it. */
+    fun canSave(): Boolean
+
+    /**
+     * Creates a new PDF named [displayName] at the top of the folder and lets
+     * [write] fill it. Throws [PatternFileExistsException] rather than replace
+     * a file with that name; if [write] fails, the half-written new file is
+     * removed again.
+     */
+    suspend fun saveNewPdf(displayName: String, write: suspend (OutputStream) -> Unit): FolderPdf
 }
+
+/** The folder already has a file with this name; it was left as it is. */
+class PatternFileExistsException(val displayName: String) : IOException("A file with this name is already in the pattern folder.")
 
 /** What one folder check found. */
 data class PatternFolderSyncResult(

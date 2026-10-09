@@ -1,9 +1,11 @@
 package com.macareen.stitchbook2.data.ravelry
 
+import com.macareen.stitchbook2.domain.ravelry.RavelryAttachment
 import com.macareen.stitchbook2.domain.ravelry.RavelryNeedle
 import com.macareen.stitchbook2.domain.ravelry.RavelryProject
 import com.macareen.stitchbook2.domain.ravelry.RavelryStashEntry
 import com.macareen.stitchbook2.domain.ravelry.RavelryVolume
+import org.json.JSONArray
 import org.json.JSONObject
 
 /**
@@ -47,6 +49,33 @@ internal object RavelryJson {
             )
         }
     }
+
+    /**
+     * The files on one volume ("Volume (full)"). Ravelry's documentation is
+     * behind a sign-in and the attachment list's exact key is not confirmed,
+     * so the known spellings are all accepted, and an attachment's id is its
+     * product attachment id when one is given.
+     */
+    fun volumeAttachments(body: String): List<RavelryAttachment> {
+        val root = JSONObject(body)
+        val volume = root.optJSONObject("volume") ?: root
+        val array = ATTACHMENT_KEYS.firstNotNullOfOrNull { volume.optJSONArray(it) } ?: return emptyList()
+        return array.objects().mapNotNull { attachment ->
+            val id = (attachment.number("product_attachment_id") ?: attachment.number("id"))?.toLong() ?: return@mapNotNull null
+            RavelryAttachment(id = id, fileName = attachment.text("filename") ?: attachment.text("file_name") ?: attachment.text("name"))
+        }
+    }
+
+    /** The address in a "generate download link" answer, or null when it holds none. */
+    fun downloadUrl(body: String): String? {
+        val root = JSONObject(body)
+        val link = root.optJSONObject("download_link")
+        return link?.text("url") ?: root.text("download_link") ?: root.text("url")
+    }
+
+    private val ATTACHMENT_KEYS = listOf("volume_attachments", "product_attachments", "attachments")
+
+    private fun JSONArray.objects(): List<JSONObject> = (0 until length()).mapNotNull { optJSONObject(it) }
 
     private fun <T> page(body: String, key: String, read: (JSONObject) -> T?): Page<T> {
         val root = JSONObject(body)

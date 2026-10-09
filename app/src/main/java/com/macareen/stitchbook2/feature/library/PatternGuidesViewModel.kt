@@ -14,6 +14,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.macareen.stitchbook2.domain.guide.Guide
 import com.macareen.stitchbook2.domain.model.LibraryItem
 import com.macareen.stitchbook2.domain.parsing.PatternSizes
+import com.macareen.stitchbook2.domain.ravelry.DownloadRavelryPdf
 import com.macareen.stitchbook2.domain.repository.GuideRepository
 import com.macareen.stitchbook2.domain.repository.LibraryRepository
 import com.macareen.stitchbook2.domain.usecase.CreateGuideFromPdfUseCase
@@ -32,6 +33,12 @@ import kotlinx.coroutines.launch
 
 enum class PatternPdfProblem { UNREADABLE, NO_TEXT }
 
+/** Fetching the pattern's purchased PDF from Ravelry into the pattern folder. */
+data class RavelryPdfState(
+    val isDownloading: Boolean = false,
+    val result: DownloadRavelryPdf.Result? = null
+)
+
 /** One size's guide on a pattern, and whether it can be knitted yet. */
 data class PatternGuideEntry(val guide: Guide, val isPublished: Boolean)
 
@@ -44,7 +51,10 @@ sealed interface PatternGuidesUiState {
         val isCreating: Boolean,
         val createFailed: Boolean,
         /** Why filling a guide from the pattern's PDF failed, if it did. */
-        val pdfProblem: PatternPdfProblem? = null
+        val pdfProblem: PatternPdfProblem? = null,
+        /** Whether "Get the PDF" from Ravelry is offered. */
+        val canGetRavelryPdf: Boolean = false,
+        val ravelryPdf: RavelryPdfState = RavelryPdfState()
     ) : PatternGuidesUiState {
         /** The sizes the Library entry names, offered as choices for a new guide. */
         val sizeChoices: List<String> get() = PatternSizes.labelsFrom(pattern.sizes.orEmpty())
@@ -67,7 +77,8 @@ class PatternGuidesViewModel(
     private val projectRepository: ProjectRepository? = null,
     private val materialsRepository: MaterialsRepository? = null,
     private val newId: () -> String = { UUID.randomUUID().toString() },
-    private val clock: () -> Long = System::currentTimeMillis
+    private val clock: () -> Long = System::currentTimeMillis,
+    private val downloadRavelryPdf: DownloadRavelryPdf? = null
 ) : ViewModel() {
 
     private val scope: CoroutineScope = externalScope ?: viewModelScope
@@ -78,6 +89,17 @@ class PatternGuidesViewModel(
     val createdGuideId: StateFlow<String?> = created.asStateFlow()
 
     private val startedProject = MutableStateFlow<String?>(null)
+    private val ravelryPdf = MutableStateFlow(RavelryPdfState())
+
+    /** Saves the pattern's Ravelry PDF into the pattern folder and links it here. */
+    fun getRavelryPdf() {
+        val download = downloadRavelryPdf ?: return
+        if (ravelryPdf.value.isDownloading) return
+        ravelryPdf.value = RavelryPdfState(isDownloading = true)
+        scope.launch {
+            ravelryPdf.value = RavelryPdfState(result = download(libraryItemId))
+        }
+    }
 
     /** The project just started from this pattern; the screen opens it. */
     val startedProjectId: StateFlow<String?> = startedProject.asStateFlow()
@@ -112,12 +134,21 @@ class PatternGuidesViewModel(
         guideRepository.observePatternGuides(libraryItemId).map { guides ->
             guides.map { guide -> PatternGuideEntry(guide, isPublished = guideRepository.getLatestRevision(guide.id) != null) }
         },
-        creation
-    ) { pattern, guides, creationState ->
+        creation,
+        ravelryPdf
+    ) { pattern, guides, creationState, ravelryState ->
         if (pattern == null) {
             PatternGuidesUiState.Missing
         } else {
-            PatternGuidesUiState.Content(pattern, guides, creationState.isCreating, creationState.failed, creationState.pdfProblem)
+            PatternGuidesUiState.Content(
+                pattern,
+                guides,
+                creationState.isCreating,
+                creationState.failed,
+                creationState.pdfProblem,
+                canGetRavelryPdf = downloadRavelryPdf?.canDownload(pattern) == true,
+                ravelryPdf = ravelryState
+            )
         }
     }
         .catch { emit(PatternGuidesUiState.Missing) }
@@ -181,7 +212,8 @@ class PatternGuidesViewModel(
             createGuideFromPdf: CreateGuideFromPdfUseCase,
             readPatternFile: suspend (String) -> ByteArray?,
             projectRepository: ProjectRepository? = null,
-            materialsRepository: MaterialsRepository? = null
+            materialsRepository: MaterialsRepository? = null,
+            downloadRavelryPdf: DownloadRavelryPdf? = null
         ): ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 PatternGuidesViewModel(
@@ -191,7 +223,8 @@ class PatternGuidesViewModel(
                     createGuideFromPdf = createGuideFromPdf,
                     readPatternFile = readPatternFile,
                     projectRepository = projectRepository,
-                    materialsRepository = materialsRepository
+                    materialsRepository = materialsRepository,
+                    downloadRavelryPdf = downloadRavelryPdf
                 )
             }
         }
