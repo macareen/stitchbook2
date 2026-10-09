@@ -25,7 +25,6 @@ Everything works offline with no account or subscription, and a full JSON backup
 
 - Size-aware parsing beyond "a (b, c)" groups: charts, "for size L only" lines, and per-size stitch tables
 - Optional on-device AI help for patterns the deterministic parser can't read, always reviewed before use
-- Downloading Ravelry pattern PDFs straight into the pattern folder
 - A PDF export
 - Manufacturer tool templates and richer skein modelling
 
@@ -38,7 +37,7 @@ See [PRODUCT_SPEC.md](PRODUCT_SPEC.md) for structured requirements and [ROADMAP.
 - Guides by size: each pattern has its own screen (tap its Library card) with one guide per size, and any project can use one of them; using it also links the pattern to the project. *Fill from the pattern* builds the draft from the PDF with only that size's numbers, and says so in the draft when the size isn't one the pattern lists.
 - The knitting view (Focus Mode) shows a stitch-weighted progress bar, labelled as an estimate when some rows don't state a count; total time and time on this step from the project's crafting sessions, with a Pause/Resume timer that starts on your first Complete; an *Overview* of the whole guide where tapping a line jumps there; and *Pattern, p.N*, which opens the PDF at the current step's page. Knitting in a *Planned* project makes it *Active*, and progress is kept separately per project when two projects use one guide.
 - Pattern folder: choose one folder (on the phone, or a cloud folder your phone can open) and every PDF in it, including subfolders, appears in Library. Files stay where they are.
-- Optional Ravelry pull (Settings → Ravelry): bring your stash yarn, needles, projects, and library patterns in with your own personal key, which is kept encrypted on the phone. Read-only from Ravelry, reviewed before saving, and never deletes anything.
+- Optional Ravelry pull (Settings → Ravelry): bring your stash yarn, needles, projects, and library patterns in with your own personal key, which is kept encrypted on the phone. Reviewed before saving, and never deletes anything. On a Ravelry pattern's page, *Get the PDF from Ravelry* saves your purchased PDF into your pattern folder (never replacing a file already there) and links it, so it opens in the app and the card shows its cover.
 - Import with an assistant: turn a pattern PDF into a draft guide by copying a request to Claude (a free account works) or another assistant and pasting the structured reply back. The app itself sends nothing.
 - A calm Home: a Continue card for the guide in progress, the active-projects list, and quiet links to Counters and Statistics; five bottom-bar places (Home, Projects, Library, Stash with a Yarn | Tools switch, Settings)
 - A project hub: each project opens on a small map with the project at the centre and its guides, patterns, yarn, tools, counters, journal, and time around it, plus one "next step" button. Tools and counters added there also land in the shared toolbox and counters

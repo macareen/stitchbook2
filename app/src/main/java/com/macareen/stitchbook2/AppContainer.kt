@@ -29,6 +29,7 @@ import com.macareen.stitchbook2.domain.library.SyncPatternFolder
 import com.macareen.stitchbook2.domain.parsing.PdfTextExtractor
 import com.macareen.stitchbook2.domain.parsing.StructuredGuideDecoder
 import com.macareen.stitchbook2.domain.ravelry.RavelryCredentialStore
+import com.macareen.stitchbook2.domain.ravelry.DownloadRavelryPdf
 import com.macareen.stitchbook2.domain.ravelry.RavelrySync
 import com.macareen.stitchbook2.domain.preferences.UserPreferencesRepository
 import com.macareen.stitchbook2.domain.repository.CounterNoteRepository
@@ -68,6 +69,7 @@ interface AppContainer {
     val patternFolder: PatternFolder
     val syncPatternFolder: SyncPatternFolder
     val ravelrySync: RavelrySync
+    val downloadRavelryPdf: DownloadRavelryPdf
     val createGuideFromStructuredGuideUseCase: CreateGuideFromStructuredGuideUseCase
     val userPreferencesRepository: UserPreferencesRepository
 }
@@ -145,12 +147,21 @@ class DefaultAppContainer(context: Context) : AppContainer {
         newId = { UUID.randomUUID().toString() }
     )
 
+    private val ravelryApi = HttpRavelryApi()
+
     override val ravelrySync: RavelrySync = RavelrySync(
-        api = HttpRavelryApi(),
+        api = ravelryApi,
         credentialStore = ravelryCredentialStore,
         stashRepository = stashRepository,
         toolRepository = toolRepository,
         projectRepository = projectRepository,
+        libraryRepository = libraryRepository
+    )
+
+    override val downloadRavelryPdf: DownloadRavelryPdf = DownloadRavelryPdf(
+        api = ravelryApi,
+        credentialStore = ravelryCredentialStore,
+        folder = patternFolder,
         libraryRepository = libraryRepository
     )
 

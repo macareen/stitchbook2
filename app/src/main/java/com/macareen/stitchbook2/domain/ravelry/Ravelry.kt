@@ -1,6 +1,7 @@
 package com.macareen.stitchbook2.domain.ravelry
 
 import java.io.IOException
+import java.io.OutputStream
 
 /**
  * A Ravelry "Basic Auth: personal account access" key pair, typed in by
@@ -67,9 +68,14 @@ data class RavelryVolume(
     val patternId: Long?
 )
 
+/** One file attached to a library volume (a pattern PDF, or sometimes a zip or chart). */
+data class RavelryAttachment(val id: Long, val fileName: String?)
+
 /**
- * Read-only access to the signed-in person's own Ravelry records. Every
- * call is a GET; Stitchbook never writes to Ravelry.
+ * Read-only access to the signed-in person's own Ravelry records.
+ * Stitchbook never changes anything on Ravelry: every call is a GET except
+ * [downloadLink], a POST that only asks Ravelry for a short-lived link to a
+ * file the person already owns.
  */
 interface RavelryApi {
     /** The Ravelry account name the key belongs to, needed in every other path. */
@@ -80,6 +86,15 @@ interface RavelryApi {
 
     /** Every volume in the person's library, including Ravelry PDF purchases and downloads. */
     suspend fun library(credentials: RavelryCredentials, username: String): List<RavelryVolume>
+
+    /** The files attached to one library volume. */
+    suspend fun volumeAttachments(credentials: RavelryCredentials, volumeId: Long): List<RavelryAttachment>
+
+    /** A short-lived address the attachment can be downloaded from. */
+    suspend fun downloadLink(credentials: RavelryCredentials, attachmentId: Long): String
+
+    /** Writes the file at [url] (from [downloadLink]) into [into]. The key is not sent with it. */
+    suspend fun downloadFile(url: String, into: OutputStream)
 }
 
 /** Ravelry refused the key (HTTP 401/403): it was mistyped, revoked, or is a read-only key. */

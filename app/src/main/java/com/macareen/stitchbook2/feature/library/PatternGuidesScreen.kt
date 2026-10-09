@@ -27,6 +27,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -35,6 +36,7 @@ import com.macareen.stitchbook2.domain.execution.GuideId
 import com.macareen.stitchbook2.domain.guide.Guide
 import com.macareen.stitchbook2.domain.model.Craft
 import com.macareen.stitchbook2.domain.model.LibraryItem
+import com.macareen.stitchbook2.domain.ravelry.DownloadRavelryPdf
 import com.macareen.stitchbook2.ui.components.PrimaryActionButton
 import com.macareen.stitchbook2.ui.components.QuietText
 import com.macareen.stitchbook2.ui.components.SecondaryActionButton
@@ -63,7 +65,14 @@ fun PatternGuidesRoute(
             onOpenProject(it)
         }
     }
-    PatternGuidesScreen(uiState, onOpenPdf, onEditGuide, viewModel::createGuide, onStartProject = viewModel::startProject)
+    PatternGuidesScreen(
+        uiState,
+        onOpenPdf,
+        onEditGuide,
+        viewModel::createGuide,
+        onStartProject = viewModel::startProject,
+        onGetRavelryPdf = viewModel::getRavelryPdf
+    )
 }
 
 /** A pattern, its original file, and its guides by size. */
@@ -74,7 +83,8 @@ fun PatternGuidesScreen(
     onEditGuide: (String) -> Unit,
     onCreateGuide: (String, String, Boolean) -> Unit,
     modifier: Modifier = Modifier,
-    onStartProject: () -> Unit = {}
+    onStartProject: () -> Unit = {},
+    onGetRavelryPdf: () -> Unit = {}
 ) {
     when (uiState) {
         PatternGuidesUiState.Loading -> Box(modifier.fillMaxSize()) {
@@ -85,7 +95,8 @@ fun PatternGuidesScreen(
             QuietText(text = stringResource(R.string.pattern_guides_missing))
         }
 
-        is PatternGuidesUiState.Content -> Content(uiState, onOpenPdf, onEditGuide, onCreateGuide, onStartProject, modifier)
+        is PatternGuidesUiState.Content ->
+            Content(uiState, onOpenPdf, onEditGuide, onCreateGuide, onStartProject, onGetRavelryPdf, modifier)
     }
 }
 
@@ -96,6 +107,7 @@ private fun Content(
     onEditGuide: (String) -> Unit,
     onCreateGuide: (String, String, Boolean) -> Unit,
     onStartProject: () -> Unit,
+    onGetRavelryPdf: () -> Unit,
     modifier: Modifier
 ) {
     var showNewGuide by rememberSaveable { mutableStateOf(false) }
@@ -122,6 +134,17 @@ private fun Content(
                 modifier = Modifier.fillMaxWidth()
             )
         }
+        if (state.canGetRavelryPdf) {
+            SecondaryActionButton(
+                text = stringResource(
+                    if (state.ravelryPdf.isDownloading) R.string.ravelry_pdf_downloading else R.string.ravelry_pdf_get
+                ),
+                onClick = onGetRavelryPdf,
+                enabled = !state.ravelryPdf.isDownloading,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        RavelryPdfMessage(state.ravelryPdf.result)
         PatternDetailsCard(state.pattern)
 
         Text(text = stringResource(R.string.pattern_guides_title), style = MaterialTheme.typography.titleMedium)
@@ -162,6 +185,43 @@ private fun Content(
             onDismiss = { showNewGuide = false }
         )
     }
+}
+
+@Composable
+private fun RavelryPdfMessage(result: DownloadRavelryPdf.Result?) {
+    when (result) {
+        null -> Unit
+        is DownloadRavelryPdf.Result.Saved -> {
+            QuietText(
+                text = stringResource(
+                    if (result.alreadyInFolder) R.string.ravelry_pdf_linked_existing else R.string.ravelry_pdf_saved,
+                    result.fileName
+                )
+            )
+            if (result.otherPdfs > 0) {
+                QuietText(text = pluralStringResource(R.plurals.ravelry_pdf_more_files, result.otherPdfs, result.otherPdfs))
+            }
+        }
+        is DownloadRavelryPdf.Result.Failed -> Text(
+            text = stringResource(ravelryProblemText(result.problem)),
+            color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
+}
+
+private fun ravelryProblemText(problem: DownloadRavelryPdf.Problem): Int = when (problem) {
+    DownloadRavelryPdf.Problem.NOT_FROM_RAVELRY -> R.string.ravelry_pdf_not_from_ravelry
+    DownloadRavelryPdf.Problem.NO_KEY -> R.string.ravelry_pdf_no_key
+    DownloadRavelryPdf.Problem.NO_FOLDER -> R.string.ravelry_pdf_no_folder
+    DownloadRavelryPdf.Problem.FOLDER_READ_ONLY -> R.string.ravelry_pdf_folder_read_only
+    DownloadRavelryPdf.Problem.KEY_REFUSED -> R.string.ravelry_pdf_key_refused
+    DownloadRavelryPdf.Problem.OFFLINE -> R.string.ravelry_pdf_offline
+    DownloadRavelryPdf.Problem.NOT_IN_LIBRARY -> R.string.ravelry_pdf_not_in_library
+    DownloadRavelryPdf.Problem.NO_PDF -> R.string.ravelry_pdf_no_pdf
+    DownloadRavelryPdf.Problem.NOT_A_PDF -> R.string.ravelry_pdf_not_a_pdf
+    DownloadRavelryPdf.Problem.UNREADABLE_ANSWER -> R.string.ravelry_pdf_unreadable_answer
+    DownloadRavelryPdf.Problem.SAVE_FAILED -> R.string.ravelry_pdf_save_failed
 }
 
 @Composable

@@ -96,6 +96,9 @@ private class FakeFolder(private val uri: String?, private val pdfs: List<Folder
     override suspend fun choose(uri: String): Boolean = true
     override suspend fun forget() = Unit
     override suspend fun listPdfs(): List<FolderPdf> = pdfs
+    override fun canSave(): Boolean = false
+    override suspend fun saveNewPdf(displayName: String, write: suspend (java.io.OutputStream) -> Unit): FolderPdf =
+        throw IOException("read-only")
 }
 
 private class FakeLibrary(initial: List<LibraryItem>) : LibraryRepository {

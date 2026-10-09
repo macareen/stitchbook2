@@ -3,7 +3,10 @@ package com.macareen.stitchbook2.data.ravelry
 import com.macareen.stitchbook2.domain.ravelry.RavelryAuthException
 import com.macareen.stitchbook2.domain.ravelry.RavelryCredentials
 import com.macareen.stitchbook2.domain.ravelry.RavelryUnavailableException
+import com.macareen.stitchbook2.domain.ravelry.NotAPdfException
+import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.io.OutputStream
 import java.util.Base64
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -17,10 +20,24 @@ class HttpRavelryApiTest {
     private val credentials = RavelryCredentials("access-key", "personal-key")
     private val requests = mutableListOf<Pair<String, String>>()
 
-    private fun api(responses: Map<String, HttpRavelryApi.HttpResult>) = HttpRavelryApi(baseUrl = "https://api.test") { url, auth ->
-        requests += url to auth
-        responses[url.removePrefix("https://api.test")] ?: HttpRavelryApi.HttpResult(404, "")
-    }
+    private val posts = mutableListOf<String>()
+
+    private fun api(
+        responses: Map<String, HttpRavelryApi.HttpResult>,
+        postResponses: Map<String, HttpRavelryApi.HttpResult> = emptyMap(),
+        download: (String, OutputStream) -> Unit = { _, _ -> }
+    ) = HttpRavelryApi(
+        baseUrl = "https://api.test",
+        fetch = { url, auth ->
+            requests += url to auth
+            responses[url.removePrefix("https://api.test")] ?: HttpRavelryApi.HttpResult(404, "")
+        },
+        post = { url, _ ->
+            posts += url
+            postResponses[url.removePrefix("https://api.test")] ?: HttpRavelryApi.HttpResult(404, "")
+        },
+        downloadTo = download
+    )
 
     @Test
     fun usesBasicAuthWithTheKeyPairAndReadsTheUsername() = runBlocking {
@@ -110,8 +127,75 @@ class HttpRavelryApiTest {
         assertTrue(failure { api(mapOf("/current_user.json" to HttpRavelryApi.HttpResult(403, ""))).currentUsername(credentials) } is RavelryAuthException)
         assertTrue(failure { api(mapOf("/current_user.json" to HttpRavelryApi.HttpResult(503, ""))).currentUsername(credentials) } is RavelryUnavailableException)
         assertTrue(failure { api(mapOf("/current_user.json" to ok("<html>"))).currentUsername(credentials) } is RavelryUnavailableException)
-        val offline = HttpRavelryApi(baseUrl = "https://api.test") { _, _ -> throw IOException("offline") }
+        val offline = HttpRavelryApi(baseUrl = "https://api.test", fetch = { _, _ -> throw IOException("offline") })
         assertTrue(failure { offline.currentUsername(credentials) } is RavelryUnavailableException)
+    }
+
+    @Test
+    fun aVolumesAttachmentsAreReadByTheirProductAttachmentId() = runBlocking {
+        val api = api(
+            mapOf(
+                "/volumes/7.json" to ok(
+                    """{"volume": {"id": 7, "title": "Seaside Cardigan", "volume_attachments": [
+                        {"id": 1, "product_attachment_id": 31, "filename": "Seaside_Cardigan.pdf"},
+                        {"id": 2, "product_attachment_id": 32, "filename": "Charts.zip"}
+                    ]}}"""
+                )
+            )
+        )
+
+        val attachments = api.volumeAttachments(credentials, 7)
+
+        assertEquals(listOf(31L, 32L), attachments.map { it.id })
+        assertEquals("Seaside_Cardigan.pdf", attachments[0].fileName)
+    }
+
+    @Test
+    fun otherAttachmentSpellingsAreAcceptedAndAMissingListIsEmpty() {
+        val plain = RavelryJson.volumeAttachments("""{"volume": {"attachments": [{"id": 5, "name": "Hat.pdf"}, {"name": "no id"}]}}""")
+        assertEquals(listOf(5L), plain.map { it.id })
+        assertEquals("Hat.pdf", plain.single().fileName)
+        val product = RavelryJson.volumeAttachments("""{"volume": {"product_attachments": [{"id": 6, "file_name": "Socks.pdf"}]}}""")
+        assertEquals("Socks.pdf", product.single().fileName)
+        assertTrue(RavelryJson.volumeAttachments("""{"volume": {"id": 7}}""").isEmpty())
+    }
+
+    @Test
+    fun theDownloadLinkIsAskedForWithAPostAndReadFromEitherShape() = runBlocking {
+        val api = api(
+            emptyMap(),
+            postResponses = mapOf(
+                "/product_attachments/31/generate_download_link.json" to ok(
+                    """{"download_link": {"url": "https://downloads.test/abc.pdf", "expires_at": "2026/10/09"}}"""
+                )
+            )
+        )
+
+        assertEquals("https://downloads.test/abc.pdf", api.downloadLink(credentials, 31))
+        assertEquals(listOf("https://api.test/product_attachments/31/generate_download_link.json"), posts)
+        assertTrue(requests.isEmpty())
+        assertEquals("https://d.test/x", RavelryJson.downloadUrl("""{"url": "https://d.test/x"}"""))
+        assertNull(RavelryJson.downloadUrl("""{"download_link": {}}"""))
+    }
+
+    @Test
+    fun aLinkWithoutAnAddressOrARefusedLinkIsTold() = runBlocking {
+        val empty = api(emptyMap(), postResponses = mapOf("/product_attachments/1/generate_download_link.json" to ok("{}")))
+        assertTrue(failure { empty.downloadLink(credentials, 1) } is RavelryUnavailableException)
+        val refused = api(emptyMap(), postResponses = mapOf("/product_attachments/1/generate_download_link.json" to HttpRavelryApi.HttpResult(403, "")))
+        assertTrue(failure { refused.downloadLink(credentials, 1) } is RavelryAuthException)
+    }
+
+    @Test
+    fun downloadsWriteThroughAndNetworkFailuresBecomeUnavailable() = runBlocking {
+        val sink = ByteArrayOutputStream()
+        api(emptyMap(), download = { _, out -> out.write("%PDF-1.7".toByteArray()) }).downloadFile("https://d.test/x", sink)
+        assertEquals("%PDF-1.7", sink.toString(Charsets.US_ASCII.name()))
+
+        val offline = api(emptyMap(), download = { _, _ -> throw IOException("offline") })
+        assertTrue(failure { offline.downloadFile("https://d.test/x", sink) } is RavelryUnavailableException)
+        val notPdf = api(emptyMap(), download = { _, _ -> throw NotAPdfException() })
+        assertTrue(failure { notPdf.downloadFile("https://d.test/x", sink) } is NotAPdfException)
     }
 
     private suspend fun failure(block: suspend () -> Unit): Throwable? = try {
