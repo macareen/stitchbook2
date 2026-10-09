@@ -31,6 +31,11 @@ Still open from the first phone test:
 - Ravelry yarn photos on stash cards.
 - Matching a pattern's suggested needles to the needles you own.
 
+Wanted next (from the user's inspiration, 2026-10-08):
+- **Pattern page:** a photo with a details card (designer, category, difficulty, description with "Read more"), a count of finished projects, and PDF actions (view, replace, remove). Sizes get a list with a "Build guide" or "N pieces" state per size, and gauge, materials (held-together strands and alternatives) and tools each get their own card. A pattern-guide summary shows guides built and total sizes. The page also gets "Start another project", "Duplicate pattern" and "Delete pattern".
+- **Project page:** a coloured wavy header with status and start date. Below it, a pattern card (designer, size, View PDF) beside a stats card (time worked). A photo carousel with "Set as cover", and yarn and tools picked from the stash. Row notes tagged by type (for example "Mistake") at a row, and charts attached to the pattern. The guide shows per-section % with expandable parts (time worked, row X of Y). A sticky "Follow guide" button names the current part, with a quick counter.
+- **Calculators (done):** Home > Calculators spreads increases or decreases evenly (with an option to centre them for flat pieces). It also converts yarn amounts into skeins of your yarn, and adapts stitch and row counts to your gauge (`CraftCalculators`, unit-tested).
+
 ## Phase 0 — Working Compose app and repository setup
 
 **Status:** Complete.
