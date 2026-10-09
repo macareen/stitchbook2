@@ -37,6 +37,7 @@ import com.macareen.stitchbook2.feature.library.PdfViewerViewModel
 import com.macareen.stitchbook2.feature.library.LibraryViewModel
 import com.macareen.stitchbook2.feature.materials.ProjectMaterialsRoute
 import com.macareen.stitchbook2.feature.materials.ProjectMaterialsViewModel
+import com.macareen.stitchbook2.feature.calculators.CalculatorsScreen
 import com.macareen.stitchbook2.feature.projects.ProjectDetailRoute
 import com.macareen.stitchbook2.feature.projects.ProjectDetailViewModel
 import com.macareen.stitchbook2.feature.projects.ProjectFormRoute
@@ -118,6 +119,9 @@ fun StitchbookNavHost(
                 },
                 onOpenStatistics = {
                     navController.navigate(ProjectDestination.STATISTICS_ROUTE)
+                },
+                onOpenCalculators = {
+                    navController.navigate(CalculatorsDestination.ROUTE)
                 },
                 onOpenCounters = {
                     navController.navigate(CountersDestination.ROUTE)
@@ -330,6 +334,9 @@ fun StitchbookNavHost(
                 factory = ToolSetsViewModel.factory(toolRepository)
             )
             ToolSetsRoute(viewModel = viewModel)
+        }
+        composable(CalculatorsDestination.ROUTE) {
+            CalculatorsScreen()
         }
         composable(CountersDestination.ROUTE) {
             val viewModel: CountersViewModel = viewModel(
