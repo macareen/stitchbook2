@@ -62,7 +62,8 @@ fun HomeRoute(
     onOpenStash: () -> Unit,
     onResumeGuide: (ResumeGuide) -> Unit,
     onOpenStatistics: () -> Unit = {},
-    onOpenCounters: () -> Unit = {}
+    onOpenCounters: () -> Unit = {},
+    onOpenCalculators: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -75,7 +76,8 @@ fun HomeRoute(
         onOpenStash = onOpenStash,
         onResumeGuide = onResumeGuide,
         onOpenStatistics = onOpenStatistics,
-        onOpenCounters = onOpenCounters
+        onOpenCounters = onOpenCounters,
+        onOpenCalculators = onOpenCalculators
     )
 }
 
@@ -90,7 +92,8 @@ fun HomeScreen(
     onResumeGuide: (ResumeGuide) -> Unit,
     modifier: Modifier = Modifier,
     onOpenStatistics: () -> Unit = {},
-    onOpenCounters: () -> Unit = {}
+    onOpenCounters: () -> Unit = {},
+    onOpenCalculators: () -> Unit = {}
 ) {
     when (uiState) {
         HomeUiState.Loading -> {
@@ -127,6 +130,7 @@ fun HomeScreen(
                 onResumeGuide = onResumeGuide,
                 onOpenStatistics = onOpenStatistics,
                 onOpenCounters = onOpenCounters,
+                onOpenCalculators = onOpenCalculators,
                 modifier = modifier
             )
         }
@@ -146,6 +150,7 @@ private fun HomeContent(
     onResumeGuide: (ResumeGuide) -> Unit,
     onOpenStatistics: () -> Unit,
     onOpenCounters: () -> Unit,
+    onOpenCalculators: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val sidePadding = Modifier.padding(horizontal = StitchbookSpacing.large)
@@ -189,6 +194,7 @@ private fun HomeContent(
             ) {
                 SoftChip(text = stringResource(R.string.destination_counters), onClick = onOpenCounters)
                 SoftChip(text = stringResource(R.string.home_quick_nav_statistics_title), onClick = onOpenStatistics)
+                SoftChip(text = stringResource(R.string.calculators_title), onClick = onOpenCalculators)
             }
         }
     }
