@@ -31,6 +31,26 @@ Still open from the first phone test:
 - Ravelry yarn photos on stash cards.
 - Matching a pattern's suggested needles to the needles you own.
 
+Fix next, from the second phone test (2026-10-09), most important first:
+1. **Sizes picked from the pattern.** Read the pattern's own size list and offer it as choices. Handle both "XS (S) M (L) XL (2XL)" (alternating parentheses, one value per size) and "a (b, c)" groups. Numbers such as "8 (8) 9 (10) 11 (11) 12 (12) 12" or "100 (110) 115 (120)" then resolve to the chosen size. Today alternating groups are kept whole.
+2. **The parser still lets front matter into the steps.**
+   - The pattern title ("APRIL CARDIGAN") becomes a section.
+   - Underscore rule lines ("______") become steps.
+   - Measurement lines (bust circumference, length, "designed to fit") stay in the steps.
+   - A gauge tail that wrapped onto its own line ("needles after wash and blocking") stays.
+   - Abbreviation definitions (an "M1R" heading followed by "From the RS: ...") become a section.
+   Drop rules and title repeats; send measurements and abbreviations to the details; join wrapped details lines. Test against a real cardigan PDF's layout.
+3. **No typing a guide name.** Name the guide from the pattern and size, or from the PDF's file name. A project made from a pattern takes the pattern's (or PDF's) name, not a name typed for a guide.
+4. **Calculators.**
+   - The yarn and gauge calculators show no answer, because a result only appears once every field is filled, including "to convert". Show an answer as soon as enough is known, and say what's missing.
+   - Labels that wrap make the fields different heights. Use short single-line labels and the same height for every field.
+5. **Knitting view time tiles cut text off** ("under a minute" shows as "under a"). Use a compact form such as "<1 min" or "1h 05m".
+6. **Ravelry PDF download fails** with "wouldn't hand over this PDF with your key". The read-only personal key is likely refused. Find out which key or permission Ravelry requires, and explain that in the app.
+7. **Ravelry yarn photos on stash cards** (photos the user added on Ravelry).
+8. **Small layout issues:**
+   - Home's project card meta wraps ("updated 8...").
+   - The draft editor title shows the typed lower-case guide name.
+
 Wanted next (from the user's inspiration, 2026-10-08):
 - **Pattern page:** a photo with a details card (designer, category, difficulty, description with "Read more"), a count of finished projects, and PDF actions (view, replace, remove). Sizes get a list with a "Build guide" or "N pieces" state per size, and gauge, materials (held-together strands and alternatives) and tools each get their own card. A pattern-guide summary shows guides built and total sizes. The page also gets "Start another project", "Duplicate pattern" and "Delete pattern".
 - **Project page:** a coloured wavy header with status and start date. Below it, a pattern card (designer, size, View PDF) beside a stats card (time worked). A photo carousel with "Set as cover", and yarn and tools picked from the stash. Row notes tagged by type (for example "Mistake") at a row, and charts attached to the pattern. The guide shows per-section % with expandable parts (time worked, row X of Y). A sticky "Follow guide" button names the current part, with a quick counter.
