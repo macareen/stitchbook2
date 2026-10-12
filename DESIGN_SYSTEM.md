@@ -215,3 +215,6 @@ Calculators show the answers already supported by the inputs: a yarn total befor
 ## 21. Compact knitting time tiles
 
 Focus totals and step time use `<1 min`, `12 min`, or `1h 05m`. The tiles have a minimum height rather than a fixed height, so larger text and longer estimated labels can wrap without clipping. Approximate step time keeps its explicit `about` label; recorded sessions and calculation rules are unchanged. The bottom actions stack at large font sizes or very narrow widths and use a scalable minimum height, retaining the primary Complete action.
+
+
+Home project cards keep craft and update date on separate metadata lines. Update dates use the device's compact date format, and card width grows with font scale and accommodates measured localized metadata labels. Quick links wrap into additional rows when space is limited. These layouts preserve full labels in light and dark themes without fixed metadata-height clipping.
