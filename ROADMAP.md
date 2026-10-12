@@ -39,7 +39,7 @@ Fix next, from the second phone test (2026-10-09), most important first:
    - Measurement lines (bust circumference, length, "designed to fit") stay in the steps.
    - A gauge tail that wrapped onto its own line ("needles after wash and blocking") stays.
    - Abbreviation definitions (an "M1R" heading followed by "From the RS: ...") become a section.
-   Drop rules and title repeats; send measurements and abbreviations to the details; join wrapped details lines. Test against a real cardigan PDF's layout.
+   Implemented 2026-10-12: known pattern titles and rule lines are dropped; measurements and abbreviation definitions are kept in portable pattern notes; wrapped inline detail lines stay together. A two-page original cardigan fixture checks section/step provenance. A same-input real-PDF comparison remains unverified.
 3. **No typing a guide name.** Name the guide from the pattern and size, or from the PDF's file name. A project made from a pattern takes the pattern's (or PDF's) name, not a name typed for a guide.
 4. **Calculators.**
    - The yarn and gauge calculators show no answer, because a result only appears once every field is filled, including "to convert". Show an answer as soon as enough is known, and say what's missing.
@@ -51,7 +51,7 @@ Fix next, from the second phone test (2026-10-09), most important first:
    - Home's project card meta wraps ("updated 8...").
    - The draft editor title shows the typed lower-case guide name.
 
-Reference-app investigation (2026-10-12): static inspection distinguished confirmed local behavior from remote/unknown parsing. LooseLoop's parser runs as a remote job; its local guide model supports size-specific prose, repeated/mirrored pieces, measurement and stitch-count loops, and executable charts. These are capability targets for incremental offline, exportable Stitchbook slices. After sizes and metadata cleanup, prioritize explicit size-only instructions and target-loop execution, then pieces and manual charts. Bigger page changes still require approved mockups. Same-PDF runtime parity is not yet verified.
+Reference-app investigation (2026-10-12): [documented findings](docs/LOOSELOOP_FUNCTIONAL_FINDINGS.md) from static inspection distinguished confirmed local behavior from remote/unknown parsing. LooseLoop's parser runs as a remote job; its local guide model supports size-specific prose, repeated/mirrored pieces, measurement and stitch-count loops, and executable charts. These are capability targets for incremental offline, exportable Stitchbook slices. After sizes and metadata cleanup, prioritize explicit size-only instructions and target-loop execution, then pieces and manual charts. Bigger page changes still require approved mockups. Same-PDF runtime parity is not yet verified.
 
 Wanted next (from the user's inspiration, 2026-10-08):
 - **Pattern page:** a photo with a details card (designer, category, difficulty, description with "Read more"), a count of finished projects, and PDF actions (view, replace, remove). Sizes get a list with a "Build guide" or "N pieces" state per size, and gauge, materials (held-together strands and alternatives) and tools each get their own card. A pattern-guide summary shows guides built and total sizes. The page also gets "Start another project", "Duplicate pattern" and "Delete pattern".

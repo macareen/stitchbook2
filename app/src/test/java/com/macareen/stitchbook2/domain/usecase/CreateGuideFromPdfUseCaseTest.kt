@@ -99,6 +99,22 @@ class CreateGuideFromPdfUseCaseTest {
     }
 
     @Test
+    fun `measurements and abbreviations are saved as portable notes with all sizes`() = runBlocking {
+        val lines = listOf("APRIL CARDIGAN", "Sizes: S (M) L", "Bust circumference: 91 (97) 101 cm",
+            "M1R", "From the RS: Lift the strand and knit it.", "BODY", "Cast on 60 (66) 72 sts.")
+        val document = ExtractedDocument(1, lines.mapIndexed { index, text -> ExtractedLine(text, SourceReference(1, index + 1)) })
+        val library = FakeLibraryRepository(LibraryItem("pattern", "April Cardigan", Craft.KNITTING,
+            null, null, emptyList(), null, false, 0, 0))
+        val guides = FakeGuideRepository()
+        val useCase = CreateGuideFromPdfUseCase(FakePdfTextExtractor(document), guides, idGenerator(), library)
+        useCase.forPattern("pattern", "M", null, "April Cardigan", ByteArrayInputStream(ByteArray(0)))
+        assertTrue(requireNotNull(library.item?.notes).contains("Bust circumference: 91 (97) 101 cm"))
+        assertTrue(requireNotNull(library.item?.notes).contains("Abbreviations: M1R:"))
+        assertTrue(guides.lastSavedDraft!!.nodes.any { it.instructionText == "Cast on 66 sts. (p.1)" })
+        assertTrue(guides.lastSavedDraft!!.nodes.none { it.instructionText?.contains("From the RS") == true })
+    }
+
+    @Test
     fun `a PDF with no extractable text is reported without creating a guide`() = runBlocking {
         val document = ExtractedDocument(pageCount = 3, lines = emptyList())
         val repository = FakeGuideRepository()

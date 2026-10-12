@@ -9,7 +9,7 @@ The heart of the app is one path from a pattern to finished knitting:
 3. **Projects** use a pattern's size guide and gather its yarn, needles, counters, journal, and time around it on a small hub.
 4. **The knitting view** shows the step, "Row 4 of 10", how far through the whole guide you are (weighted by stitches), total time and time on this step, an overview of the guide, and a button that opens the original PDF at the step's page.
 
-Everything works offline with no account or subscription, and a full JSON backup carries every record, including guides and progress. The project is in **active development**; see "Currently implemented" below and [ROADMAP.md](ROADMAP.md). Functional reference capability targets and unresolved parity gaps are tracked in the roadmap.
+Everything works offline with no account or subscription, and a full JSON backup carries every record, including guides and progress. The project is in **active development**; see "Currently implemented" below and [ROADMAP.md](ROADMAP.md). Functional reference capability targets and unresolved parity gaps are tracked in the roadmap and [LooseLoop functional findings](docs/LOOSELOOP_FUNCTIONAL_FINDINGS.md).
 
 ## Core principles
 
