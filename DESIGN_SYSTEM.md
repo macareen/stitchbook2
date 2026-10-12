@@ -207,3 +207,7 @@ The launcher icon is an adaptive icon drawn as vectors (`res/drawable/ic_launche
 ## 19. Automatic guide names
 
 The new pattern guide dialog asks for a size and offers filling from the PDF. It previews the generated pattern-title and size name instead of showing a guide-name field. Project PDF import opens the document picker directly and uses the selected file name without its extension. The Draft editor displays that generated name. Manual blank guides still allow an authored title.
+
+## 20. Calculator feedback
+
+Calculators show the answers already supported by the inputs: a yarn total before an own-skein amount, and a gauge multiplier before a specific count. Stitches and rows are independent. Missing-input text names the needed fields; counts require whole numbers. Short single-line labels and a common minimum field height keep paired fields aligned while retaining scalable text.

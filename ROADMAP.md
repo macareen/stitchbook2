@@ -43,7 +43,7 @@ Fix next, from the second phone test (2026-10-09), most important first:
 3. **No typing a guide name.** Name the guide from the pattern and size, or from the PDF's file name. Implemented 2026-10-12: pattern guides use the pattern title and selected size; PDF project guides use the selected file stem. The pattern guide-name field and project PDF name dialog are removed; the Draft editor receives the generated name. Project names fall back to the PDF stem when needed.
 4. **Calculators.**
    - The yarn and gauge calculators show no answer, because a result only appears once every field is filled, including "to convert". Show an answer as soon as enough is known, and say what's missing.
-   - Labels that wrap make the fields different heights. Use short single-line labels and the same height for every field.
+   - Implemented 2026-10-12: yarn totals appear before the own-skein amount is entered; stitch and row gauge pairs independently show a multiplier and optional converted count, with missing-input prompts. Labels are short and single-line, and fields share a scalable minimum height.
 5. **Knitting view time tiles cut text off** ("under a minute" shows as "under a"). Use a compact form such as "<1 min" or "1h 05m".
 6. **Ravelry PDF download fails** with "wouldn't hand over this PDF with your key". The read-only personal key is likely refused. Find out which key or permission Ravelry requires, and explain that in the app.
 7. **Ravelry yarn photos on stash cards** (photos the user added on Ravelry).

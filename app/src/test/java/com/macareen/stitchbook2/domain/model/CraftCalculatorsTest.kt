@@ -72,4 +72,21 @@ class CraftCalculatorsTest {
         assertEquals(100, CraftCalculators.adaptCount(110, 22.0, 20.0))
         assertNull(CraftCalculators.adaptCount(110, 0.0, 20.0))
     }
+    @Test fun partialYarnAndGaugeResultsDoNotNeedAConversionCount() {
+        assertEquals(800.0, CraftCalculators.yarnTotal(4.0, 200.0)!!, 0.0)
+        assertEquals(20.0 / 22.0, CraftCalculators.gaugeFactor(22.0, 20.0)!!, 0.00001)
+        assertNull(CraftCalculators.yarnTotal(0.0, 200.0))
+        assertNull(CraftCalculators.gaugeFactor(22.0, 0.0))
+    }
+
+    @Test fun invalidOrNonFiniteInputsNeverProduceAnAnswerOrTruncateCounts() {
+        assertNull(CraftCalculators.yarnTotal(Double.MAX_VALUE, 2.0))
+        assertNull(CraftCalculators.gaugeFactor(Double.NaN, 20.0))
+        assertNull(CraftCalculators.skeinsNeeded(4.0, 200.0, CraftCalculators.YarnUnit.METRES, Double.NaN, CraftCalculators.YarnUnit.METRES))
+        assertNull(CraftCalculators.adaptCount(100, Double.MIN_VALUE, 20.0))
+        assertNull(CraftCalculators.wholeCount(1.5))
+        assertNull(CraftCalculators.wholeCount(Double.POSITIVE_INFINITY))
+        assertEquals(12, CraftCalculators.wholeCount(12.0))
+    }
+
 }

@@ -78,3 +78,6 @@ For each feature, label static evidence separately from observed runtime output.
 - PR #67: PDF size discovery and grouped/alternating numeric resolution.
 - PR #68: known-title/rule filtering, wrapped metadata boundaries, and portable measurements/abbreviation notes; 582 unit tests, lint and debug build passed. This reproduces the separation of details and executable content; it does not claim the reference server uses these heuristics.
 - Automatic naming follows the user's explicit naming decisions; it is not presented as a discovered reference algorithm.
+
+- PR #69: automatic pattern/size and PDF-stem names, following the user's decisions.
+- Calculator feedback uses independent partial results and clear missing-input prompts. It is a user-requested usability fix; reference timer/progress algorithms remain separate follow-up work.

@@ -70,6 +70,23 @@ object CraftCalculators {
 
     private const val METRES_PER_YARD = 0.9144
 
+    fun yarnTotal(patternSkeins: Double, patternPerSkein: Double): Double? {
+        if (!patternSkeins.isPositiveFinite() || !patternPerSkein.isPositiveFinite()) return null
+        return (patternSkeins * patternPerSkein).takeIf { it.isPositiveFinite() }
+    }
+
+    /** Useful even before the user supplies a particular stitch or row count. */
+    fun gaugeFactor(patternGauge: Double, yourGauge: Double): Double? {
+        if (!patternGauge.isPositiveFinite() || !yourGauge.isPositiveFinite()) return null
+        return (yourGauge / patternGauge).takeIf { it.isPositiveFinite() }
+    }
+
+    fun wholeCount(value: Double): Int? = value.takeIf {
+        it.isPositiveFinite() && it <= Int.MAX_VALUE && it % 1.0 == 0.0
+    }?.toInt()
+
+    private fun Double.isPositiveFinite() = isFinite() && this > 0
+
     /** Skeins of your yarn needed to match the pattern's; null when the units can't be compared. */
     fun skeinsNeeded(
         patternSkeins: Double,
@@ -78,10 +95,11 @@ object CraftCalculators {
         yourPerSkein: Double,
         yourUnit: YarnUnit
     ): Int? {
-        if (patternSkeins <= 0 || patternPerSkein <= 0 || yourPerSkein <= 0) return null
-        val total = patternSkeins * patternPerSkein
+        if (!yourPerSkein.isPositiveFinite()) return null
+        val total = yarnTotal(patternSkeins, patternPerSkein) ?: return null
         val totalInYourUnit = convert(total, patternUnit, yourUnit) ?: return null
-        return ceil(totalInYourUnit / yourPerSkein - 1e-9).toInt()
+        val required = ceil(totalInYourUnit / yourPerSkein - 1e-9).coerceAtLeast(1.0)
+        return wholeCount(required)
     }
 
     /** Length converts both ways; grams only to grams (weight says nothing about length without the yarn's ratio). */
@@ -94,7 +112,10 @@ object CraftCalculators {
 
     /** A pattern count scaled from its gauge to yours (both per the same width or height). */
     fun adaptCount(patternCount: Int, patternGauge: Double, yourGauge: Double): Int? {
-        if (patternCount <= 0 || patternGauge <= 0 || yourGauge <= 0) return null
-        return (patternCount * yourGauge / patternGauge).roundToInt()
+        if (patternCount <= 0) return null
+        val factor = gaugeFactor(patternGauge, yourGauge) ?: return null
+        val adapted = patternCount * factor
+        if (!adapted.isFinite() || adapted > Int.MAX_VALUE) return null
+        return adapted.roundToInt()
     }
 }
