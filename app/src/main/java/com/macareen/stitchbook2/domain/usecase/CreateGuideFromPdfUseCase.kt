@@ -54,7 +54,7 @@ class CreateGuideFromPdfUseCase(
     suspend operator fun invoke(projectId: String, guideName: String, pdf: InputStream): Result {
         val document = extract(pdf) ?: return Result.NoExtractableText
         if (document is Extraction.Failed) return Result.ExtractionFailed(document.cause)
-        return createDraft((document as Extraction.Read).document, emptyList()) {
+        return createDraft((document as Extraction.Read).document, emptyList(), patternTitle = guideName) {
             guideRepository.createGuide(projectId, guideName)
         }
     }

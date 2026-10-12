@@ -58,6 +58,23 @@ class CreateGuideFromPdfUseCaseTest {
     }
 
     @Test
+    fun `a project PDF guide removes its known title on every page`() = runBlocking {
+        val document = ExtractedDocument(2, listOf(
+            ExtractedLine("APRIL CARDIGAN", SourceReference(1, 1)),
+            ExtractedLine("BODY", SourceReference(1, 2)),
+            ExtractedLine("Cast on 60 sts.", SourceReference(1, 3)),
+            ExtractedLine("APRIL CARDIGAN", SourceReference(2, 1)),
+            ExtractedLine("Row 1: Knit.", SourceReference(2, 2))
+        ))
+        val repository = FakeGuideRepository()
+        val useCase = CreateGuideFromPdfUseCase(FakePdfTextExtractor(document), repository, idGenerator())
+        useCase("project", "April Cardigan", ByteArrayInputStream(ByteArray(0)))
+        assertEquals(1, repository.lastSavedDraft!!.rootNodeIds.size)
+        assertTrue(repository.lastSavedDraft!!.nodes.any { it.instructionText == "Cast on 60 sts. (p.1)" })
+        assertTrue(repository.lastSavedDraft!!.nodes.any { it.instructionText == "Row 1: Knit. (p.2)" })
+    }
+
+    @Test
     fun `a pattern guide fills the pattern's empty details but keeps what the user wrote`() = runBlocking {
         val lines = listOf(
             "A cosy hat by Ana Example",
