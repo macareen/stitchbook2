@@ -528,3 +528,9 @@ Likely future candidates could be `core:model`, `core:database`, or provider-spe
 - Analytics or crash reporting
 
 Postpone these until a roadmap phase supplies concrete requirements, constraints, and acceptance tests.
+
+## PDF size discovery and functional reference (2026-10-12)
+
+The pattern screen reads size choices from its PDF before a guide exists, through `CreateGuideFromPdfUseCase.sizeChoices`. Discovery follows PDF URI changes, cancels stale reads, and falls back to saved Library sizes or manual entry when the file cannot be read. It writes no records and preserves cancellation. `PatternSizes` supports grouped and alternating notation, prefers letter-size lists to measurements and resolves only maximal number runs with exactly one value per size. Original PDF files and source references remain unchanged; no schema or export format changes are needed.
+
+Static reference-app research identified remote parsing and a richer local guide model. Target loops, piece instances and executable charts are future domain/export work; the current four-node execution model does not claim equivalent support.

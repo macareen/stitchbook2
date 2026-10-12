@@ -64,6 +64,55 @@ class PatternSizesTest {
         assertEquals(SourceReference(1, 1), resolved.lines.single().source)
     }
 
+
+    @Test
+    fun `alternating cardigan sizes retain all nine labels`() {
+        assertEquals(listOf("XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"),
+            PatternSizes.labelsFrom("XS (S) M (L) XL (2XL) 3XL (4XL) 5XL"))
+    }
+
+    @Test
+    fun `cardigan number runs resolve every size and multiple runs`() {
+        val text = "Work 8 (8) 9 (10) 11 (11) 12 (12) 12 times to 91 (97) 101 (106) 111 (117) 122 (127) 132 cm."
+        val repeats = listOf(8, 8, 9, 10, 11, 11, 12, 12, 12)
+        val lengths = listOf(91, 97, 101, 106, 111, 117, 122, 127, 132)
+        repeats.indices.forEach { index ->
+            assertEquals("Work ${repeats[index]} times to ${lengths[index]} cm.", PatternSizes.resolve(text, index, 9))
+        }
+    }
+
+    @Test
+    fun `longer alternating runs cannot be partially resolved as two sizes`() {
+        val text = "Work 8 (8) 9 (10) 11 times."
+        assertEquals(text, PatternSizes.resolve(text, 1, 2))
+    }
+
+    @Test
+    fun `alternating decimals fractions dashes and stitch prefixes resolve`() {
+        assertEquals("k4 to 3/4 in, repeat - times (RS).",
+            PatternSizes.resolve("k2 (3) 4 to 1/4 (1/2) 3/4 in, repeat 2 (3) - times (RS).", 2, 3))
+        assertEquals("Work 11.5 cm.", PatternSizes.resolve("Work 10.5 (11) 11.5 cm.", 2, 3))
+    }
+
+    @Test
+    fun `standalone sizes heading reads the next line and prefers letters over measurements`() {
+        val found = requireNotNull(PatternSizes.findInDocument(document(
+            "Finished size: 91 (97) 101 cm", "Sizes", "XS (S) M", "Cast on 60 (66) 72 sts.")))
+        assertEquals(listOf("XS", "S", "M"), found.first)
+        assertEquals(3, found.second.source.lineNumber)
+        assertEquals(listOf("91", "97", "101"), PatternSizes.labelsFrom("91 (97) 101 cm"))
+    }
+
+    @Test
+    fun `without letter sizes the first measurement list is offered without units`() {
+        val found = requireNotNull(PatternSizes.findInDocument(document(
+            "Bust circumference: 91 (97, 101) cm / 36 (38, 40) inches",
+            "Length: 50 (52, 54) cm"
+        )))
+        assertEquals(listOf("91", "97", "101"), found.first)
+        assertEquals(1, found.second.source.lineNumber)
+    }
+
     private fun document(vararg lines: String) = ExtractedDocument(
         pageCount = 1,
         lines = lines.mapIndexed { index, text -> ExtractedLine(text, SourceReference(1, index + 1)) }
