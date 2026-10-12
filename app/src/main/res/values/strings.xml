@@ -623,7 +623,7 @@
     <string name="calculators_yarn_pattern">The pattern asks for</string>
     <string name="calculators_yarn_yours">Your yarn</string>
     <string name="calculators_yarn_skeins">Skeins</string>
-    <string name="calculators_yarn_each">Each skein holds</string>
+    <string name="calculators_yarn_each">Per skein</string>
     <string name="calculators_unit_metres">Metres</string>
     <string name="calculators_unit_yards">Yards</string>
     <string name="calculators_unit_grams">Grams</string>
@@ -631,12 +631,20 @@
     <string name="calculators_yarn_grams_note">Grams only compare with grams. Use length for different yarns.</string>
     <string name="calculators_gauge_title">Adapt to my gauge</string>
     <string name="calculators_gauge_hint">Stitches and rows over the same width and height, such as 10 cm.</string>
-    <string name="calculators_gauge_pattern_sts">Pattern stitches</string>
+    <string name="calculators_gauge_pattern_sts">Pattern sts</string>
     <string name="calculators_gauge_pattern_rows">Pattern rows</string>
-    <string name="calculators_gauge_your_sts">Your stitches</string>
+    <string name="calculators_gauge_your_sts">Your sts</string>
     <string name="calculators_gauge_your_rows">Your rows</string>
-    <string name="calculators_gauge_count_sts">Stitches to convert</string>
-    <string name="calculators_gauge_count_rows">Rows to convert</string>
+    <string name="calculators_gauge_count_sts">Sts to adapt</string>
+    <string name="calculators_gauge_count_rows">Rows to adapt</string>
     <string name="calculators_gauge_sts_answer">Use %1$d stitches</string>
     <string name="calculators_gauge_rows_answer">Work %1$d rows</string>
+    <string name="calculators_yarn_your_each">Your skein</string>
+    <string name="calculators_yarn_total">Total: %1$.1f %2$s</string>
+    <string name="calculators_yarn_missing_yours">Add the amount in your skein to see how many you need.</string>
+    <string name="calculators_missing">Add positive values for: %1$s</string>
+    <string name="calculators_missing_count">Add a whole number for %1$s to convert a specific count.</string>
+    <string name="calculators_gauge_sts_factor">Stitches: multiply by %1$.3f</string>
+    <string name="calculators_gauge_rows_factor">Rows: multiply by %1$.3f</string>
+    <string name="calculators_values_too_large">These values are too large to calculate. Check the amounts.</string>
 </resources>

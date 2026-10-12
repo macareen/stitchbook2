@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -24,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.macareen.stitchbook2.R
 import com.macareen.stitchbook2.domain.model.CraftCalculators
@@ -71,15 +73,16 @@ private fun NumberField(label: String, value: String, onChange: (String) -> Unit
     OutlinedTextField(
         value = value,
         onValueChange = { text -> onChange(text.filter { it.isDigit() || it == '.' || it == ',' }) },
-        label = { Text(label) },
+        label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
         shape = MaterialTheme.shapes.medium,
-        modifier = modifier
+        modifier = modifier.heightIn(min = 64.dp)
     )
 }
 
-private fun String.number(): Double? = replace(',', '.').toDoubleOrNull()
+private fun String.number(): Double? = replace(',', '.').toDoubleOrNull()?.takeIf { it.isFinite() && it > 0 }
+private fun String.count(): Int? = number()?.let(CraftCalculators::wholeCount)
 
 @Composable
 private fun Answer(text: String) {
@@ -100,8 +103,8 @@ private fun ShapingCard() {
             Checkbox(checked = centered, onCheckedChange = { centered = it })
             QuietText(text = stringResource(R.string.calculators_shaping_centered))
         }
-        val plan = current.number()?.toInt()?.let { from ->
-            desired.number()?.toInt()?.let { to -> CraftCalculators.distribute(from, to, centered) }
+        val plan = current.count()?.let { from ->
+            desired.count()?.let { to -> CraftCalculators.distribute(from, to, centered) }
         }
         if (plan != null) ShapingAnswer(plan)
         else if (current.isNotBlank() && desired.isNotBlank()) QuietText(text = stringResource(R.string.calculators_shaping_impossible))
@@ -155,13 +158,33 @@ private fun YarnCard() {
         }
         UnitChips(patternUnit) { patternUnit = it }
         QuietText(text = stringResource(R.string.calculators_yarn_yours))
-        NumberField(stringResource(R.string.calculators_yarn_each), yourAmount, { yourAmount = it }, Modifier.fillMaxWidth())
+        NumberField(stringResource(R.string.calculators_yarn_your_each), yourAmount, { yourAmount = it }, Modifier.fillMaxWidth())
         UnitChips(yourUnit) { yourUnit = it }
-        val inputs = listOf(skeins, patternAmount, yourAmount).map { it.number() }
-        if (inputs.all { it != null }) {
-            val needed = CraftCalculators.skeinsNeeded(inputs[0]!!, inputs[1]!!, patternUnit, inputs[2]!!, yourUnit)
-            if (needed != null) Answer(stringResource(R.string.calculators_yarn_answer, needed))
-            else QuietText(text = stringResource(R.string.calculators_yarn_grams_note))
+        val patternCount = skeins.number()
+        val perSkein = patternAmount.number()
+        val yours = yourAmount.number()
+        val total = if (patternCount != null && perSkein != null) CraftCalculators.yarnTotal(patternCount, perSkein) else null
+        if (total != null) {
+            val converted = CraftCalculators.convert(total, patternUnit, yourUnit)?.takeIf { it.isFinite() }
+            val shownUnit = if (converted != null) yourUnit else patternUnit
+            val unit = when (shownUnit) {
+                YarnUnit.METRES -> "m"
+                YarnUnit.YARDS -> "yd"
+                YarnUnit.GRAMS -> "g"
+            }
+            Answer(stringResource(R.string.calculators_yarn_total, converted ?: total, unit))
+            if (converted == null) QuietText(text = stringResource(R.string.calculators_yarn_grams_note))
+            if (yours != null) {
+                val needed = CraftCalculators.skeinsNeeded(requireNotNull(patternCount), requireNotNull(perSkein), patternUnit, yours, yourUnit)
+                if (needed != null) Answer(stringResource(R.string.calculators_yarn_answer, needed))
+            } else QuietText(text = stringResource(R.string.calculators_yarn_missing_yours))
+        } else {
+            val missing = listOfNotNull(
+                if (patternCount == null) stringResource(R.string.calculators_yarn_skeins) else null,
+                if (perSkein == null) stringResource(R.string.calculators_yarn_each) else null
+            )
+            QuietText(text = if (missing.isEmpty()) stringResource(R.string.calculators_values_too_large)
+                else stringResource(R.string.calculators_missing, missing.joinToString(", ")))
         }
     }
 }
@@ -188,13 +211,32 @@ private fun GaugeCard() {
             NumberField(stringResource(R.string.calculators_gauge_count_sts), countSts, { countSts = it }, Modifier.weight(1f))
             NumberField(stringResource(R.string.calculators_gauge_count_rows), countRows, { countRows = it }, Modifier.weight(1f))
         }
-        val stitches = countSts.number()?.toInt()?.let { count ->
-            CraftCalculators.adaptCount(count, patternSts.number() ?: 0.0, yourSts.number() ?: 0.0)
-        }
-        val rows = countRows.number()?.toInt()?.let { count ->
-            CraftCalculators.adaptCount(count, patternRows.number() ?: 0.0, yourRows.number() ?: 0.0)
-        }
-        stitches?.let { Answer(stringResource(R.string.calculators_gauge_sts_answer, it)) }
-        rows?.let { Answer(stringResource(R.string.calculators_gauge_rows_answer, it)) }
+        GaugeAnswer(patternSts, yourSts, countSts, R.string.calculators_gauge_pattern_sts,
+            R.string.calculators_gauge_your_sts, R.string.calculators_gauge_count_sts,
+            R.string.calculators_gauge_sts_factor, R.string.calculators_gauge_sts_answer)
+        GaugeAnswer(patternRows, yourRows, countRows, R.string.calculators_gauge_pattern_rows,
+            R.string.calculators_gauge_your_rows, R.string.calculators_gauge_count_rows,
+            R.string.calculators_gauge_rows_factor, R.string.calculators_gauge_rows_answer)
+    }
+}
+
+@Composable
+private fun GaugeAnswer(pattern: String, yours: String, count: String, patternLabel: Int, yourLabel: Int,
+    countLabel: Int, factorText: Int, answerText: Int) {
+    val patternGauge = pattern.number()
+    val yourGauge = yours.number()
+    val factor = if (patternGauge != null && yourGauge != null) CraftCalculators.gaugeFactor(patternGauge, yourGauge) else null
+    if (factor == null) {
+        val missing = listOfNotNull(
+            if (patternGauge == null) stringResource(patternLabel) else null,
+            if (yourGauge == null) stringResource(yourLabel) else null
+        )
+        QuietText(text = if (missing.isEmpty()) stringResource(R.string.calculators_values_too_large)
+                else stringResource(R.string.calculators_missing, missing.joinToString(", ")))
+    } else {
+        Answer(stringResource(factorText, factor))
+        val converted = count.count()?.let { CraftCalculators.adaptCount(it, requireNotNull(patternGauge), requireNotNull(yourGauge)) }
+        if (converted != null) Answer(stringResource(answerText, converted))
+        else QuietText(text = stringResource(R.string.calculators_missing_count, stringResource(countLabel)))
     }
 }
