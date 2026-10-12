@@ -95,9 +95,54 @@ class PatternGuidesViewModelTest {
         // Text extraction runs on the IO dispatcher, so wait for the new guide.
         val createdId = runBlocking { withTimeout(5_000) { viewModel.createdGuideId.first { it != null } } }
 
-        assertEquals(listOf("content://pattern.pdf"), read)
+        assertEquals(listOf("content://pattern.pdf", "content://pattern.pdf"), read)
         assertEquals("created-1", createdId)
         assertEquals("Cast on 66 sts. (p.1)", guides.savedDraft?.nodes?.single()?.instructionText)
+    }
+
+    @Test
+    fun pdfSizeChoicesAppearBeforeAnyGuideExistsAndOverrideSavedMeasurements() = runBlocking {
+        val guides = FakePatternGuides()
+        val document = ExtractedDocument(1, listOf(
+            ExtractedLine("Sizes: XS (S) M (L) XL", SourceReference(1, 1)),
+            ExtractedLine("Cast on 60 (66) 72 (78) 84 sts.", SourceReference(1, 2))
+        ))
+        val viewModel = PatternGuidesViewModel(
+            "pattern", FakeLibrary(listOf(pattern.copy(pdfUri = "content://pattern.pdf", sizes = "91, 97, 101"))),
+            guides, scope,
+            createGuideFromPdf = CreateGuideFromPdfUseCase(FixedText(document), guides, newNodeId = { "n" }),
+            readPatternFile = { ByteArray(1) }
+        )
+        val content = withTimeout(5_000) {
+            viewModel.uiState.first { it is PatternGuidesUiState.Content && it.sizeChoices == listOf("XS", "S", "M", "L", "XL") }
+        } as PatternGuidesUiState.Content
+        assertTrue(content.guides.isEmpty())
+        assertTrue(guides.created.isEmpty())
+    }
+
+    @Test
+    fun replacingOrRemovingThePdfDoesNotRetainOldChoicesAndMetadataEditsDoNotRereadIt() = runBlocking {
+        val library = FakeLibrary(listOf(pattern.copy(pdfUri = "content://first.pdf")))
+        val reads = mutableListOf<String>()
+        val extractor = object : PdfTextExtractor {
+            override suspend fun extract(input: InputStream): ExtractedDocument {
+                val sizes = if (input.read() == 1) "Sizes: XS (S) M" else "Sizes: L (XL) 2XL"
+                return ExtractedDocument(1, listOf(ExtractedLine(sizes, SourceReference(1, 1))))
+            }
+        }
+        val viewModel = PatternGuidesViewModel("pattern", library, FakePatternGuides(), scope,
+            createGuideFromPdf = CreateGuideFromPdfUseCase(extractor, FakePatternGuides(), newNodeId = { "n" }),
+            readPatternFile = { uri -> reads += uri; byteArrayOf(if (uri.endsWith("first.pdf")) 1 else 2) })
+        suspend fun awaitChoices(expected: List<String>) = withTimeout(5_000) {
+            viewModel.uiState.first { it is PatternGuidesUiState.Content && it.sizeChoices == expected }
+        }
+        awaitChoices(listOf("XS", "S", "M"))
+        library.saveLibraryItem(pattern.copy(pdfUri = "content://first.pdf", notes = "Edited"))
+        library.saveLibraryItem(pattern.copy(pdfUri = "content://second.pdf"))
+        awaitChoices(listOf("L", "XL", "2XL"))
+        library.saveLibraryItem(pattern.copy(sizes = "S, M"))
+        awaitChoices(listOf("S", "M"))
+        assertEquals(listOf("content://first.pdf", "content://second.pdf"), reads)
     }
 
     @Test
@@ -162,7 +207,9 @@ private class FakeLibrary(items: List<LibraryItem>) : LibraryRepository {
     private val flow = MutableStateFlow(items)
     override fun observeLibraryItems(): Flow<List<LibraryItem>> = flow
     override fun observeLibraryItem(id: String): Flow<LibraryItem?> = flow.map { list -> list.firstOrNull { it.id == id } }
-    override suspend fun saveLibraryItem(item: LibraryItem) = Unit
+    override suspend fun saveLibraryItem(item: LibraryItem) {
+        flow.value = flow.value.map { if (it.id == item.id) item else it }
+    }
     override suspend fun deleteLibraryItem(item: LibraryItem) = Unit
 }
 

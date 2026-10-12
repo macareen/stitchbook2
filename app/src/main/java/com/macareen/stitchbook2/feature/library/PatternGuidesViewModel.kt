@@ -26,6 +26,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -54,10 +56,11 @@ sealed interface PatternGuidesUiState {
         val pdfProblem: PatternPdfProblem? = null,
         /** Whether "Get the PDF" from Ravelry is offered. */
         val canGetRavelryPdf: Boolean = false,
-        val ravelryPdf: RavelryPdfState = RavelryPdfState()
+        val ravelryPdf: RavelryPdfState = RavelryPdfState(),
+        val pdfSizeChoices: List<String> = emptyList()
     ) : PatternGuidesUiState {
-        /** The sizes the Library entry names, offered as choices for a new guide. */
-        val sizeChoices: List<String> get() = PatternSizes.labelsFrom(pattern.sizes.orEmpty())
+        /** PDF sizes take precedence; saved Library sizes remain a fallback. */
+        val sizeChoices: List<String> get() = pdfSizeChoices.ifEmpty { PatternSizes.labelsFrom(pattern.sizes.orEmpty()) }
     }
 }
 
@@ -90,6 +93,34 @@ class PatternGuidesViewModel(
 
     private val startedProject = MutableStateFlow<String?>(null)
     private val ravelryPdf = MutableStateFlow(RavelryPdfState())
+
+    private data class DiscoveredSizes(val uri: String, val labels: List<String>)
+    private val discoveredSizes = MutableStateFlow<DiscoveredSizes?>(null)
+
+    init {
+        // Reading choices is independent of creating a guide. A replaced PDF
+        // cancels its predecessor; metadata updates do not re-extract the PDF.
+        scope.launch {
+            libraryRepository.observeLibraryItem(libraryItemId)
+                .map { it?.pdfUri }
+                .distinctUntilChanged()
+                .collectLatest { uri ->
+                    discoveredSizes.value = null
+                    val useCase = createGuideFromPdf
+                    if (uri != null && useCase != null) {
+                        val labels = try {
+                            val bytes = readPatternFile(uri)
+                            if (bytes == null) emptyList() else ByteArrayInputStream(bytes).use { useCase.sizeChoices(it) }
+                        } catch (error: CancellationException) {
+                            throw error
+                        } catch (_: Exception) {
+                            emptyList()
+                        }
+                        discoveredSizes.value = DiscoveredSizes(uri, labels)
+                    }
+                }
+        }
+    }
 
     /** Saves the pattern's Ravelry PDF into the pattern folder and links it here. */
     fun getRavelryPdf() {
@@ -135,8 +166,9 @@ class PatternGuidesViewModel(
             guides.map { guide -> PatternGuideEntry(guide, isPublished = guideRepository.getLatestRevision(guide.id) != null) }
         },
         creation,
-        ravelryPdf
-    ) { pattern, guides, creationState, ravelryState ->
+        ravelryPdf,
+        discoveredSizes
+    ) { pattern, guides, creationState, ravelryState, sizes ->
         if (pattern == null) {
             PatternGuidesUiState.Missing
         } else {
@@ -147,7 +179,8 @@ class PatternGuidesViewModel(
                 creationState.failed,
                 creationState.pdfProblem,
                 canGetRavelryPdf = downloadRavelryPdf?.canDownload(pattern) == true,
-                ravelryPdf = ravelryState
+                ravelryPdf = ravelryState,
+                pdfSizeChoices = sizes?.takeIf { it.uri == pattern.pdfUri }?.labels.orEmpty()
             )
         }
     }

@@ -44,6 +44,13 @@ class CreateGuideFromPdfUseCase(
         data class ExtractionFailed(val cause: Throwable) : Result
     }
 
+    /** Reads choices before guide creation without saving or changing the pattern. */
+    suspend fun sizeChoices(pdf: InputStream): List<String> {
+        val extraction = extract(pdf)
+        return if (extraction is Extraction.Read) PatternSizes.findInDocument(extraction.document)?.first.orEmpty()
+            else emptyList()
+    }
+
     suspend operator fun invoke(projectId: String, guideName: String, pdf: InputStream): Result {
         val document = extract(pdf) ?: return Result.NoExtractableText
         if (document is Extraction.Failed) return Result.ExtractionFailed(document.cause)

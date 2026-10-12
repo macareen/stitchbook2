@@ -10,7 +10,7 @@ The product's centre, cutting across the phases below. Status as of 2026-10-08:
 
 1. **Pattern folder (done):** one chosen folder (on the phone or in Drive) fills the Library; files are referenced, never copied.
 2. **Guides by size (done):** a guide belongs to a pattern and a size, and any project can use it (schema v19). Progress is kept per project (schema v20).
-3. **Size-aware drafts (done for "a (b, c)" groups):** *Fill from the pattern* keeps one size's numbers and drops the size list. Charts, "for size L only" lines, and on-device AI help remain open (Phases 12–13).
+3. **Size-aware drafts (grouped and alternating sizes):** *Fill from the pattern* keeps one size's numbers and drops the size list. Charts, "for size L only" lines, and on-device AI help remain open (Phases 12–13).
 4. **Guide overview (done):** a scannable list of sections, spans, repeats and steps with done, current and to-do marks; tap to jump.
 5. **Knitting view (done):**
    - The step and "Row 4 of 10".
@@ -32,7 +32,7 @@ Still open from the first phone test:
 - Matching a pattern's suggested needles to the needles you own.
 
 Fix next, from the second phone test (2026-10-09), most important first:
-1. **Sizes picked from the pattern.** Read the pattern's own size list and offer it as choices. Handle both "XS (S) M (L) XL (2XL)" (alternating parentheses, one value per size) and "a (b, c)" groups. Numbers such as "8 (8) 9 (10) 11 (11) 12 (12) 12" or "100 (110) 115 (120)" then resolve to the chosen size. Today alternating groups are kept whole.
+1. **Sizes picked from the pattern.** Read the pattern's own size list and offer it as choices. Handle both "XS (S) M (L) XL (2XL)" (alternating parentheses, one value per size) and "a (b, c)" groups. Numbers such as "8 (8) 9 (10) 11 (11) 12 (12) 12" or "100 (110) 115 (120)" then resolve to the chosen size. Implemented 2026-10-12: choices are read from the PDF before guide creation, letter labels take precedence over measurement lists, and complete alternating runs resolve for every chosen size. Incomplete runs stay intact for review.
 2. **The parser still lets front matter into the steps.**
    - The pattern title ("APRIL CARDIGAN") becomes a section.
    - Underscore rule lines ("______") become steps.
@@ -50,6 +50,8 @@ Fix next, from the second phone test (2026-10-09), most important first:
 8. **Small layout issues:**
    - Home's project card meta wraps ("updated 8...").
    - The draft editor title shows the typed lower-case guide name.
+
+Reference-app investigation (2026-10-12): static inspection distinguished confirmed local behavior from remote/unknown parsing. LooseLoop's parser runs as a remote job; its local guide model supports size-specific prose, repeated/mirrored pieces, measurement and stitch-count loops, and executable charts. These are capability targets for incremental offline, exportable Stitchbook slices. After sizes and metadata cleanup, prioritize explicit size-only instructions and target-loop execution, then pieces and manual charts. Bigger page changes still require approved mockups. Same-PDF runtime parity is not yet verified.
 
 Wanted next (from the user's inspiration, 2026-10-08):
 - **Pattern page:** a photo with a details card (designer, category, difficulty, description with "Read more"), a count of finished projects, and PDF actions (view, replace, remove). Sizes get a list with a "Build guide" or "N pieces" state per size, and gauge, materials (held-together strands and alternatives) and tools each get their own card. A pattern-guide summary shows guides built and total sizes. The page also gets "Start another project", "Duplicate pattern" and "Delete pattern".
