@@ -35,7 +35,9 @@ data class RavelryStashEntry(
     val location: String?,
     val skeins: Double?,
     val yardsPerSkein: Double?,
-    val gramsPerSkein: Double?
+    val gramsPerSkein: Double?,
+    /** Public thumbnail source retained in portable photo exports; the original stays on Ravelry. */
+    val photoUrl: String? = null
 )
 
 /** One needle or hook record. Ravelry's sizes arrive as display text, kept as-is. */

@@ -1,5 +1,7 @@
 package com.macareen.stitchbook2.domain.ravelry
 
+import com.macareen.stitchbook2.domain.model.Photo
+import com.macareen.stitchbook2.domain.model.PhotoRole
 import com.macareen.stitchbook2.domain.model.Craft
 import com.macareen.stitchbook2.domain.model.LibraryItem
 import com.macareen.stitchbook2.domain.model.Project
@@ -35,7 +37,9 @@ data class RavelryImportPlan(
     val changedTools: List<RavelryChange<ToolItem>>,
     val unchangedToolCount: Int,
     val projects: RavelryKindPlan<Project> = RavelryKindPlan(),
-    val patterns: RavelryKindPlan<LibraryItem> = RavelryKindPlan()
+    val patterns: RavelryKindPlan<LibraryItem> = RavelryKindPlan(),
+    /** References paired with the stash records the user reviews; no image bytes. */
+    val stashPhotos: List<Photo> = emptyList()
 ) {
     val hasNothingToDo: Boolean
         get() = newStash.isEmpty() && changedStash.isEmpty() && newTools.isEmpty() && changedTools.isEmpty() &&
@@ -61,19 +65,31 @@ object RavelryImportPlanner {
         needles: List<RavelryNeedle>,
         localStash: List<StashItem>,
         localTools: List<ToolItem>,
-        now: Long
+        now: Long,
+        localPhotos: List<Photo> = emptyList()
     ): RavelryImportPlan {
         val stashById = localStash.associateBy { it.id }
         val newStash = mutableListOf<StashItem>()
         val changedStash = mutableListOf<RavelryChange<StashItem>>()
         var unchangedStash = 0
+        val photosById = localPhotos.associateBy { it.id }
+        val stashPhotos = mutableListOf<Photo>()
         for (entry in stash) {
+            val photoId = "ravelry-stash-photo-${entry.id}"
+            val previousPhoto = photosById[photoId]
+            val photo = RavelryPhotoUrls.safe(entry.photoUrl)?.let { url ->
+                previousPhoto?.copy(uri = url) ?: Photo(
+                    photoId, null, STASH_ID_PREFIX + entry.id, url, "Ravelry stash photo",
+                    null, null, null, PhotoRole.NONE, now, now)
+            }
+            val photoChanged = photo != null && photo != previousPhoto
+            photo?.let { stashPhotos += if (photoChanged) it.copy(updatedAt = now) else it }
             val local = stashById[STASH_ID_PREFIX + entry.id]
             if (local == null) {
                 newStash += stashItem(entry, now)
             } else {
                 val updated = mergeStash(local, entry)
-                if (updated == local) unchangedStash++ else changedStash += RavelryChange(local, updated.copy(updatedAt = now))
+                if (updated == local && !photoChanged) unchangedStash++ else changedStash += RavelryChange(local, updated.copy(updatedAt = now))
             }
         }
 
@@ -91,7 +107,7 @@ object RavelryImportPlanner {
             }
         }
 
-        return RavelryImportPlan(newStash, changedStash, unchangedStash, newTools, changedTools, unchangedTools)
+        return RavelryImportPlan(newStash, changedStash, unchangedStash, newTools, changedTools, unchangedTools, stashPhotos = stashPhotos)
     }
 
     internal fun stashItem(entry: RavelryStashEntry, now: Long): StashItem = mergeStash(

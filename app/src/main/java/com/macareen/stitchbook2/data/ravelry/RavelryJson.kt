@@ -1,5 +1,6 @@
 package com.macareen.stitchbook2.data.ravelry
 
+import com.macareen.stitchbook2.domain.ravelry.RavelryPhotoUrls
 import com.macareen.stitchbook2.domain.ravelry.RavelryAttachment
 import com.macareen.stitchbook2.domain.ravelry.RavelryNeedle
 import com.macareen.stitchbook2.domain.ravelry.RavelryProject
@@ -101,7 +102,10 @@ internal object RavelryJson {
             location = entry.text("location"),
             skeins = pack?.number("skeins"),
             yardsPerSkein = pack?.number("yards_per_skein") ?: yarn?.number("yardage"),
-            gramsPerSkein = pack?.number("grams_per_skein") ?: yarn?.number("grams")
+            gramsPerSkein = pack?.number("grams_per_skein") ?: yarn?.number("grams"),
+            photoUrl = entry.optJSONObject("first_photo")?.let { photo ->
+                photo.text("medium_url") ?: photo.text("small_url") ?: photo.text("thumbnail_url")
+            }?.let(RavelryPhotoUrls::safe)
         )
     }
 

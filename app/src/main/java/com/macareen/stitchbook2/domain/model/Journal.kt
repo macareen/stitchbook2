@@ -2,7 +2,9 @@ package com.macareen.stitchbook2.domain.model
 
 /**
  * A *reference* to a photo the user owns (PRODUCT_SPEC.md 6.9). [uri] is a
- * persisted-permission SAF `content://` URI -- the original is never
+ * persisted-permission SAF `content://` URI, or a public HTTPS Ravelry
+ * thumbnail source retained in exports. Remote originals stay on Ravelry;
+ * only reproducible thumbnails enter cacheDir. A local original is never
  * copied into app storage, and deleting this record never deletes the
  * file. [displayName] is captured at attach time so a missing file can
  * still be identified for relinking.
