@@ -32,6 +32,23 @@ class CreateGuideFromPdfUseCaseTest {
         return { "node-${counter++}" }
     }
 
+    @Test fun aPatternDraftIncludesOnlyItsExplicitSizeProseAndKeepsRepeatStructure() = runBlocking {
+        val text = listOf("Sizes: S (M, L)", "BODY", "Size S only: Row 1: Knit.",
+            "Size M only: Row 1: Purl.", "Size L only: Row 1: K2, p2.",
+            "All sizes: Row 2: Knit.", "Repeat rows 1-2 2 times.")
+        val document = ExtractedDocument(1, text.mapIndexed { index, line ->
+            ExtractedLine(line, SourceReference(1, index + 1)) })
+        val repository = FakeGuideRepository()
+        val useCase = CreateGuideFromPdfUseCase(FakePdfTextExtractor(document), repository, idGenerator())
+        val result = useCase.forPattern("pattern", "M", null, "Sample cardigan", ByteArrayInputStream(ByteArray(0)))
+        assertEquals(0, (result as CreateGuideFromPdfUseCase.Result.Success).issueCount)
+        val nodes = requireNotNull(repository.lastSavedDraft).nodes
+        assertTrue(nodes.any { it.instructionText == "Row 1: Purl. (p.1)" })
+        assertTrue(nodes.none { it.instructionText?.contains("K2, p2") == true })
+        assertTrue(nodes.none { it.instructionText?.startsWith("Size ") == true })
+        assertTrue(nodes.any { it.repeatCount == 2 })
+    }
+
     @Test
     fun `a PDF with a text layer creates a guide with a populated draft`() = runBlocking {
         val document = ExtractedDocument(

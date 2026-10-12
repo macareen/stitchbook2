@@ -7,6 +7,7 @@ import com.macareen.stitchbook2.domain.parsing.ExtractedLine
 import com.macareen.stitchbook2.domain.parsing.ParsedPatternMapper
 import com.macareen.stitchbook2.domain.parsing.ParsingIssue
 import com.macareen.stitchbook2.domain.parsing.PatternDetails
+import com.macareen.stitchbook2.domain.parsing.SizeSpecificInstructions
 import com.macareen.stitchbook2.domain.parsing.PatternSizes
 import com.macareen.stitchbook2.domain.parsing.PatternTextParser
 import com.macareen.stitchbook2.domain.parsing.PdfTextExtractionException
@@ -85,7 +86,9 @@ class CreateGuideFromPdfUseCase(
         val index = PatternSizes.indexOf(sizeLabel, labels)
         val issueSource = fromPdf?.second?.source ?: document.lines.first().source
         val (sized, issues) = when {
-            index != null -> PatternSizes.forSize(document.withoutLine(fromPdf?.second), index, labels.size) to emptyList()
+            index != null -> SizeSpecificInstructions.select(document.withoutLine(fromPdf?.second), labels, index).let {
+                it.document to it.issues
+            }
             labels.isEmpty() -> document to listOf(
                 ParsingIssue("No size list was found, so every size's numbers are kept for size ${sizeLabel.trim()}.", issueSource)
             )
