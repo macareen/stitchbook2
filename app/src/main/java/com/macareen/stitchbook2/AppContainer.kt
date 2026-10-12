@@ -157,7 +157,9 @@ class DefaultAppContainer(context: Context) : AppContainer {
         stashRepository = stashRepository,
         toolRepository = toolRepository,
         projectRepository = projectRepository,
-        libraryRepository = libraryRepository
+        libraryRepository = libraryRepository,
+        journalRepository = journalRepository,
+        cacheThumbnail = { url -> com.macareen.stitchbook2.data.photos.RavelryThumbnailCache.refresh(context, url) }
     )
 
     override val downloadRavelryPdf: DownloadRavelryPdf = DownloadRavelryPdf(

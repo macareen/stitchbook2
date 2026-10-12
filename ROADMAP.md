@@ -28,7 +28,7 @@ The product's centre, cutting across the phases below. Status as of 2026-10-08:
 
 Still open from the first phone test:
 - Confirming Ravelry PDF download on a real key (built: *Get the PDF from Ravelry* on a pattern's page; the endpoints still need a live check).
-- Ravelry yarn photos on stash cards.
+- Confirm Ravelry yarn-photo rendering with a real stash pull (implemented with cache-only offline browsing).
 - Matching a pattern's suggested needles to the needles you own.
 
 Fix next, from the second phone test (2026-10-09), most important first:
@@ -46,7 +46,7 @@ Fix next, from the second phone test (2026-10-09), most important first:
    - Implemented 2026-10-12: yarn totals appear before the own-skein amount is entered; stitch and row gauge pairs independently show a multiplier and optional converted count, with missing-input prompts. Labels are short and single-line, and fields share a scalable minimum height.
 5. **Knitting view time tiles cut text off** ("under a minute" shows as "under a"). Implemented 2026-10-12: compact labels such as "<1 min" and "1h 05m", with scalable tile height and preserved estimate labels.
 6. **Ravelry PDF download fails** with "wouldn't hand over this PDF with your key". Implemented safe stage/HTTP diagnostics and documented product-attachment IDs in 2026-10-12. Personal account keys already grant all permissions; OAuth library-pdf scope is a separate requirement for OAuth callers. Removed the unsupported key-upgrade advice. Exact phone failure remains to be checked; see [download findings](docs/RAVELRY_DOWNLOAD_FINDINGS.md).
-7. **Ravelry yarn photos on stash cards** (photos the user added on Ravelry).
+7. **Ravelry yarn photos on stash cards** (photos the user added on Ravelry). Implemented 2026-10-12: first_photo thumbnails are imported as portable Photo source references, photo-only changes participate in yarn review, local attachments keep cover priority, and bounded cacheDir images are downloaded only during explicit pulls. Full-library JSON preserves links; evicted/restored caches refill on a later pull. Real-account rendering remains to be checked.
 8. **Small layout issues:**
    - Home's project card meta wraps ("updated 8...").
    - The draft editor title shows the typed lower-case guide name.

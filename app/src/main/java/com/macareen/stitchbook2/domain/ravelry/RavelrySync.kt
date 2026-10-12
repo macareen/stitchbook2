@@ -1,5 +1,6 @@
 package com.macareen.stitchbook2.domain.ravelry
 
+import com.macareen.stitchbook2.domain.repository.JournalRepository
 import com.macareen.stitchbook2.domain.repository.LibraryRepository
 import com.macareen.stitchbook2.domain.repository.ProjectRepository
 import com.macareen.stitchbook2.domain.repository.StashRepository
@@ -19,7 +20,9 @@ class RavelrySync(
     private val toolRepository: ToolRepository,
     private val projectRepository: ProjectRepository,
     private val libraryRepository: LibraryRepository,
-    private val clock: () -> Long = System::currentTimeMillis
+    private val clock: () -> Long = System::currentTimeMillis,
+    private val journalRepository: JournalRepository? = null,
+    private val cacheThumbnail: suspend (String) -> Unit = {}
 ) {
     /** Checks the stored key and returns the Ravelry account name it belongs to. */
     suspend fun connectedUsername(): String = api.currentUsername(requireCredentials())
@@ -31,12 +34,17 @@ class RavelrySync(
         val needles = api.needles(credentials, username)
         val projects = api.projects(credentials, username)
         val library = api.library(credentials, username)
+        val localPhotos = journalRepository?.observePhotos()?.first().orEmpty()
+        val remoteSources = stash.mapNotNull { RavelryPhotoUrls.safe(it.photoUrl) }.toSet()
+        localPhotos.filter { it.id.startsWith("ravelry-stash-photo-") && it.uri in remoteSources }
+            .forEach { cacheThumbnail(it.uri) }
         return RavelryImportPlanner.plan(
             stash = stash,
             needles = needles,
             localStash = stashRepository.observeStashItems().first(),
             localTools = toolRepository.observeToolItems().first(),
-            now = clock()
+            now = clock(),
+            localPhotos = localPhotos
         ).copy(
             projects = RavelryImportPlanner.planProjects(projects, projectRepository.observeProjects().first(), clock()),
             patterns = RavelryImportPlanner.planPatterns(library, libraryRepository.observeLibraryItems().first(), clock())
@@ -50,6 +58,19 @@ class RavelrySync(
         val projects = plan.projects.toSave(includeChanges)
         val patterns = plan.patterns.toSave(includeChanges)
         stash.forEach { stashRepository.saveStashItem(it) }
+        val savedStashIds = stash.map { it.id }.toSet()
+        val existingStashIds = stashRepository.observeStashItems().first().map { it.id }.toSet()
+        val currentPhotos = journalRepository?.observePhotos()?.first().orEmpty().associateBy { it.id }.toMutableMap()
+        plan.stashPhotos.forEach { photo ->
+            if (photo.stashItemId in savedStashIds) {
+                journalRepository?.savePhoto(photo)
+                if (journalRepository != null) currentPhotos[photo.id] = photo
+            }
+            // Refresh reproducible cache during the explicit pull, including unchanged records.
+            // Declined photo changes cannot silently replace a currently displayed thumbnail.
+            val current = currentPhotos[photo.id]
+            if (photo.stashItemId in existingStashIds && current?.uri == photo.uri) cacheThumbnail(photo.uri)
+        }
         tools.forEach { toolRepository.saveToolItem(it) }
         projects.forEach { projectRepository.saveProject(it) }
         patterns.forEach { libraryRepository.saveLibraryItem(it) }

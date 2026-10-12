@@ -542,3 +542,10 @@ Known pattern titles and decorative rule lines are removed before instruction pa
 ## Ravelry download diagnostics (2026-10-12)
 
 Typed request stages and HTTP statuses propagate to download feedback without URLs, identifiers, response bodies, signed links or credentials. App logging receives only the bounded stage enum and numeric status. Volume attachments require their product attachment ID; absent direct-download IDs yield manual-download guidance rather than guessing. OAuth is not introduced: supplied API notes grant personal account keys all permissions. [Download findings](docs/RAVELRY_DOWNLOAD_FINDINGS.md) record evidence and the conditional OAuth proposal.
+
+
+### Ravelry stash-photo references
+
+The documented Stash first_photo medium_url (falling back to small_url/thumbnail_url) supplies the user's own entry photo, never the yarn catalogue image. A stable ravelry-stash-photo ID stores its public HTTPS source in the existing Photo record and full-library JSON format 3; no schema change is needed. Photo-only changes count as reviewed yarn changes. Declining changed records preserves the previous photo; local captions and attached files are never replaced or deleted. Local content photos have cover priority.
+
+Only explicit Ravelry preview/apply operations fetch thumbnails, without authorization headers. Browsing and backup restore never fetch remote images. Public sources reject embedded credentials, query strings, fragments, insecure schemes and nonstandard ports. Redirects must retain that policy. Downloads are bounded to 5 MiB, decoded to at most 512 pixels on the longest edge, and cached as reproducible JPEGs under cacheDir/ravelry-thumbnails with a 32 MiB cap. Original photos remain on Ravelry or in the user's attached documents. Cache eviction/offline absence shows the existing photo placeholder; a later explicit pull refills accepted unchanged sources too. Restore retains remote source references without treating them as missing local files; it cannot verify remote availability offline.

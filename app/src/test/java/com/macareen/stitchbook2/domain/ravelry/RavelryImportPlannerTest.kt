@@ -27,6 +27,47 @@ class RavelryImportPlannerTest {
     )
     private val needle = RavelryNeedle(9, "US 6 - 4.0 mm", "circular", "4.0 mm", "24 inch", null)
 
+    @Test fun photoOnlyChangesAreReviewedAndRepeatedPullsAreIdempotent() {
+        val first = RavelryImportPlanner.plan(listOf(entry), emptyList(), emptyList(), emptyList(), 10)
+        val source = "https://images.example.test/yarn.jpg"
+        val withPhoto = RavelryImportPlanner.plan(listOf(entry.copy(photoUrl = source)), emptyList(),
+            first.newStash, emptyList(), 20)
+        assertEquals(1, withPhoto.changedStash.size)
+        assertEquals(1, withPhoto.changeCount)
+        assertTrue(!withPhoto.hasNothingToDo)
+        val photo = withPhoto.stashPhotos.single()
+        assertEquals(source, photo.uri)
+        assertEquals("ravelry-stash-1", photo.stashItemId)
+        val again = RavelryImportPlanner.plan(listOf(entry.copy(photoUrl = source)), emptyList(),
+            withPhoto.changedStash.map { it.updated }, emptyList(), 30, localPhotos = listOf(photo))
+        assertTrue(again.hasNothingToDo)
+        assertEquals(photo, again.stashPhotos.single())
+    }
+
+    @Test fun updatingARemotePhotoKeepsLocalAnnotationsAndNeverRemovesOtherPhotos() {
+        val first = RavelryImportPlanner.plan(listOf(entry.copy(photoUrl = "https://images.example.test/one.jpg")),
+            emptyList(), emptyList(), emptyList(), 10)
+        val annotated = first.stashPhotos.single().copy(caption = "My colour note", takenDate = "2026-10-12")
+        val updated = RavelryImportPlanner.plan(listOf(entry.copy(photoUrl = "https://images.example.test/two.jpg")),
+            emptyList(), first.newStash, emptyList(), 20, localPhotos = listOf(annotated))
+        assertEquals("My colour note", updated.stashPhotos.single().caption)
+        assertEquals(annotated.createdAt, updated.stashPhotos.single().createdAt)
+        val absent = RavelryImportPlanner.plan(listOf(entry), emptyList(), first.newStash, emptyList(), 20,
+            localPhotos = listOf(annotated))
+        assertTrue(absent.stashPhotos.isEmpty())
+        assertTrue(absent.hasNothingToDo)
+    }
+
+    @Test fun insecureOrCredentialBearingPhotoUrlsAreNotImported() {
+        listOf("http://images.example.test/a.jpg", "https://user:password@images.example.test/a.jpg",
+            "https://images.example.test/a.jpg?token=private", "file:///photo.jpg", "broken").forEach { url ->
+            assertNull(RavelryPhotoUrls.safe(url))
+            val plan = RavelryImportPlanner.plan(listOf(entry.copy(photoUrl = url)), emptyList(),
+                emptyList(), emptyList(), 10)
+            assertTrue(plan.stashPhotos.isEmpty())
+        }
+    }
+
     @Test
     fun firstPullAddsEverythingWithStableIds() {
         val plan = RavelryImportPlanner.plan(listOf(entry), listOf(needle), emptyList(), emptyList(), now = 10)

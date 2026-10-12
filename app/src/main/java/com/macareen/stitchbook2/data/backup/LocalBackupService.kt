@@ -290,7 +290,10 @@ class LocalBackupService(
 
     private suspend fun missingFiles(snapshot: BackupSnapshot): List<String> {
         val references = snapshot.libraryItems.orEmpty().mapNotNull { item -> item.pdfUri?.let { it to (item.pdfFileName ?: it) } } +
-            snapshot.photos.orEmpty().map { it.uri to (it.displayName ?: it.uri) }
+            snapshot.photos.orEmpty().filterNot {
+                it.id.startsWith("ravelry-stash-photo-") &&
+                    com.macareen.stitchbook2.domain.ravelry.RavelryPhotoUrls.safe(it.uri) != null
+            }.map { it.uri to (it.displayName ?: it.uri) }
         return references.filterNot { (uri, _) -> isFileAccessible(uri) }.map { it.second }
     }
 

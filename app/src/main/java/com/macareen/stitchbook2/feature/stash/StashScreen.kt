@@ -549,7 +549,7 @@ private fun StashItemCard(
                     .height(132.dp)
                     .background(pastel.tile)
             ) {
-                val cover = photos.firstOrNull()
+                val cover = photos.firstOrNull { it.uri.startsWith("content://") } ?: photos.firstOrNull()
                 if (cover != null) {
                     PhotoThumbnail(
                         uri = cover.uri,

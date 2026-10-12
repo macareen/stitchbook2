@@ -7,14 +7,16 @@ import android.graphics.Matrix
 import android.media.ExifInterface
 import android.net.Uri
 import android.util.LruCache
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
  * Decodes downsampled thumbnails straight from the user's original
  * `content://` photo. Only these reproducible derivatives are cached, and
- * only in memory (AGENTS.md: "internal cache may hold reproducible
- * thumbnails"); the original is opened read-only and never copied.
+ * in memory; imported Ravelry thumbnails also have a bounded cacheDir copy
+ * (screens never fetch them). AGENTS.md: "internal cache may hold reproducible
+ * thumbnails"; the original is opened read-only and never copied.
  * Uses platform APIs only, so no image-loading library is needed.
  */
 object PhotoThumbnailLoader {
@@ -29,7 +31,14 @@ object PhotoThumbnailLoader {
         cache.get(key)?.let { return it }
         return withContext(Dispatchers.IO) {
             try {
-                decode(context, Uri.parse(uri), maxSizePx)?.also { cache.put(key, it) }
+                val parsed = Uri.parse(uri)
+                val bitmap = if (parsed.scheme.equals("https", ignoreCase = true)) {
+                    RavelryThumbnailCache.file(context, uri)?.takeIf { it.exists() }
+                        ?.let { BitmapFactory.decodeFile(it.absolutePath) }
+                } else decode(context, parsed, maxSizePx)
+                bitmap?.also { cache.put(key, it) }
+            } catch (error: CancellationException) {
+                throw error
             } catch (_: SecurityException) {
                 null
             } catch (_: Exception) {

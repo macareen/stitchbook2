@@ -40,6 +40,16 @@ class HttpRavelryApiTest {
         downloadTo = download
     )
 
+    @Test fun stashPhotosUseTheEntryPhotoRatherThanAYarnCatalogueImage() {
+        val page = RavelryJson.stashPage("""{"stash": [{"id": 1,
+            "first_photo": {"medium_url": "https://images.example.test/own.jpg"},
+            "yarn": {"first_photo": {"medium_url": "https://images.example.test/catalogue.jpg"}}}]}""")
+        assertEquals("https://images.example.test/own.jpg", page.entries.single().photoUrl)
+        val unsafe = RavelryJson.stashPage("""{"stash": [{"id": 1,
+            "first_photo": {"medium_url": "http://images.example.test/own.jpg"}}]}""")
+        assertEquals(null, unsafe.entries.single().photoUrl)
+    }
+
     @Test
     fun usesBasicAuthWithTheKeyPairAndReadsTheUsername() = runBlocking {
         val api = api(mapOf("/current_user.json" to ok("""{"user": {"id": 7, "username": "Ana Knits"}}""")))
