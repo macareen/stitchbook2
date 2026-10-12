@@ -83,3 +83,5 @@ For each feature, label static evidence separately from observed runtime output.
 - Calculator feedback uses independent partial results and clear missing-input prompts. It is a user-requested usability fix; reference timer/progress algorithms remain separate follow-up work.
 
 - PR #70: partial calculator feedback and aligned fields; 587 unit tests, lint/build and three emulator UI checks passed. Compact time labels and adaptive large-font controls follow the user's phone feedback; session arithmetic is unchanged.
+
+- PR #71: compact/scalable time tiles and adaptive action buttons; 587 unit tests, lint/build and thirteen focused emulator checks passed. Standalone project PDF title filtering now uses the generated filename-stem name. Pattern details remain portable through JSON and Library CSV; linked-pattern details are not currently expanded in project Markdown.
