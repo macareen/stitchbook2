@@ -131,6 +131,29 @@ class DownloadRavelryPdfTest {
         assertTrue(runCatching { PdfSignatureCheck(ByteArrayOutputStream()).use { it.write("%PD".toByteArray()) } }.exceptionOrNull() is NotAPdfException)
     }
 
+    @Test
+    fun missingProductIdentifiersNeverRequestAnUnrelatedFile() = runBlocking {
+        api.attachments[7] = listOf(RavelryAttachment(null, "Hat.pdf"))
+        assertEquals(DownloadRavelryPdf.Result.Failed(DownloadRavelryPdf.Problem.NO_DIRECT_DOWNLOAD), download("ravelry-volume-7"))
+        assertTrue(api.linksAskedFor.isEmpty())
+        assertTrue(folder.saved.isEmpty())
+    }
+
+    @Test
+    fun exactHttpStatusAndStageDistinguishPermissionRateLimitAndServerErrors() = runBlocking {
+        val stage = com.macareen.stitchbook2.domain.ravelry.RavelryRequestStage.PDF_LINK
+        api.failure = RavelryAuthException("Denied", 403, stage)
+        assertEquals(DownloadRavelryPdf.Result.Failed(DownloadRavelryPdf.Problem.PERMISSION_DENIED, 403, stage), download("ravelry-volume-7"))
+        api.failure = RavelryUnavailableException("Limited", httpStatus = 429, stage = stage)
+        assertEquals(DownloadRavelryPdf.Result.Failed(DownloadRavelryPdf.Problem.RATE_LIMITED, 429, stage), download("ravelry-volume-7"))
+        api.failure = RavelryUnavailableException("Unavailable", httpStatus = 503, stage = stage)
+        assertEquals(DownloadRavelryPdf.Result.Failed(DownloadRavelryPdf.Problem.SERVER_UNAVAILABLE, 503, stage), download("ravelry-volume-7"))
+        val fileStage = com.macareen.stitchbook2.domain.ravelry.RavelryRequestStage.PDF_FILE
+        api.failure = RavelryUnavailableException("Expired", httpStatus = 403, stage = fileStage)
+        assertEquals(DownloadRavelryPdf.Result.Failed(DownloadRavelryPdf.Problem.LINK_EXPIRED, 403, fileStage), download("ravelry-volume-7"))
+        assertTrue(folder.saved.isEmpty())
+    }
+
     private fun item(id: String, title: String, patternId: String? = null) = LibraryItem(
         id = id, title = title, craft = Craft.KNITTING, author = null, sourceUrl = null, tags = emptyList(),
         notes = null, bookmarked = false, createdAt = 1, updatedAt = 1, ravelryPatternId = patternId

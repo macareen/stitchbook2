@@ -147,7 +147,9 @@ class DefaultAppContainer(context: Context) : AppContainer {
         newId = { UUID.randomUUID().toString() }
     )
 
-    private val ravelryApi = HttpRavelryApi()
+    private val ravelryApi = HttpRavelryApi(onHttpResult = { stage, status ->
+        android.util.Log.i("RavelryHttp", "${stage.name} HTTP $status")
+    })
 
     override val ravelrySync: RavelrySync = RavelrySync(
         api = ravelryApi,

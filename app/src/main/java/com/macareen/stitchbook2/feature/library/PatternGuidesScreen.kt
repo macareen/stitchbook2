@@ -37,6 +37,7 @@ import com.macareen.stitchbook2.domain.guide.Guide
 import com.macareen.stitchbook2.domain.model.Craft
 import com.macareen.stitchbook2.domain.model.PatternNames
 import com.macareen.stitchbook2.domain.model.LibraryItem
+import com.macareen.stitchbook2.domain.ravelry.RavelryRequestStage
 import com.macareen.stitchbook2.domain.ravelry.DownloadRavelryPdf
 import com.macareen.stitchbook2.ui.components.PrimaryActionButton
 import com.macareen.stitchbook2.ui.components.QuietText
@@ -203,11 +204,14 @@ private fun RavelryPdfMessage(result: DownloadRavelryPdf.Result?) {
                 QuietText(text = pluralStringResource(R.plurals.ravelry_pdf_more_files, result.otherPdfs, result.otherPdfs))
             }
         }
-        is DownloadRavelryPdf.Result.Failed -> Text(
-            text = stringResource(ravelryProblemText(result.problem)),
-            color = MaterialTheme.colorScheme.error,
-            style = MaterialTheme.typography.bodyMedium
-        )
+        is DownloadRavelryPdf.Result.Failed -> Column(verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.extraSmall)) {
+            Text(text = stringResource(ravelryProblemText(result.problem)), color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium)
+            result.httpStatus?.let { status ->
+                QuietText(text = stringResource(R.string.ravelry_pdf_http_status, status,
+                    result.stage?.let { stringResource(ravelryStageText(it)) }.orEmpty()))
+            }
+        }
     }
 }
 
@@ -223,6 +227,19 @@ private fun ravelryProblemText(problem: DownloadRavelryPdf.Problem): Int = when 
     DownloadRavelryPdf.Problem.NOT_A_PDF -> R.string.ravelry_pdf_not_a_pdf
     DownloadRavelryPdf.Problem.UNREADABLE_ANSWER -> R.string.ravelry_pdf_unreadable_answer
     DownloadRavelryPdf.Problem.SAVE_FAILED -> R.string.ravelry_pdf_save_failed
+    DownloadRavelryPdf.Problem.NO_DIRECT_DOWNLOAD -> R.string.ravelry_pdf_no_direct_download
+    DownloadRavelryPdf.Problem.PERMISSION_DENIED -> R.string.ravelry_pdf_permission_denied
+    DownloadRavelryPdf.Problem.RATE_LIMITED -> R.string.ravelry_pdf_rate_limited
+    DownloadRavelryPdf.Problem.SERVER_UNAVAILABLE -> R.string.ravelry_pdf_server_unavailable
+    DownloadRavelryPdf.Problem.LINK_EXPIRED -> R.string.ravelry_pdf_link_expired
+}
+
+private fun ravelryStageText(stage: RavelryRequestStage): Int = when (stage) {
+    RavelryRequestStage.ACCOUNT -> R.string.ravelry_stage_account
+    RavelryRequestStage.VOLUME_FILES -> R.string.ravelry_stage_files
+    RavelryRequestStage.PDF_LINK -> R.string.ravelry_stage_link
+    RavelryRequestStage.PDF_FILE -> R.string.ravelry_stage_download
+    else -> R.string.ravelry_stage_library
 }
 
 @Composable

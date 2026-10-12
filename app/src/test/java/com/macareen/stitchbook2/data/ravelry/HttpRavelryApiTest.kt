@@ -9,6 +9,7 @@ import java.io.IOException
 import java.io.OutputStream
 import java.util.Base64
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -153,8 +154,8 @@ class HttpRavelryApiTest {
     @Test
     fun otherAttachmentSpellingsAreAcceptedAndAMissingListIsEmpty() {
         val plain = RavelryJson.volumeAttachments("""{"volume": {"attachments": [{"id": 5, "name": "Hat.pdf"}, {"name": "no id"}]}}""")
-        assertEquals(listOf(5L), plain.map { it.id })
-        assertEquals("Hat.pdf", plain.single().fileName)
+        assertEquals(listOf(null, null), plain.map { it.id })
+        assertEquals("Hat.pdf", plain.first().fileName)
         val product = RavelryJson.volumeAttachments("""{"volume": {"product_attachments": [{"id": 6, "file_name": "Socks.pdf"}]}}""")
         assertEquals("Socks.pdf", product.single().fileName)
         assertTrue(RavelryJson.volumeAttachments("""{"volume": {"id": 7}}""").isEmpty())
@@ -196,6 +197,27 @@ class HttpRavelryApiTest {
         assertTrue(failure { offline.downloadFile("https://d.test/x", sink) } is RavelryUnavailableException)
         val notPdf = api(emptyMap(), download = { _, _ -> throw NotAPdfException() })
         assertTrue(failure { notPdf.downloadFile("https://d.test/x", sink) } is NotAPdfException)
+    }
+
+    @Test
+    fun diagnosticsContainOnlyAStageAndStatusAndPreserveTheHttpFailure() = runBlocking {
+        val diagnostics = mutableListOf<Pair<com.macareen.stitchbook2.domain.ravelry.RavelryRequestStage, Int>>()
+        val api = HttpRavelryApi(baseUrl = "https://api.test", post = { _, _ ->
+            HttpRavelryApi.HttpResult(403, "private response must not be logged")
+        }, onHttpResult = { stage, status -> diagnostics += stage to status })
+        val error = failure { api.downloadLink(credentials, 31) } as RavelryAuthException
+        assertEquals(403, error.httpStatus)
+        assertEquals(com.macareen.stitchbook2.domain.ravelry.RavelryRequestStage.PDF_LINK, error.stage)
+        assertEquals(listOf(error.stage to 403), diagnostics)
+        assertFalse(requireNotNull(error.message).contains("private response"))
+    }
+
+    @Test
+    fun aVolumeAttachmentIdIsNeverUsedAsAProductAttachmentId() {
+        val attachments = RavelryJson.volumeAttachments(
+            """{"volume":{"volume_attachments":[{"id":999,"filename":"Hat.pdf"}]}}""")
+        assertNull(attachments.single().id)
+        assertEquals("Hat.pdf", attachments.single().fileName)
     }
 
     private suspend fun failure(block: suspend () -> Unit): Throwable? = try {

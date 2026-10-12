@@ -69,7 +69,7 @@ data class RavelryVolume(
 )
 
 /** One file attached to a library volume (a pattern PDF, or sometimes a zip or chart). */
-data class RavelryAttachment(val id: Long, val fileName: String?)
+data class RavelryAttachment(val id: Long?, val fileName: String?)
 
 /**
  * Read-only access to the signed-in person's own Ravelry records.
@@ -97,8 +97,12 @@ interface RavelryApi {
     suspend fun downloadFile(url: String, into: OutputStream)
 }
 
-/** Ravelry refused the key (HTTP 401/403): it was mistyped, revoked, or is a read-only key. */
-class RavelryAuthException(message: String) : IOException(message)
+/** Safe logical stages: no URL, account name, attachment ID, or credential. */
+enum class RavelryRequestStage { ACCOUNT, STASH, NEEDLES, PROJECTS, LIBRARY, VOLUME_FILES, PDF_LINK, PDF_FILE }
+
+/** Authentication/permission failure; a status alone does not establish the key type. */
+class RavelryAuthException(message: String, val httpStatus: Int? = null, val stage: RavelryRequestStage? = null) : IOException(message)
 
 /** Any other failure talking to Ravelry; the local library is never changed when this happens. */
-class RavelryUnavailableException(message: String, cause: Throwable? = null) : IOException(message, cause)
+class RavelryUnavailableException(message: String, cause: Throwable? = null,
+    val httpStatus: Int? = null, val stage: RavelryRequestStage? = null) : IOException(message, cause)
