@@ -29,7 +29,7 @@ class PatternSizePickerTest {
                 PatternGuidesScreen(
                     PatternGuidesUiState.Content(pattern, emptyList(), false, false, pdfSizeChoices = sizes),
                     onOpenPdf = {}, onEditGuide = {},
-                    onCreateGuide = { size, _, _ -> selected = size }
+                    onCreateGuide = { size, _ -> selected = size }
                 )
             }
         }
@@ -37,6 +37,8 @@ class PatternSizePickerTest {
         sizes.forEach { compose.onNodeWithText(it).assertIsDisplayed() }
         compose.onNodeWithText("5XL").performClick()
         compose.waitForIdle()
+        compose.onNodeWithText("Guide name").assertDoesNotExist()
+        compose.onNodeWithText("Sample cardigan \u00b7 5XL").assertIsDisplayed()
         // Optional visual QA artifact, written only when requested by the test runner.
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         if (InstrumentationRegistry.getArguments().getString("captureSizePicker") == "true") {

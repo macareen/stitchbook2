@@ -72,3 +72,9 @@ Yarn specifications include roles, strand counts, held-together groups, alternat
 6. Build the already-requested pattern/project page mockups around these capabilities. Obtain the user's mockup approval before coding the bigger pages.
 
 For each feature, label static evidence separately from observed runtime output. Runtime comparison should use the same permissioned PDF and chosen size, checking metadata, pieces, step text, nested repeats, navigation and persistence. Current regression tests establish Stitchbook behavior only; they do not claim LooseLoop's server produced the same result.
+
+## Stitchbook application ledger
+
+- PR #67: PDF size discovery and grouped/alternating numeric resolution.
+- PR #68: known-title/rule filtering, wrapped metadata boundaries, and portable measurements/abbreviation notes; 582 unit tests, lint and debug build passed. This reproduces the separation of details and executable content; it does not claim the reference server uses these heuristics.
+- Automatic naming follows the user's explicit naming decisions; it is not presented as a discovered reference algorithm.

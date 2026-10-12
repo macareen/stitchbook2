@@ -203,3 +203,7 @@ The launcher icon is an adaptive icon drawn as vectors (`res/drawable/ic_launche
 - Project sheets speak plainly: *Set aside yarn*, "No yarn for this project yet", "No tools for this project yet".
 - The Draft editor's step cards use `surfaceContainerLow`, and spans read "Rows 1–10". Imported steps note "(p.N)" only where the page changes, and Focus hides that note.
 
+
+## 19. Automatic guide names
+
+The new pattern guide dialog asks for a size and offers filling from the PDF. It previews the generated pattern-title and size name instead of showing a guide-name field. Project PDF import opens the document picker directly and uses the selected file name without its extension. The Draft editor displays that generated name. Manual blank guides still allow an authored title.

@@ -1,5 +1,6 @@
 package com.macareen.stitchbook2.feature.library
 
+import com.macareen.stitchbook2.domain.model.PatternNames
 import com.macareen.stitchbook2.domain.model.ProjectFromPattern
 import com.macareen.stitchbook2.domain.model.ProjectPatternLink
 import com.macareen.stitchbook2.domain.repository.MaterialsRepository
@@ -188,13 +189,13 @@ class PatternGuidesViewModel(
         .stateIn(scope, SharingStarted.WhileSubscribed(5_000), PatternGuidesUiState.Loading)
 
     /** Creates the guide for [sizeLabel]; with [fromPattern], filled from the pattern's PDF for that size. */
-    fun createGuide(sizeLabel: String, name: String, fromPattern: Boolean = false) {
+    fun createGuide(sizeLabel: String, fromPattern: Boolean = false) {
         val content = uiState.value as? PatternGuidesUiState.Content ?: return
         if (content.isCreating || sizeLabel.isBlank()) return
         creation.value = CreationState(isCreating = true)
         scope.launch {
             try {
-                val guideName = name.trim().ifEmpty { "${content.pattern.title} · ${sizeLabel.trim()}" }
+                val guideName = PatternNames.guide(content.pattern.title, sizeLabel, content.pattern.pdfFileName)
                 val pdfUri = content.pattern.pdfUri
                 val useCase = createGuideFromPdf
                 if (fromPattern && pdfUri != null && useCase != null) {

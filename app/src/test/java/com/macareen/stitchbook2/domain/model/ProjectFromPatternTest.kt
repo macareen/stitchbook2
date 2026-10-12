@@ -43,4 +43,13 @@ class ProjectFromPatternTest {
         assertEquals("A relaxed cardigan.", project.description)
         assertEquals(42L, project.createdAt)
     }
+    @Test fun blankTitleUsesPdfStemForTheProjectNameAndType() {
+        val pattern = LibraryItem("pattern", "", Craft.TUNISIAN_CROCHET, null, null,
+            emptyList(), null, false, 0, 0, pdfFileName = "April Cardigan.pdf")
+        val project = ProjectFromPattern.project(pattern, "project", 0)
+        assertEquals("April Cardigan", project.name)
+        assertEquals(ProjectType.CARDIGAN, project.projectType)
+        assertEquals(Craft.TUNISIAN_CROCHET, project.craft)
+    }
+
 }
