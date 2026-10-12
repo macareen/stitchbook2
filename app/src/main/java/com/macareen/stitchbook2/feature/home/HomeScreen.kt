@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -32,6 +33,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -48,6 +51,7 @@ import com.macareen.stitchbook2.ui.components.SkeinArt
 import com.macareen.stitchbook2.ui.theme.CozyPastels
 import com.macareen.stitchbook2.ui.theme.StitchbookSpacing
 import com.macareen.stitchbook2.ui.theme.StitchbookTheme
+import com.macareen.stitchbook2.ui.theme.metadata
 import java.text.DateFormat
 import java.time.LocalTime
 import java.util.Date
@@ -188,8 +192,9 @@ private fun HomeContent(
         }
 
         item {
-            Row(
+            FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small),
+                verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small),
                 modifier = sidePadding
             ) {
                 SoftChip(text = stringResource(R.string.destination_counters), onClick = onOpenCounters)
@@ -345,11 +350,22 @@ private fun HomeProjectCard(
     onClick: () -> Unit
 ) {
     val pastel = CozyPastels.forKey(project.id)
+    val density = LocalDensity.current
+    val craftLabel = stringResource(project.craft.labelResource())
+    val updatedLabel = stringResource(R.string.home_project_updated, formatTimestamp(project.updatedAt))
+    val measurer = rememberTextMeasurer()
+    val metadataStyle = MaterialTheme.typography.metadata
+    val metadataWidthPx = maxOf(
+        measurer.measure(craftLabel, metadataStyle).size.width,
+        measurer.measure(updatedLabel, metadataStyle).size.width
+    )
+    val cardWidth = with(density) { metadataWidthPx.toDp() + 24.dp }
+        .coerceAtLeast(156.dp * density.fontScale.coerceAtLeast(1f))
     Surface(
         onClick = onClick,
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLowest,
-        modifier = Modifier.width(156.dp)
+        modifier = Modifier.width(cardWidth)
     ) {
         Column(
             modifier = Modifier.padding(10.dp),
@@ -366,13 +382,10 @@ private fun HomeProjectCard(
                 SkeinArt(pastel = pastel, width = 44.dp)
             }
             Text(text = project.name, style = MaterialTheme.typography.titleSmall, maxLines = 2)
-            QuietText(
-                text = stringResource(
-                    R.string.home_project_meta,
-                    stringResource(project.craft.labelResource()),
-                    formatTimestamp(project.updatedAt)
-                )
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.extraSmall)) {
+                QuietText(text = craftLabel)
+                QuietText(text = updatedLabel)
+            }
         }
     }
 }
@@ -401,7 +414,7 @@ internal fun greetingFor(hour: Int): Int = when (hour) {
 }
 
 private fun formatTimestamp(timestamp: Long): String {
-    return DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(timestamp))
+    return DateFormat.getDateInstance(DateFormat.SHORT).format(Date(timestamp))
 }
 
 @Preview(showBackground = true)

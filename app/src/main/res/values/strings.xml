@@ -394,7 +394,7 @@
     <string name="home_greeting_morning">Good morning</string>
     <string name="home_greeting_afternoon">Good afternoon</string>
     <string name="home_greeting_evening">Good evening</string>
-    <string name="home_project_meta">%1$s · updated %2$s</string>
+    <string name="home_project_updated">Updated %1$s</string>
     <string name="stash_tab_yarn">Yarn &amp; materials</string>
     <string name="stash_tab_tools">Tools</string>
     <string name="project_next_continue">Continue · %1$s</string>
