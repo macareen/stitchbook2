@@ -35,6 +35,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -64,6 +65,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
@@ -436,44 +438,18 @@ private fun InProgressContent(
         }
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    onClick = onPrevious,
-                    enabled = !state.isBusy,
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                    modifier = Modifier
-                        .weight(0.4f)
-                        .height(60.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            text = stringResource(R.string.focus_previous_action),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = if (state.isBusy) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface
-                        )
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val stacked = LocalDensity.current.fontScale >= 1.5f || maxWidth < 240.dp
+                if (stacked) {
+                    Column(verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
+                        FocusActionButton(false, state.isBusy, onPrevious, Modifier.fillMaxWidth())
+                        FocusActionButton(true, state.isBusy, onComplete, Modifier.fillMaxWidth())
                     }
-                }
-                Surface(
-                    onClick = onComplete,
-                    enabled = !state.isBusy,
-                    shape = CircleShape,
-                    color = if (state.isBusy) MaterialTheme.colorScheme.surfaceContainerHighest else MaterialTheme.colorScheme.primary,
-                    shadowElevation = if (state.isBusy) 0.dp else 4.dp,
-                    modifier = Modifier
-                        .weight(0.6f)
-                        .height(60.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            text = stringResource(R.string.focus_complete_action),
-                            style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
-                            color = if (state.isBusy) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onPrimary
-                        )
+                } else {
+                    Row(horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        FocusActionButton(false, state.isBusy, onPrevious, Modifier.weight(0.4f))
+                        FocusActionButton(true, state.isBusy, onComplete, Modifier.weight(0.6f))
                     }
                 }
             }
@@ -523,6 +499,21 @@ private fun SoftPill(text: String, onClick: () -> Unit, modifier: Modifier = Mod
 }
 
 /** Total and this-step worked time as two small tiles, ticking while this project's timer runs, plus the pause/resume button. */
+@Composable
+private fun FocusActionButton(primary: Boolean, busy: Boolean, onClick: () -> Unit, modifier: Modifier) {
+    val colors = MaterialTheme.colorScheme
+    Surface(onClick = onClick, enabled = !busy, shape = CircleShape,
+        color = if (primary) { if (busy) colors.surfaceContainerHighest else colors.primary } else colors.surfaceContainerLowest,
+        shadowElevation = if (primary && !busy) 4.dp else 0.dp,
+        modifier = modifier.heightIn(min = 60.dp)) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+            Text(text = stringResource(if (primary) R.string.focus_complete_action else R.string.focus_previous_action),
+                style = if (primary) MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp) else MaterialTheme.typography.titleMedium,
+                color = if (busy) colors.outline else if (primary) colors.onPrimary else colors.onSurface)
+        }
+    }
+}
+
 @Composable
 private fun TimeTiles(
     sessions: List<CraftingSession>,
@@ -590,7 +581,7 @@ private fun TimeTile(label: String, value: String, modifier: Modifier = Modifier
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerLowest,
         modifier = modifier
-            .height(60.dp)
+            .heightIn(min = 60.dp)
             .semantics(mergeDescendants = true) {}
     ) {
         Column(
@@ -602,7 +593,7 @@ private fun TimeTile(label: String, value: String, modifier: Modifier = Modifier
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.outline
             )
-            Text(text = value, style = MaterialTheme.typography.titleMedium, maxLines = 1)
+            Text(text = value, style = MaterialTheme.typography.titleMedium)
         }
     }
 }
