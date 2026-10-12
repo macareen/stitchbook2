@@ -1,6 +1,7 @@
 package com.macareen.stitchbook2.data.ravelry
 
 import com.macareen.stitchbook2.domain.ravelry.NotAPdfException
+import com.macareen.stitchbook2.domain.ravelry.RavelryRequestStage
 import com.macareen.stitchbook2.domain.ravelry.RavelryApi
 import com.macareen.stitchbook2.domain.ravelry.RavelryAttachment
 import com.macareen.stitchbook2.domain.ravelry.RavelryAuthException
@@ -29,32 +30,34 @@ class HttpRavelryApi(
     private val baseUrl: String = "https://api.ravelry.com",
     private val fetch: (url: String, authorization: String) -> HttpResult = { url, authorization -> httpCall("GET", url, authorization) },
     private val post: (url: String, authorization: String) -> HttpResult = { url, authorization -> httpCall("POST", url, authorization) },
-    private val downloadTo: (url: String, into: OutputStream) -> Unit = ::httpDownload
+    private val downloadTo: (url: String, into: OutputStream) -> Unit = ::httpDownload,
+    private val onHttpResult: (RavelryRequestStage, Int) -> Unit = { _, _ -> }
 ) : RavelryApi {
 
     data class HttpResult(val status: Int, val body: String)
 
     override suspend fun currentUsername(credentials: RavelryCredentials): String =
-        parse { RavelryJson.username(get(credentials, "/current_user.json")) }
+        parse { RavelryJson.username(get(credentials, "/current_user.json", RavelryRequestStage.ACCOUNT)) }
 
     override suspend fun stash(credentials: RavelryCredentials, username: String): List<RavelryStashEntry> =
-        allPages(credentials, "/people/${encode(username)}/stash/list.json", RavelryJson::stashPage)
+        allPages(credentials, "/people/${encode(username)}/stash/list.json", RavelryJson::stashPage, RavelryRequestStage.STASH)
 
     override suspend fun projects(credentials: RavelryCredentials, username: String): List<RavelryProject> =
-        allPages(credentials, "/projects/${encode(username)}/list.json", RavelryJson::projectsPage)
+        allPages(credentials, "/projects/${encode(username)}/list.json", RavelryJson::projectsPage, RavelryRequestStage.PROJECTS)
 
     override suspend fun library(credentials: RavelryCredentials, username: String): List<RavelryVolume> =
-        allPages(credentials, "/people/${encode(username)}/library/search.json", RavelryJson::volumesPage)
+        allPages(credentials, "/people/${encode(username)}/library/search.json", RavelryJson::volumesPage, RavelryRequestStage.LIBRARY)
 
     private suspend fun <T> allPages(
         credentials: RavelryCredentials,
         path: String,
-        read: (String) -> RavelryJson.Page<T>
+        read: (String) -> RavelryJson.Page<T>,
+        stage: RavelryRequestStage
     ): List<T> {
         val entries = mutableListOf<T>()
         var page = 1
         while (page <= MAX_PAGES) {
-            val body = get(credentials, "$path?page=$page&page_size=$PAGE_SIZE")
+            val body = get(credentials, "$path?page=$page&page_size=$PAGE_SIZE", stage)
             val result = parse { read(body) }
             entries += result.entries
             if (result.isLastPage || result.entries.isEmpty()) break
@@ -64,13 +67,13 @@ class HttpRavelryApi(
     }
 
     override suspend fun needles(credentials: RavelryCredentials, username: String): List<RavelryNeedle> =
-        parse { RavelryJson.needles(get(credentials, "/people/${encode(username)}/needles/list.json")) }
+        parse { RavelryJson.needles(get(credentials, "/people/${encode(username)}/needles/list.json", RavelryRequestStage.NEEDLES)) }
 
     override suspend fun volumeAttachments(credentials: RavelryCredentials, volumeId: Long): List<RavelryAttachment> =
-        parse { RavelryJson.volumeAttachments(get(credentials, "/volumes/$volumeId.json")) }
+        parse { RavelryJson.volumeAttachments(get(credentials, "/volumes/$volumeId.json", RavelryRequestStage.VOLUME_FILES)) }
 
     override suspend fun downloadLink(credentials: RavelryCredentials, attachmentId: Long): String {
-        val body = get(credentials, "/product_attachments/$attachmentId/generate_download_link.json", post)
+        val body = get(credentials, "/product_attachments/$attachmentId/generate_download_link.json", RavelryRequestStage.PDF_LINK, post)
         return parse { RavelryJson.downloadUrl(body) }
             ?: throw RavelryUnavailableException("Ravelry did not send a download link.")
     }
@@ -78,6 +81,9 @@ class HttpRavelryApi(
     override suspend fun downloadFile(url: String, into: OutputStream) {
         try {
             withContext(Dispatchers.IO) { downloadTo(url, into) }
+        } catch (e: FileHttpException) {
+            onHttpResult(RavelryRequestStage.PDF_FILE, e.status)
+            throw RavelryUnavailableException("Ravelry denied the file download.", httpStatus = e.status, stage = RavelryRequestStage.PDF_FILE)
         } catch (e: NotAPdfException) {
             throw e
         } catch (e: IOException) {
@@ -88,6 +94,7 @@ class HttpRavelryApi(
     private suspend fun get(
         credentials: RavelryCredentials,
         path: String,
+        stage: RavelryRequestStage,
         call: (url: String, authorization: String) -> HttpResult = fetch
     ): String {
         val token = Base64.getEncoder()
@@ -97,10 +104,11 @@ class HttpRavelryApi(
         } catch (e: IOException) {
             throw RavelryUnavailableException("Could not reach Ravelry.", e)
         }
+        onHttpResult(stage, result.status)
         return when (result.status) {
             in 200..299 -> result.body
-            401, 403 -> throw RavelryAuthException("Ravelry did not accept this key (HTTP ${result.status}).")
-            else -> throw RavelryUnavailableException("Ravelry answered HTTP ${result.status}.")
+            401, 403 -> throw RavelryAuthException("Ravelry did not accept this request (HTTP ${result.status}).", result.status, stage)
+            else -> throw RavelryUnavailableException("Ravelry answered HTTP ${result.status}.", httpStatus = result.status, stage = stage)
         }
     }
 
@@ -111,6 +119,8 @@ class HttpRavelryApi(
     }
 
     private fun encode(value: String): String = URLEncoder.encode(value, "UTF-8").replace("+", "%20")
+
+    private class FileHttpException(val status: Int) : IOException("File request failed (HTTP $status).")
 
     companion object {
         private const val PAGE_SIZE = 100
@@ -147,7 +157,7 @@ class HttpRavelryApi(
                 connection.readTimeout = DOWNLOAD_TIMEOUT_MS
                 connection.instanceFollowRedirects = true
                 val status = connection.responseCode
-                if (status !in 200..299) throw IOException("Download answered HTTP $status.")
+                if (status !in 200..299) throw FileHttpException(status)
                 connection.inputStream.use { it.copyTo(into) }
             } finally {
                 connection.disconnect()

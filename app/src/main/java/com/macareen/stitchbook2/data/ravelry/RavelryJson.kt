@@ -50,18 +50,16 @@ internal object RavelryJson {
         }
     }
 
-    /**
-     * The files on one volume ("Volume (full)"). Ravelry's documentation is
-     * behind a sign-in and the attachment list's exact key is not confirmed,
-     * so the known spellings are all accepted, and an attachment's id is its
-     * product attachment id when one is given.
-     */
+    /** A volume attachment is not a product attachment; never substitute its unrelated id. */
     fun volumeAttachments(body: String): List<RavelryAttachment> {
         val root = JSONObject(body)
         val volume = root.optJSONObject("volume") ?: root
-        val array = ATTACHMENT_KEYS.firstNotNullOfOrNull { volume.optJSONArray(it) } ?: return emptyList()
-        return array.objects().mapNotNull { attachment ->
-            val id = (attachment.number("product_attachment_id") ?: attachment.number("id"))?.toLong() ?: return@mapNotNull null
+        val key = ATTACHMENT_KEYS.firstOrNull { volume.optJSONArray(it) != null } ?: return emptyList()
+        val array = requireNotNull(volume.optJSONArray(key))
+        return array.objects().map { attachment ->
+            val productId = attachment.number("product_attachment_id")
+                ?: if (key == "product_attachments") attachment.number("id") else null
+            val id = productId?.takeIf { it.isFinite() && it > 0 && it % 1.0 == 0.0 }?.toLong()
             RavelryAttachment(id = id, fileName = attachment.text("filename") ?: attachment.text("file_name") ?: attachment.text("name"))
         }
     }

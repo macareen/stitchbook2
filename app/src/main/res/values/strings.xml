@@ -600,7 +600,7 @@
     <string name="ravelry_pdf_no_key">Connect Ravelry in Settings first.</string>
     <string name="ravelry_pdf_no_folder">Choose a pattern folder in Library first, so the PDF has somewhere to go.</string>
     <string name="ravelry_pdf_folder_read_only">Stitchbook can only read your pattern folder. Choose it again in Library and allow changes, or pick a folder that allows new files.</string>
-    <string name="ravelry_pdf_key_refused">Ravelry wouldn\'t hand over this PDF with your key. A read-only key may not be allowed to download; try a key with full access.</string>
+    <string name="ravelry_pdf_key_refused">Ravelry rejected authentication. Check or re-enter your personal account access key on this phone, then try again.</string>
     <string name="ravelry_pdf_offline">Couldn\'t reach Ravelry. Check your connection and try again.</string>
     <string name="ravelry_pdf_not_in_library">This pattern isn\'t in your Ravelry library, so there is no PDF to fetch.</string>
     <string name="ravelry_pdf_no_pdf">Ravelry has no PDF for this pattern in your library. It may be a printed book or a zip file.</string>

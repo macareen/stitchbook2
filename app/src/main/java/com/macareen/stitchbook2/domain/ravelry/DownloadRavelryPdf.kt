@@ -25,13 +25,14 @@ class DownloadRavelryPdf(
 ) {
     enum class Problem {
         NOT_FROM_RAVELRY, NO_KEY, NO_FOLDER, FOLDER_READ_ONLY, KEY_REFUSED, OFFLINE,
-        NOT_IN_LIBRARY, NO_PDF, NOT_A_PDF, UNREADABLE_ANSWER, SAVE_FAILED
+        NOT_IN_LIBRARY, NO_PDF, NOT_A_PDF, UNREADABLE_ANSWER, SAVE_FAILED,
+        NO_DIRECT_DOWNLOAD, PERMISSION_DENIED, RATE_LIMITED, SERVER_UNAVAILABLE, LINK_EXPIRED
     }
 
     sealed interface Result {
         /** [otherPdfs] counts further PDFs on the same volume that were not downloaded. */
         data class Saved(val fileName: String, val alreadyInFolder: Boolean, val otherPdfs: Int) : Result
-        data class Failed(val problem: Problem) : Result
+        data class Failed(val problem: Problem, val httpStatus: Int? = null, val stage: RavelryRequestStage? = null) : Result
     }
 
     /** Whether [item] is something this can fetch a PDF for. */
@@ -41,10 +42,17 @@ class DownloadRavelryPdf(
         download(libraryItemId)
     } catch (error: CancellationException) {
         throw error
-    } catch (_: RavelryAuthException) {
-        Result.Failed(Problem.KEY_REFUSED)
+    } catch (error: RavelryAuthException) {
+        Result.Failed(if (error.httpStatus == 403) Problem.PERMISSION_DENIED else Problem.KEY_REFUSED, error.httpStatus, error.stage)
     } catch (error: RavelryUnavailableException) {
-        Result.Failed(if (error.cause is IOException) Problem.OFFLINE else Problem.UNREADABLE_ANSWER)
+        val problem = when {
+            error.httpStatus == 429 -> Problem.RATE_LIMITED
+            error.httpStatus in 500..599 -> Problem.SERVER_UNAVAILABLE
+            error.stage == RavelryRequestStage.PDF_FILE && error.httpStatus in listOf(401, 403, 404, 410) -> Problem.LINK_EXPIRED
+            error.cause is IOException -> Problem.OFFLINE
+            else -> Problem.UNREADABLE_ANSWER
+        }
+        Result.Failed(problem, error.httpStatus, error.stage)
     } catch (_: NotAPdfException) {
         Result.Failed(Problem.NOT_A_PDF)
     } catch (_: IOException) {
@@ -62,12 +70,13 @@ class DownloadRavelryPdf(
         val volumeId = volumeIdOf(item) ?: findVolumeId(credentials, item.ravelryPatternId)
             ?: return Result.Failed(Problem.NOT_IN_LIBRARY)
         val pdfs = pdfAttachments(api.volumeAttachments(credentials, volumeId))
-        val attachment = pdfs.firstOrNull() ?: return Result.Failed(Problem.NO_PDF)
+        val attachment = pdfs.firstOrNull { it.id != null } ?: pdfs.firstOrNull() ?: return Result.Failed(Problem.NO_PDF)
         val fileName = fileNameFor(attachment.fileName, item.title)
 
         val existing = folder.listPdfs().firstOrNull { it.displayName.equals(fileName, ignoreCase = true) }
         val saved = existing ?: try {
-            val url = api.downloadLink(credentials, attachment.id)
+            val attachmentId = attachment.id ?: return Result.Failed(Problem.NO_DIRECT_DOWNLOAD)
+            val url = api.downloadLink(credentials, attachmentId)
             folder.saveNewPdf(fileName) { out -> PdfSignatureCheck(out).use { api.downloadFile(url, it) } }
         } catch (error: PatternFileExistsException) {
             // The name was taken after the check above: link that file rather than replace it.

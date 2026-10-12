@@ -26,4 +26,15 @@
     <string name="ravelry_review_note">Updating changed items replaces only Ravelry\'s details. Your notes, purchase details, weighed remainders, project types, and attached PDFs stay as they are.</string>
     <string name="ravelry_add_new">Add new only</string>
     <string name="ravelry_add_and_update">Add new and update changed</string>
+    <string name="ravelry_pdf_no_direct_download">This PDF has no direct download identifier. Download it from your Ravelry library in a browser, then attach it here.</string>
+    <string name="ravelry_pdf_permission_denied">Ravelry denied this request. Personal account access keys already include all permissions. Confirm this PDF belongs to that account, or download it in Ravelry and attach it here.</string>
+    <string name="ravelry_pdf_rate_limited">Ravelry is limiting requests. Wait before trying again; PDF download links have a daily limit.</string>
+    <string name="ravelry_pdf_server_unavailable">Ravelry is temporarily unavailable. Try again later.</string>
+    <string name="ravelry_pdf_link_expired">The PDF link has expired or is unavailable. Try again to request a fresh link.</string>
+    <string name="ravelry_pdf_http_status">HTTP %1$d · %2$s</string>
+    <string name="ravelry_stage_account">Checking the account</string>
+    <string name="ravelry_stage_files">Reading the pattern files</string>
+    <string name="ravelry_stage_link">Requesting the PDF link</string>
+    <string name="ravelry_stage_download">Downloading the PDF</string>
+    <string name="ravelry_stage_library">Reading the library</string>
 </resources>
