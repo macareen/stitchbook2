@@ -211,3 +211,7 @@ The new pattern guide dialog asks for a size and offers filling from the PDF. It
 ## 20. Calculator feedback
 
 Calculators show the answers already supported by the inputs: a yarn total before an own-skein amount, and a gauge multiplier before a specific count. Stitches and rows are independent. Missing-input text names the needed fields; counts require whole numbers. Short single-line labels and a common minimum field height keep paired fields aligned while retaining scalable text.
+
+## 21. Compact knitting time tiles
+
+Focus totals and step time use `<1 min`, `12 min`, or `1h 05m`. The tiles have a minimum height rather than a fixed height, so larger text and longer estimated labels can wrap without clipping. Approximate step time keeps its explicit `about` label; recorded sessions and calculation rules are unchanged. The bottom actions stack at large font sizes or very narrow widths and use a scalable minimum height, retaining the primary Complete action.

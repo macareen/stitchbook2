@@ -81,3 +81,5 @@ For each feature, label static evidence separately from observed runtime output.
 
 - PR #69: automatic pattern/size and PDF-stem names, following the user's decisions.
 - Calculator feedback uses independent partial results and clear missing-input prompts. It is a user-requested usability fix; reference timer/progress algorithms remain separate follow-up work.
+
+- PR #70: partial calculator feedback and aligned fields; 587 unit tests, lint/build and three emulator UI checks passed. Compact time labels and adaptive large-font controls follow the user's phone feedback; session arithmetic is unchanged.
