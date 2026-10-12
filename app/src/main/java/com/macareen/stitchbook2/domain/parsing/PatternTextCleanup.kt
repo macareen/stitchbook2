@@ -14,6 +14,7 @@ object PatternTextCleanup {
 
     private val PAGE_NUMBER = Regex("""^(page\s*)?\d{1,3}(\s*(of|/)\s*\d{1,3})?$""", RegexOption.IGNORE_CASE)
     private val ENDS_A_THOUGHT = Regex("""[.:;!?)\]]$""")
+    private val RULE = Regex("""^(?:_{3,}|[-\u2013\u2014=]{3,})$""")
     private const val MAX_FURNITURE_LENGTH = 100
     private const val EDGE_LINES = 2
 
@@ -31,7 +32,8 @@ object PatternTextCleanup {
         val furniture = repeatedAcrossPages(document, edges, startsNewLine)
         val kept = document.lines.filterNot { line ->
             val text = line.text.trim()
-            line.source in edges && (PAGE_NUMBER.matches(text) || !startsNewLine(text) && furnitureKey(text) in furniture)
+            text.isEmpty() || RULE.matches(text) ||
+                line.source in edges && (PAGE_NUMBER.matches(text) || !startsNewLine(text) && furnitureKey(text) in furniture)
         }
 
         val joined = mutableListOf<ExtractedLine>()

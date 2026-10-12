@@ -53,7 +53,8 @@ object PatternTextParser {
     /** A line that begins its own step, so a wrapped line is never glued onto it from above. */
     internal fun startsNewLine(text: String): Boolean =
         SECTION_LINE.matches(text) || REPEAT_LINE.matches(text) || ROW_RANGE_LINE.matches(text) ||
-            ROW_SINGLE_LINE.matches(text) || BULLET.containsMatchIn(text) || headingTitle(text) != null
+            ROW_SINGLE_LINE.matches(text) || BULLET.containsMatchIn(text) || headingTitle(text) != null ||
+            PatternMetadataSplitter.startsDetailsLine(text)
 
     /**
      * A short title such as "BODY", "FINISHING", or "Sleeves (make 2):".
@@ -83,8 +84,14 @@ object PatternTextParser {
      * front matter (intro, designer, gauge, materials) as [PatternDetails]
      * instead of turning it into steps; see [PatternMetadataSplitter].
      */
-    fun parseWithDetails(document: ExtractedDocument): Pair<ParsedPattern, PatternDetails> {
-        val cleaned = PatternTextCleanup.clean(document, ::startsNewLine) { headingTitle(it) != null }
+    fun parseWithDetails(document: ExtractedDocument, patternTitle: String? = null): Pair<ParsedPattern, PatternDetails> {
+        val title = patternTitle?.trim()?.replace(Regex("""\s+"""), " ")
+        val withoutTitle = if (title.isNullOrBlank()) document else document.copy(lines = document.lines.filterNot {
+            it.text.trim().replace(Regex("""\s+"""), " ").equals(title, ignoreCase = true)
+        })
+        val cleaned = PatternTextCleanup.clean(withoutTitle, ::startsNewLine) {
+            headingTitle(it) != null || PatternMetadataSplitter.standsAlone(it)
+        }
         val split = PatternMetadataSplitter.split(cleaned, ::isRowLine, ::anyHeading)
         return parseLines(split.instructions) to split.details
     }

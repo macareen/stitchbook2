@@ -77,6 +77,9 @@ class CreateGuideFromPdfUseCase(
         if (extraction is Extraction.Failed) return Result.ExtractionFailed(extraction.cause)
         val document = (extraction as Extraction.Read).document
 
+        val title = libraryRepository?.observeLibraryItem(libraryItemId)?.first()?.title
+            ?: guideName.substringBefore(" \u00b7 ")
+        val details = PatternTextParser.parseWithDetails(document, title).second
         val fromPdf = PatternSizes.findInDocument(document)
         val labels = fromPdf?.first ?: knownSizes?.let(PatternSizes::labelsFrom).orEmpty()
         val index = PatternSizes.indexOf(sizeLabel, labels)
@@ -96,7 +99,8 @@ class CreateGuideFromPdfUseCase(
         return createDraft(
             document = sized,
             extraIssues = issues,
-            onDetails = { details -> fillPatternDetails(libraryItemId, details, fromPdf?.second?.text) }
+            patternTitle = title,
+            onDetails = { fillPatternDetails(libraryItemId, details, fromPdf?.second?.text) }
         ) {
             guideRepository.createPatternGuide(libraryItemId, sizeLabel, guideName)
         }
@@ -111,7 +115,8 @@ class CreateGuideFromPdfUseCase(
         if (details.isEmpty && sizesLine == null) return
         val item = repository.observeLibraryItem(libraryItemId).first() ?: return
         // The yarn line has no field of its own, so it follows the description.
-        val description = listOfNotNull(details.description, details.yarn?.let { "Yarn: $it" })
+        val description = listOfNotNull(details.description, details.yarn?.let { "Yarn: $it" },
+            details.measurements?.let { "Measurements: $it" }, details.abbreviations?.let { "Abbreviations: $it" })
             .joinToString("\n\n")
             .ifBlank { null }
         val filled = item.copy(
@@ -149,10 +154,11 @@ class CreateGuideFromPdfUseCase(
     private suspend fun createDraft(
         document: ExtractedDocument,
         extraIssues: List<ParsingIssue>,
+        patternTitle: String? = null,
         onDetails: suspend (PatternDetails) -> Unit = {},
         createGuide: suspend () -> Guide
     ): Result {
-        val (steps, details) = PatternTextParser.parseWithDetails(document)
+        val (steps, details) = PatternTextParser.parseWithDetails(document, patternTitle)
         val parsed = steps.copy(issues = extraIssues + steps.issues)
         val mapped = ParsedPatternMapper.toDraftNodes(parsed, newNodeId)
 
