@@ -34,9 +34,9 @@ object ProjectFromPattern {
 
     fun project(pattern: LibraryItem, id: String, now: Long): Project = Project(
         id = id,
-        name = pattern.title,
+        name = PatternNames.title(pattern.title, pattern.pdfFileName),
         craft = pattern.craft,
-        projectType = typeOf(pattern.title, pattern.tags),
+        projectType = typeOf(PatternNames.title(pattern.title, pattern.pdfFileName), pattern.tags),
         status = ProjectStatus.PLANNED,
         notes = null,
         createdAt = now,

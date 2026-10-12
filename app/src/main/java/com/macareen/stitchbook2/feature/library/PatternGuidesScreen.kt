@@ -35,6 +35,7 @@ import com.macareen.stitchbook2.R
 import com.macareen.stitchbook2.domain.execution.GuideId
 import com.macareen.stitchbook2.domain.guide.Guide
 import com.macareen.stitchbook2.domain.model.Craft
+import com.macareen.stitchbook2.domain.model.PatternNames
 import com.macareen.stitchbook2.domain.model.LibraryItem
 import com.macareen.stitchbook2.domain.ravelry.DownloadRavelryPdf
 import com.macareen.stitchbook2.ui.components.PrimaryActionButton
@@ -81,7 +82,7 @@ fun PatternGuidesScreen(
     uiState: PatternGuidesUiState,
     onOpenPdf: (String) -> Unit,
     onEditGuide: (String) -> Unit,
-    onCreateGuide: (String, String, Boolean) -> Unit,
+    onCreateGuide: (String, Boolean) -> Unit,
     modifier: Modifier = Modifier,
     onStartProject: () -> Unit = {},
     onGetRavelryPdf: () -> Unit = {}
@@ -105,7 +106,7 @@ private fun Content(
     state: PatternGuidesUiState.Content,
     onOpenPdf: (String) -> Unit,
     onEditGuide: (String) -> Unit,
-    onCreateGuide: (String, String, Boolean) -> Unit,
+    onCreateGuide: (String, Boolean) -> Unit,
     onStartProject: () -> Unit,
     onGetRavelryPdf: () -> Unit,
     modifier: Modifier
@@ -175,12 +176,12 @@ private fun Content(
 
     if (showNewGuide) {
         NewGuideDialog(
-            patternTitle = state.pattern.title,
+            patternTitle = PatternNames.title(state.pattern.title, state.pattern.pdfFileName),
             sizeChoices = state.sizeChoices,
             canFillFromPattern = state.pattern.pdfUri != null,
-            onCreate = { size, name, fromPattern ->
+            onCreate = { size, fromPattern ->
                 showNewGuide = false
-                onCreateGuide(size, name, fromPattern)
+                onCreateGuide(size, fromPattern)
             },
             onDismiss = { showNewGuide = false }
         )
@@ -250,11 +251,10 @@ private fun NewGuideDialog(
     patternTitle: String,
     sizeChoices: List<String>,
     canFillFromPattern: Boolean,
-    onCreate: (String, String, Boolean) -> Unit,
+    onCreate: (String, Boolean) -> Unit,
     onDismiss: () -> Unit
 ) {
     var size by rememberSaveable { mutableStateOf("") }
-    var name by rememberSaveable { mutableStateOf("") }
     var fromPattern by rememberSaveable { mutableStateOf(canFillFromPattern) }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -279,14 +279,9 @@ private fun NewGuideDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text(stringResource(R.string.pattern_guides_name_field)) },
-                    placeholder = { Text("$patternTitle · ${size.ifBlank { "M" }}") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                if (size.isNotBlank()) {
+                    QuietText(text = PatternNames.guide(patternTitle, size))
+                }
                 if (canFillFromPattern) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = fromPattern, onCheckedChange = { fromPattern = it })
@@ -299,7 +294,7 @@ private fun NewGuideDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onCreate(size, name, canFillFromPattern && fromPattern) }, enabled = size.isNotBlank()) {
+            TextButton(onClick = { onCreate(size, canFillFromPattern && fromPattern) }, enabled = size.isNotBlank()) {
                 Text(stringResource(R.string.pattern_guides_create))
             }
         },
@@ -330,7 +325,7 @@ private fun PatternGuidesPreview() {
             uiState = PatternGuidesUiState.Content(pattern, listOf(PatternGuideEntry(guide, true)), false, false),
             onOpenPdf = {},
             onEditGuide = {},
-            onCreateGuide = { _, _, _ -> }
+            onCreateGuide = { _, _ -> }
         )
     }
 }

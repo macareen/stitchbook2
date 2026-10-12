@@ -40,7 +40,7 @@ Fix next, from the second phone test (2026-10-09), most important first:
    - A gauge tail that wrapped onto its own line ("needles after wash and blocking") stays.
    - Abbreviation definitions (an "M1R" heading followed by "From the RS: ...") become a section.
    Implemented 2026-10-12: known pattern titles and rule lines are dropped; measurements and abbreviation definitions are kept in portable pattern notes; wrapped inline detail lines stay together. A two-page original cardigan fixture checks section/step provenance. A same-input real-PDF comparison remains unverified.
-3. **No typing a guide name.** Name the guide from the pattern and size, or from the PDF's file name. A project made from a pattern takes the pattern's (or PDF's) name, not a name typed for a guide.
+3. **No typing a guide name.** Name the guide from the pattern and size, or from the PDF's file name. Implemented 2026-10-12: pattern guides use the pattern title and selected size; PDF project guides use the selected file stem. The pattern guide-name field and project PDF name dialog are removed; the Draft editor receives the generated name. Project names fall back to the PDF stem when needed.
 4. **Calculators.**
    - The yarn and gauge calculators show no answer, because a result only appears once every field is filled, including "to convert". Show an answer as soon as enough is known, and say what's missing.
    - Labels that wrap make the fields different heights. Use short single-line labels and the same height for every field.

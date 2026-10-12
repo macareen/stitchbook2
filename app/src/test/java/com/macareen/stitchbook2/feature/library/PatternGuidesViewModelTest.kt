@@ -67,7 +67,7 @@ class PatternGuidesViewModelTest {
         val guides = FakePatternGuides()
         val viewModel = viewModel(guides)
 
-        viewModel.createGuide(" S ", "")
+        viewModel.createGuide(" S ")
 
         assertEquals("Seaside Cardigan · S", guides.created.single().name)
         assertEquals("created-1", viewModel.createdGuideId.value)
@@ -90,7 +90,7 @@ class PatternGuidesViewModelTest {
         ).also { vm -> scope.launch { vm.uiState.collect {} } }
 
         assertEquals(listOf("S", "M"), (viewModel.uiState.value as PatternGuidesUiState.Content).sizeChoices)
-        viewModel.createGuide("M", "", fromPattern = true)
+        viewModel.createGuide("M", fromPattern = true)
 
         // Text extraction runs on the IO dispatcher, so wait for the new guide.
         val createdId = runBlocking { withTimeout(5_000) { viewModel.createdGuideId.first { it != null } } }
@@ -157,7 +157,7 @@ class PatternGuidesViewModelTest {
             readPatternFile = { null }
         ).also { vm -> scope.launch { vm.uiState.collect {} } }
 
-        viewModel.createGuide("M", "", fromPattern = true)
+        viewModel.createGuide("M", fromPattern = true)
 
         assertEquals(PatternPdfProblem.UNREADABLE, (viewModel.uiState.value as PatternGuidesUiState.Content).pdfProblem)
         assertTrue(guides.created.isEmpty())

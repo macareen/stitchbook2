@@ -1,6 +1,7 @@
 package com.macareen.stitchbook2.feature.projects
 
 import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -56,6 +57,7 @@ import com.macareen.stitchbook2.domain.guide.Guide
 import com.macareen.stitchbook2.domain.model.Craft
 import com.macareen.stitchbook2.domain.model.GuideStatus
 import com.macareen.stitchbook2.domain.model.Project
+import com.macareen.stitchbook2.domain.model.PatternNames
 import com.macareen.stitchbook2.domain.model.ProjectNode
 import com.macareen.stitchbook2.domain.model.ProjectStatus
 import com.macareen.stitchbook2.domain.model.ProjectType
@@ -231,8 +233,6 @@ private fun ProjectDetailContent(
     var showDeleteConfirmation by remember { mutableStateOf(false) }
     var openSheet by remember { mutableStateOf<HubSheet?>(null) }
     var showAddGuideDialog by remember { mutableStateOf(false) }
-    var showCreateFromPdfDialog by remember { mutableStateOf(false) }
-    var pendingPdfGuideName by remember { mutableStateOf<String?>(null) }
     val project = state.project
 
     val context = LocalContext.current
@@ -240,16 +240,19 @@ private fun ProjectDetailContent(
     val pickPdfLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
-        val name = pendingPdfGuideName
-        pendingPdfGuideName = null
-        if (uri != null && name != null) {
+        if (uri != null) {
             coroutineScope.launch {
-                val bytes = withContext(Dispatchers.IO) {
-                    context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                val selection = withContext(Dispatchers.IO) {
+                    val fileName = runCatching {
+                        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                            val column = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                            if (column >= 0 && cursor.moveToFirst()) cursor.getString(column) else null
+                        }
+                    }.getOrNull()
+                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    bytes?.let { PatternNames.pdf(fileName, project.name) to it }
                 }
-                if (bytes != null) {
-                    onCreateGuideFromPdf(name, bytes)
-                }
+                selection?.let { (name, bytes) -> onCreateGuideFromPdf(name, bytes) }
             }
         }
     }
@@ -361,7 +364,7 @@ private fun ProjectDetailContent(
                 onOpenGuide = { openSheet = null; onOpenGuide(it) },
                 onEditDraft = { openSheet = null; onEditDraft(it) },
                 onAddGuide = { showAddGuideDialog = true },
-                onCreateGuideFromPdf = { showCreateFromPdfDialog = true },
+                onCreateGuideFromPdf = { pickPdfLauncher.launch(arrayOf("application/pdf")) },
                 onImportWithAssistant = { openSheet = null; onOpenSection(ProjectSection.ASSISTED_IMPORT) },
                 patternGuides = hubState.patternGuides,
                 onUsePatternGuide = hubActions.onUsePatternGuide
@@ -428,16 +431,7 @@ private fun ProjectDetailContent(
         )
     }
 
-    if (showCreateFromPdfDialog) {
-        CreateGuideFromPdfDialog(
-            onConfirm = { name ->
-                showCreateFromPdfDialog = false
-                pendingPdfGuideName = name
-                pickPdfLauncher.launch(arrayOf("application/pdf"))
-            },
-            onDismiss = { showCreateFromPdfDialog = false }
-        )
-    }
+
 }
 
 @Composable
@@ -474,46 +468,6 @@ private fun AddGuideDialog(
     )
 }
 
-@Composable
-private fun CreateGuideFromPdfDialog(
-    onConfirm: (String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var name by remember { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(text = stringResource(R.string.create_guide_from_pdf_dialog_title)) },
-        text = {
-            Column {
-                Text(
-                    text = stringResource(R.string.create_guide_from_pdf_dialog_description),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(bottom = StitchbookSpacing.small)
-                )
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text(text = stringResource(R.string.add_guide_name_label)) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onConfirm(name) },
-                enabled = name.isNotBlank()
-            ) {
-                Text(text = stringResource(R.string.create_guide_from_pdf_confirm_action))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(text = stringResource(R.string.cancel))
-            }
-        }
-    )
-}
 
 @Composable
 private fun GuidesSection(
