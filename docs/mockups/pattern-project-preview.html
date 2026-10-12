@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Stitchbook pattern and project preview</title>
+<style>
+@font-face{font-family:Fraunces;src:url('../../app/src/main/res/font/fraunces.ttf')}
+@font-face{font-family:Nunito;src:url('../../app/src/main/res/font/nunito.ttf')}
+
+*{box-sizing:border-box}
+body{margin:0;background:#eee6df;color:#4a3434;font:16px Nunito,sans-serif}
+.review{max-width:740px;margin:28px auto;padding:0 16px}
+.review h1{font:500 28px Fraunces,serif;margin:0 0 8px}
+.review p{margin:0 0 16px;color:#69524d}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:18px}
+.controls button,.controls select{font:700 14px Nunito;padding:10px 16px;border:1px solid #9b817b;border-radius:24px;background:#fff9f5;color:#4a3434}
+.controls button[aria-pressed=true]{background:#4a3434;color:#fff9f5}
+.controls label{display:flex;align-items:center;gap:8px}
+.phone{--bg:#fbf5ef;--text:#4a3434;--quiet:#806161;--surface:#fff;--rose:#b4485a;--onrose:#fff;--soft:#fbe1e2;--softtext:#8e3445;--line:#cbb5ab;--tile:#eddfd3;--green:#53683e;background:var(--bg);color:var(--text);font-size:calc(16px * var(--scale,1));max-width:420px;margin:auto;border-radius:28px;overflow:clip;box-shadow:0 8px 36px #4a34341a}
+.phone[data-theme=dark]{--bg:#201a17;--text:#f1e4dd;--quiet:#d2c2b9;--surface:#1a1512;--rose:#e8aeba;--onrose:#43212c;--soft:#6b2e40;--softtext:#f1ccd4;--line:#a08d83;--tile:#4a3932;--green:#b9c8a0}
+button,summary,select{cursor:pointer}
+button{font:inherit}
+button:focus-visible,summary:focus-visible,select:focus-visible{outline:3px solid #3f6787;outline-offset:3px}
+.phone button{min-height:44px;border:0;border-radius:30px;padding:.7em 1.1em;background:var(--soft);color:var(--softtext);font-weight:800}
+.phone .primary{background:var(--rose);color:var(--onrose)}
+.phone .plain{background:transparent;color:var(--text);padding:.4em .65em}
+.phone .outline{background:transparent;color:var(--rose);border:1px solid var(--line)}
+.phone p{line-height:1.55}
+.phone h1,.phone h2,.phone h3{font-family:Fraunces,serif;font-weight:500}
+.phone h1{font-size:2em;line-height:1.15;margin:.35em 0}
+.phone h2{font-size:1.45em;margin:0 0 .75em}
+.phone h3{font-size:1.1em;margin:0}
+.phone .quiet{color:var(--quiet);font-size:.88em}
+.appbar{display:flex;align-items:center;justify-content:space-between;padding:14px 18px 0;gap:8px}
+.appbar details{position:relative}
+.appbar menu{position:absolute;right:0;top:30px;z-index:2;list-style:none;min-width:210px;padding:8px;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 4px 16px #0002}
+.appbar menu button{display:block;width:100%;text-align:left}
+.hero{padding:18px 24px 30px;background:var(--soft);position:relative}
+.hero .wave{position:absolute;bottom:-1px;left:0;width:100%;height:18px;fill:var(--bg)}
+.eyebrow{color:var(--quiet);font-size:.83em;font-weight:800}
+.hero p{margin:.6em 0}
+.content{grid-template-columns:minmax(0,1fr);padding:24px 24px 18px;display:grid;gap:28px}
+.surface{background:var(--surface);border-radius:22px;padding:18px}
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.between{flex-wrap:wrap;display:flex;justify-content:space-between;gap:12px;align-items:center}
+.badge{display:inline-block;background:var(--bg);color:var(--quiet);padding:5px 10px;border-radius:20px;font-size:.8em;font-weight:800}
+.actionrow{display:flex;flex-wrap:wrap;gap:8px}
+.actionrow>*{flex:1 1 120px}
+.cover{background:var(--tile);border-radius:20px;min-height:132px;display:flex;align-items:center;justify-content:center}
+.cover svg{width:125px;height:118px;color:var(--rose)}
+.pattern-head{display:grid;grid-template-columns:92px 1fr;gap:16px;align-items:center}
+.pattern-head .cover{min-height:116px}
+.pattern-head .cover svg{width:84px;height:92px}
+.detailgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.detailgrid dt{color:var(--quiet);font-size:.83em}
+.detailgrid dd{margin:4px 0 0;font-weight:800;line-height:1.4}
+.phone details>summary{min-height:44px;align-content:center;font-weight:800;color:var(--rose)}
+.phone details p{margin:.45em 0}
+.sizes{display:grid;gap:0}
+.size-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}
+.size-row:last-child{border:0}
+.size-row strong{font-size:1.1em}
+.size-row .quiet{display:block;margin-top:3px}
+.size-row button{white-space:normal;max-width:55%}
+.section-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.stats strong{display:block;font-size:1.4em;margin:4px 0}
+.stats span{display:block}
+.photo-controls{flex-wrap:wrap;display:flex;align-items:center;justify-content:space-between;margin:12px 0 0;gap:6px}
+.photo-controls span{font-size:.86em;color:var(--quiet)}
+.photo-preview{min-height:185px}
+.photo-preview svg{width:175px;height:165px}
+.progress-row{padding:12px 0;border-bottom:1px solid var(--line)}
+.progress-row:last-child{border:0}
+.progress-row summary{display:flex;justify-content:space-between;gap:8px;color:var(--text)!important}
+.track{height:6px;background:var(--tile);border-radius:8px;margin:8px 0;overflow:hidden}
+.track span{display:block;height:100%;background:var(--rose);border-radius:8px}
+.note{padding:13px 0;border-bottom:1px solid var(--line)}
+.note:last-child{border:0}
+.note p{margin:.4em 0}
+.tag{color:var(--rose);font-size:.8em;font-weight:800}
+.sticky{position:sticky;bottom:0;background:var(--bg);padding:12px 18px 18px;box-shadow:0 -6px 18px #00000008;border-top:1px solid var(--line)}
+.sticky .primary{flex:1;text-align:left;border-radius:20px}
+.sticky small{display:block;opacity:.85;font-size:.78em;font-weight:600;margin-top:3px}
+.counter{flex-wrap:wrap;display:flex;align-items:center;gap:8px;justify-content:center;padding:10px 0 0}
+.counter output{min-width:38px;text-align:center;font-weight:800}
+.navbar{display:flex;justify-content:space-around;flex-wrap:wrap;background:var(--surface);border-radius:30px;padding:5px;margin:14px 18px 18px;font-size:.82em}
+.navbar button[aria-current=page]{color:var(--rose);background:var(--soft)}
+.toast{position:sticky;bottom:12px;padding:10px 14px;background:var(--surface);border:1px solid var(--line);margin:10px 18px;border-radius:16px;color:var(--text)}
+.content>*{min-width:0}
+.phone button{max-width:100%;overflow-wrap:anywhere}
+[hidden]{display:none!important}
+dialog{background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:24px;max-width:min(380px,calc(100vw - 32px));padding:24px;font:inherit}
+dialog::backdrop{background:#201a1780}
+.phone[data-large=true] .pattern-head{grid-template-columns:1fr}
+.phone[data-large=true] .detailgrid,.phone[data-large=true] .stats{grid-template-columns:1fr}
+.phone[data-large=true] .size-row{flex-wrap:wrap}
+.phone[data-large=true] .size-row button{max-width:100%}
+.phone[data-large=true] .navbar{font-size:.75em}
+@media(max-width:480px){.review{margin:18px auto;padding:0 8px}
+.content{grid-template-columns:minmax(0,1fr);padding:20px}
+.phone{border-radius:20px}
+.hero{padding:16px 20px 28px}
+}
+
+</style>
+</head>
+<body>
+<main class="review">
+<h1>Pattern & project pages</h1>
+<p>Sample data · Review the layout, guide actions and photo controls.</p>
+<div class="controls">
+<button type="button" data-view="pattern" aria-pressed="true">Pattern</button>
+<button type="button" data-view="project" aria-pressed="false">Project</button>
+<label>Theme <select id="theme">
+<option value="light">Light</option>
+<option value="dark">Dark</option>
+</select>
+</label>
+<label>Text <select id="scale">
+<option value="1">100%</option>
+<option value="1.5">150%</option>
+</select>
+</label>
+</div>
+<div class="phone" id="stitchbook-preview" data-theme="light">
+<svg width="0" height="0" aria-hidden="true" style="position:absolute">
+<defs>
+<symbol id="cardigan" viewBox="0 0 160 150">
+<path fill="currentColor" d="M52 20L34 26 10 72 35 87 49 59 46 136 114 136 111 59 125 87 150 72 126 26 108 20 98 32 80 43 62 32Z"/>
+<path fill="var(--tile)" d="M62 21L80 39 98 21 90 15 70 15Z"/>
+<path stroke="var(--tile)" stroke-width="3" d="M80 41V136M49 118H112M35 83L18 73M125 83L142 73"/>
+<circle cx="86" cy="63" r="2" fill="var(--tile)"/>
+<circle cx="86" cy="83" r="2" fill="var(--tile)"/>
+<circle cx="86" cy="103" r="2" fill="var(--tile)"/>
+</symbol>
+</defs>
+</svg>
+<section id="pattern-page">
+<div class="appbar">
+<button class="plain" data-action="back">Back</button>
+<span class="quiet">Library</span>
+<details>
+<summary>More</summary>
+<menu>
+<button data-notice="A duplicate would keep your pattern file and notes.">Duplicate pattern</button>
+<button data-notice="Deleting a pattern would keep the original PDF untouched.">Delete pattern</button>
+</menu>
+</details>
+</div>
+<header class="hero">
+<span class="eyebrow">KNITTING · CARDIGAN</span>
+<h1>Seaside cardigan</h1>
+<p class="quiet">By Sample Studio · Intermediate</p>
+<div class="flow">
+<span class="badge">9 sizes</span>
+<span class="badge">2 guides built</span>
+<span class="badge">1 finished project</span>
+</div>
+<svg class="wave" viewBox="0 0 400 20" preserveAspectRatio="none" aria-hidden="true">
+<path d="M0 10Q50 0 100 10T200 10T300 10T400 10V20H0Z"/>
+</svg>
+</header>
+<div class="content">
+<div class="pattern-head">
+<div class="cover">
+<svg role="img" aria-label="Sample cardigan illustration">
+<use href="#cardigan"/>
+</svg>
+</div>
+<div>
+<h3>Your pattern</h3>
+<p class="quiet">Seaside-cardigan.pdf<br>Linked to your pattern folder</p>
+<button class="outline" data-notice="Open the original PDF from your pattern folder.">View PDF</button>
+</div>
+</div>
+<div class="actionrow">
+<button class="primary" data-view="project">Start a project</button>
+<button class="outline" data-notice="Choose a replacement PDF; the original file stays untouched.">Replace PDF</button>
+</div>
+<section class="surface">
+<h2>About the pattern</h2>
+<p>A relaxed cardigan with a simple textured yoke, worked from the top down.</p>
+<details>
+<summary>Read more</summary>
+<p>Choose your size from the finished measurements. The body and sleeves are worked separately after the yoke.</p>
+<p class="quiet">Your measurements and abbreviation notes stay here, alongside the original pattern.</p>
+</details>
+<dl class="detailgrid">
+<div>
+<dt>Construction</dt>
+<dd>Top-down, seamless</dd>
+</div>
+<div>
+<dt>Finished bust</dt>
+<dd>85–165 cm</dd>
+</div>
+</dl>
+<button class="plain" data-notice="Edit your pattern details and notes.">Edit details</button>
+</section>
+<section>
+<div class="section-top">
+<h2>Sizes & guides</h2>
+<span class="quiet" id="guide-count">2 of 9 built</span>
+</div>
+<div class="sizes" id="sizes">
+</div>
+</section>
+<section class="surface">
+<h2>Gauge</h2>
+<p>
+<strong>20 stitches × 28 rows</strong>
+<br>10 × 10 cm, washed and blocked</p>
+<p class="quiet">Stockinette stitch · 4 mm needles</p>
+</section>
+<section class="surface">
+<h2>Yarn & materials</h2>
+<p>
+<strong>DK yarn · 1 strand</strong>
+</p>
+<p class="quiet">Approximately 900–1,700 m, depending on size</p>
+<details>
+<summary>Held-together alternative</summary>
+<p>Use two fingering-weight strands together, matching the finished gauge.</p>
+</details>
+<button class="outline" data-view="project">Choose yarn from stash</button>
+</section>
+<section class="surface">
+<h2>Tools</h2>
+<p>4 mm circular needles<br>3.5 mm needles for ribbing<br>Stitch markers · Tapestry needle</p>
+<span class="badge">2 matching tools in your collection</span>
+</section>
+<button class="outline" data-view="project">Start another project</button>
+<button class="plain" data-notice="Remove the app reference while keeping your original PDF.">Remove linked PDF</button>
+</div>
+</section>
+<section id="project-page" hidden>
+<div class="appbar">
+<button class="plain" data-view="pattern">Back</button>
+<span class="quiet">Projects</span>
+<button class="plain" data-notice="Edit project dates, craft and details.">Edit</button>
+</div>
+<header class="hero">
+<span class="eyebrow">KNITTING · IN PROGRESS</span>
+<h1>My seaside cardigan</h1>
+<p class="quiet">Size M · Started 8 Oct 2026</p>
+<svg class="wave" viewBox="0 0 400 20" preserveAspectRatio="none" aria-hidden="true">
+<path d="M0 10Q50 0 100 10T200 10T300 10T400 10V20H0Z"/>
+</svg>
+</header>
+<div class="content">
+<section class="surface">
+<div class="between">
+<div>
+<span class="quiet">Pattern</span>
+<h3>Seaside cardigan</h3>
+<p class="quiet">Sample Studio · Size M</p>
+</div>
+<button class="outline" data-view="pattern">View pattern</button>
+</div>
+<button class="plain" data-notice="Open the original pattern PDF.">View PDF</button>
+</section>
+<section class="stats">
+<div>
+<span class="quiet">Time recorded</span>
+<strong>6h 25m</strong>
+<span class="quiet">5 crafting sessions</span>
+</div>
+<div>
+<span class="quiet">Guide progress</span>
+<strong>42%</strong>
+<span class="quiet">Current part: Body</span>
+</div>
+</section>
+<section>
+<div class="section-top">
+<h2>Project photos</h2>
+<button class="plain" data-notice="Attach a photo from your own files.">Add photo</button>
+</div>
+<div class="cover photo-preview">
+<svg role="img" aria-label="Sample front view">
+<use href="#cardigan"/>
+</svg>
+</div>
+<div class="photo-controls">
+<button class="plain" id="previous-photo" aria-label="Previous photo">Previous</button>
+<span id="photo-label">Front view · 1 of 3</span>
+<button class="plain" id="next-photo" aria-label="Next photo">Next</button>
+</div>
+<div class="between">
+<span class="quiet" id="cover-label">Project cover</span>
+<button class="outline" id="set-cover">Set as cover</button>
+</div>
+</section>
+<section class="surface">
+<h2>Yarn from your stash</h2>
+<h3>Merino DK · Dusty rose</h3>
+<p class="quiet">4 skeins reserved · 880 m total</p>
+<p class="quiet">Estimated remaining: 510 m<br>From your weighed remainder</p>
+<button class="plain" data-notice="Choose, reserve or change yarn from your stash.">Manage yarn</button>
+</section>
+<section class="surface">
+<h2>Tools in use</h2>
+<p>4 mm circulars · 80 cm<br>3.5 mm circulars · 80 cm</p>
+<button class="plain" data-notice="Pick tools from your collection.">Manage tools</button>
+</section>
+<section>
+<div class="section-top">
+<h2>Your guide</h2>
+<span class="quiet">Seaside cardigan · M</span>
+</div>
+<div class="progress-row">
+<details>
+<summary>
+<span>Yoke</span>
+<span>100%</span>
+</summary>
+<p class="quiet">Complete · 64 rows · 2h 35m recorded</p>
+</details>
+<div class="track">
+<span style="width:100%">
+</span>
+</div>
+</div>
+<div class="progress-row">
+<details open>
+<summary>
+<span>Body</span>
+<span>38%</span>
+</summary>
+<p class="quiet">Row 29 of 76 · 1h 50m recorded</p>
+<p>Next: Work the next row in stockinette.</p>
+</details>
+<div class="track">
+<span style="width:38%">
+</span>
+</div>
+</div>
+<div class="progress-row">
+<details>
+<summary>
+<span>Sleeves</span>
+<span>0%</span>
+</summary>
+<p class="quiet">Not started · 2 pieces</p>
+</details>
+<div class="track">
+<span style="width:0%">
+</span>
+</div>
+</div>
+</section>
+<section>
+<div class="section-top">
+<h2>Row notes</h2>
+<button class="plain" data-notice="Add a note at the current guide row and choose a tag.">Add note</button>
+</div>
+<div class="note">
+<span class="tag">ADJUSTMENT · BODY, ROW 24</span>
+<p>Keep the body slightly longer before starting the ribbing.</p>
+</div>
+<div class="note">
+<span class="tag">MISTAKE · YOKE, ROW 18</span>
+<p>Missed one increase; corrected it on the following row.</p>
+</div>
+</section>
+</div>
+<div class="sticky">
+<div class="flow">
+<button class="primary" id="follow-guide">Follow guide<small>Body · Row 29 of 76</small>
+</button>
+</div>
+<div class="counter">
+<span class="quiet">Counter</span>
+<button class="plain" id="counter-minus" aria-label="Decrease quick counter">−</button>
+<output id="counter-value" aria-live="polite">29</output>
+<button class="plain" id="counter-plus" aria-label="Increase quick counter">+</button>
+</div>
+</div>
+</section>
+<nav class="navbar" aria-label="App navigation">
+<button class="plain" data-view="project">Home</button>
+<button class="plain" data-view="project">Projects</button>
+<button class="plain" data-view="pattern" aria-current="page">Library</button>
+<button class="plain" data-notice="Open your yarn and tools collection.">Stash</button>
+</nav>
+<p id="notice" class="toast" role="status" hidden>
+</p>
+<dialog id="focus-preview">
+<span class="quiet">Body · Row 29 of 76</span>
+<h2>Work the next row in stockinette.</h2>
+<p>Follow the original pattern for shaping and measurements.</p>
+<button class="primary" id="close-focus">Back to project</button>
+</dialog>
+</div>
+</main>
+<script>
+(()=>{const root=document.getElementById('stitchbook-preview');const pages={pattern:document.getElementById('pattern-page'),project:document.getElementById('project-page')};const notice=document.getElementById('notice');let timer;function showNotice(text){notice.textContent=text;notice.hidden=false;clearTimeout(timer);timer=setTimeout(()=>notice.hidden=true,4000)}function show(view){Object.entries(pages).forEach(([key,page])=>page.hidden=key!==view);document.querySelectorAll('.controls [data-view]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.view===view)));root.querySelectorAll('.navbar [data-view]').forEach(button=>{if(button.dataset.view===view)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current')});notice.hidden=true}document.querySelectorAll('[data-view]').forEach(button=>button.addEventListener('click',()=>show(button.dataset.view)));root.querySelectorAll('[data-notice]').forEach(button=>button.addEventListener('click',()=>showNotice(button.dataset.notice)));root.querySelector('[data-action="back"]').addEventListener('click',()=>showNotice('Back to your library'));document.getElementById('theme').addEventListener('change',event=>root.dataset.theme=event.target.value);document.getElementById('scale').addEventListener('change',event=>{root.style.setProperty('--scale',event.target.value);root.dataset.large=String(Number(event.target.value)>1)});const sizes=['XS','S','M','L','XL','2XL','3XL','4XL','5XL'];const ready=new Set(['S','M']);const sizeList=document.getElementById('sizes');function renderSizes(){sizeList.replaceChildren();sizes.forEach(size=>{const row=document.createElement('div');row.className='size-row';const label=document.createElement('div');const name=document.createElement('strong');name.textContent=size;const status=document.createElement('span');status.className='quiet';status.textContent=ready.has(size)?'Guide ready · 4 pieces':'No guide yet';label.append(name,status);const action=document.createElement('button');action.className=ready.has(size)?'outline':'plain';action.textContent=ready.has(size)?'View guide':'Build guide';action.addEventListener('click',()=>{if(ready.has(size))showNotice('Seaside cardigan · '+size+' · Open the guide editor');else{ready.add(size);renderSizes();showNotice('Seaside cardigan · '+size+' · Guide draft ready for review')}});row.append(label,action);sizeList.append(row)});document.getElementById('guide-count').textContent=ready.size+' of 9 built'}renderSizes();let photo=0,cover=0;const photoNames=['Front view','Yoke detail','Work in progress'];function renderPhoto(){document.getElementById('photo-label').textContent=photoNames[photo]+' · '+(photo+1)+' of 3';document.getElementById('cover-label').textContent=photo===cover?'Project cover':'Photo '+(cover+1)+' is the cover';root.querySelector('.photo-preview svg').setAttribute('aria-label','Sample '+photoNames[photo].toLowerCase());root.querySelector('.photo-preview svg').style.transform=photo===1?'scale(1.2)':photo===2?'rotate(-6deg)':'none'}document.getElementById('previous-photo').addEventListener('click',()=>{photo=(photo+2)%3;renderPhoto()});document.getElementById('next-photo').addEventListener('click',()=>{photo=(photo+1)%3;renderPhoto()});document.getElementById('set-cover').addEventListener('click',()=>{cover=photo;renderPhoto()});let count=29;function countBy(amount){count=Math.max(0,count+amount);document.getElementById('counter-value').value=count}document.getElementById('counter-minus').addEventListener('click',()=>countBy(-1));document.getElementById('counter-plus').addEventListener('click',()=>countBy(1));const dialog=document.getElementById('focus-preview');document.getElementById('follow-guide').addEventListener('click',()=>dialog.showModal());document.getElementById('close-focus').addEventListener('click',()=>dialog.close());})();
+</script>
+</body>
+</html>
