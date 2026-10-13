@@ -13,8 +13,10 @@ object SizeSpecificInstructions {
     private const val LABEL = """(?:\d+X|\d*X*[SML]|\d+(?:\.\d+)?)"""
     private val bare = Regex("""^($LABEL(?:\s*(?:,|/|&|and|or|[-\u2013\u2014])\s*$LABEL)*)\s+only\s*(?::\s*(.*))?$""", options)
     private val all = Regex("""^(?:for\s+)?all\s+sizes?\s*(?::\s*(.*))?$""", options)
+    private val informational = Regex("""^sizes?\s+(?:guide|chart|information|notes|selection)\s*:?$""", options)
     private val only = Regex("""\s+only$""", options)
     private val separator = Regex("""\s*(?:,|/|&|\band\b|\bor\b)\s*""", options)
+    private val compactNames = Regex("""^[\p{L}\d]+(?:\s*(?:,|/|&|and|or|[-\u2013\u2014])\s*[\p{L}\d]+)*$""", options)
     private val range = Regex("""^(.+?)\s*[-\u2013\u2014]\s*(.+)$""")
 
     fun select(document: ExtractedDocument, labels: List<String>, sizeIndex: Int): Resolution {
@@ -85,16 +87,35 @@ object SizeSpecificInstructions {
             }
             index++
         }
-        val selected = document.copy(lines = kept.map { line ->
-            if (line.source in protectedSources) line else line.copy(text = PatternSizes.resolve(line.text, sizeIndex, labels.size))
-        })
+        val resolved = mutableListOf<ExtractedLine>()
+        val pending = mutableListOf<ExtractedLine>()
+        fun flush() {
+            val joined = PatternTextCleanup.clean(document.copy(lines = pending.toList()), PatternTextParser::startsNewLine) {
+                PatternTextParser.headingTitle(it) != null || PatternMetadataSplitter.standsAlone(it)
+            }
+            resolved += joined.map { it.copy(text = PatternSizes.resolve(it.text, sizeIndex, labels.size)) }
+            pending.clear()
+        }
+        for (line in kept) {
+            if (line.source in protectedSources) {
+                flush()
+                resolved += line
+            } else pending += line
+        }
+        flush()
+        val selected = document.copy(lines = resolved)
         return Resolution(selected, issues)
     }
 
     private fun selector(text: String, labels: List<String>): Selector? {
+        if (informational.matches(text.trim())) return null
         val match = explicit.matchEntire(text.trim()) ?: bare.matchEntire(text.trim()) ?: return null
         val names = match.groupValues[1].replace(only, "").trim()
         val exact = PatternSizes.indexOf(names, labels)
+        // A sentence such as "size S sweater has a ..." describes fit, not a branch.
+        // Unknown compact labels and explicit short colon/only selectors still require review.
+        if (exact == null && !only.containsMatchIn(match.groupValues[1]) &&
+            !compactNames.matches(names) && !(':' in text && names.length <= 60)) return null
         if (exact != null) return Selector(setOf(exact), match.groupValues[2])
         val indices = mutableSetOf<Int>()
         for (part in names.split(separator)) {

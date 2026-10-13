@@ -55,7 +55,7 @@ object PatternMetadataSplitter {
         Regex("""^(finished measurements?|measurements?)$""") to Block.MEASUREMENTS,
         Regex("""^(abbreviations?|stitch glossary|glossary|techniques|special stitches)$""") to Block.ABBREVIATIONS,
         Regex("""^(skill level|difficulty|copyright|terms of use|support|contact)$""") to Block.SKIP,
-        Regex("""^(about( this pattern)?|description|introduction|pattern notes|notes|designer'?s? notes?|construction|story)$""") to Block.DESCRIPTION
+        Regex("""^(about( this pattern)?|description|introduction|pattern notes|size guide|size chart|size information|size notes|size selection|notes|designer'?s? notes?|construction|story)$""") to Block.DESCRIPTION
     )
 
     private val INLINE_FIELD = Regex(

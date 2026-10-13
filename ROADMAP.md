@@ -532,3 +532,5 @@ Single rows keep their number in the step text ("Row 3 (RS): Knit."), and genera
 2026-10-12 pattern-page layout slice: approved wavy header, original PDF cover, expandable notes, all detected size rows with draft/ready/build actions, and separate existing gauge/tools/yardage cards. Further slices still cover pattern edit/overflow actions and recorded completed-project counts, followed by the approved project-page redesign.
 
 2026-10-13: Pattern headers show a live completed-project total only when positive, based on recorded Completed status and distinct pattern links. No completion is inferred from dates, guide publication or progress.
+
+2026-10-13 phone-parser follow-up: total Work rows 1 and 2 repeats, standalone PDF row labels, capitalized Marker continuations and wrapped size groups are handled together. Size guide/advice prose no longer suppresses all size resolution. Native April extraction verified all nine sizes with zero review issues; M has two-row repeats of 9, 18 and 7. Existing guides must be rebuilt explicitly to receive parser changes; published progress is preserved.
