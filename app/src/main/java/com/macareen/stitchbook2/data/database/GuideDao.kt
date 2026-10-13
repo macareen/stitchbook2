@@ -54,6 +54,20 @@ abstract class GuideDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     abstract suspend fun insertProjectGuideLink(link: ProjectGuideLinkEntity)
 
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    protected abstract suspend fun insertProjectPatternLink(link: ProjectPatternLinkEntity)
+
+    /** Resolve ownership in the transaction; never trust a stale guide passed by the UI. */
+    @Transaction
+    open suspend fun useGuideInProject(projectId: String, guideId: String) {
+        val guide = getGuide(guideId) ?: throw GuideNotFoundException(guideId)
+        require(guide.projectId == null || guide.projectId == projectId) {
+            "A project-owned guide cannot be attached to another project."
+        }
+        insertProjectGuideLink(ProjectGuideLinkEntity(projectId, guideId))
+        guide.libraryItemId?.let { insertProjectPatternLink(ProjectPatternLinkEntity(projectId, it)) }
+    }
+
     @Query("DELETE FROM project_guides WHERE project_id = :projectId AND guide_id = :guideId")
     abstract suspend fun deleteProjectGuideLink(projectId: String, guideId: String)
 
