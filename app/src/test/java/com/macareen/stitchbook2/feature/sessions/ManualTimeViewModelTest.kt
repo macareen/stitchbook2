@@ -58,6 +58,42 @@ class ManualTimeViewModelTest {
             assertEquals(1, repo.items.value.size)
         } finally { scope.cancel() }
     }
+    @Test fun staleTimerActionCannotReopenAChangedSession() {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        try {
+            val live = SessionTimer.start("live", "p", now - 300_000, "UTC")
+            val repo = ManualTestSessions(listOf(live)); repo.rejectComparison = true
+            val vm = model(repo, scope); vm.pause()
+            assertEquals(listOf(live), repo.items.value)
+            assertEquals(SessionFeedback.CHANGED, vm.uiState.value.feedback)
+        } finally { scope.cancel() }
+    }
+    @Test fun oldCorrectionCannotOverwriteNewerSessionDetails() {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        try {
+            val old = SessionTimer.stop(SessionTimer.start("s", "p", now - 300_000, "UTC"), now)
+            val latest = old.copy(notes = "Newer note", updatedAt = now + 1)
+            val repo = ManualTestSessions(listOf(latest)); val vm = model(repo, scope)
+            vm.saveCorrection(old, SessionCorrectionInput("2026-10-13", "11:55", "10", "", "", "Old edit"))
+            assertEquals(listOf(latest), repo.items.value)
+            assertEquals(SessionFeedback.CHANGED, vm.uiState.value.feedback)
+        } finally { scope.cancel() }
+    }
+    @Test fun explicitStartClosesAllPreviousScopes() {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        try {
+            val old = SessionTimer.start("other", "other", now - 300_000, "UTC")
+            val paused = SessionTimer.pause(SessionTimer.start("paused", null, now - 240_000, "UTC"), now - 60_000)
+            val repo = ManualTestSessions(listOf(old, paused)); val vm = model(repo, scope)
+            vm.start()
+            assertEquals(1, repo.items.value.count { it.isActive })
+            assertEquals("p", repo.items.value.single { it.isActive }.projectId)
+            assertEquals(SessionTimer.stop(old, now), repo.items.value.single { it.id == old.id })
+            assertEquals(SessionTimer.stop(paused, now), repo.items.value.single { it.id == paused.id })
+            assertEquals(SessionFeedback.STOPPED_OTHER_PROJECT, vm.uiState.value.feedback)
+        } finally { scope.cancel() }
+    }
+
     @Test fun busySaveCannotBeDuplicatedOrReset() {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
         try {
@@ -74,6 +110,9 @@ class ManualTimeViewModelTest {
 
 private class ManualTestSessions(initial: List<CraftingSession>) : SessionRepository {
     val items = MutableStateFlow(initial)
+    var rejectComparison = false
+    override suspend fun saveIfUnchanged(expected: CraftingSession, changed: CraftingSession): Boolean =
+        if (rejectComparison) false else super<SessionRepository>.saveIfUnchanged(expected, changed)
     var failSave = false
     var beforeSave: CompletableDeferred<Unit>? = null
     override fun observeSessions(): Flow<List<CraftingSession>> = items

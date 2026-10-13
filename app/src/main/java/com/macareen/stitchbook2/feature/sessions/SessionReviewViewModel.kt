@@ -28,13 +28,14 @@ class SessionReviewViewModel(
 ) : ViewModel() {
     private val scope = externalScope ?: viewModelScope
     private data class Operation(val busy: Boolean = false, val error: SessionReviewError? = null,
-        val deferredId: String? = null, val deferredUntil: Long = 0)
+        val deferred: Map<String, Long> = emptyMap())
     private val operation = MutableStateFlow(Operation())
     private val now = MutableStateFlow(clock())
-    val uiState = combine(sessions.observeActiveSession(), projects.observeProjects(), preferences.preferences, now, operation) {
-        active, projectList, prefs, timestamp, action ->
-        val due = active?.takeIf { SessionTimeReview.needsReview(it, timestamp, prefs.timerReviewMinutes) &&
-            !(action.deferredId == it.id && timestamp < action.deferredUntil) }
+    val uiState = combine(sessions.observeSessions(), projects.observeProjects(), preferences.preferences, now, operation) {
+        recorded, projectList, prefs, timestamp, action ->
+        val due = recorded.filter { SessionTimeReview.needsReview(it, timestamp, prefs.timerReviewMinutes) &&
+            timestamp >= (action.deferred[it.id] ?: Long.MIN_VALUE) }
+            .minWithOrNull(compareBy<CraftingSession> { it.startedAt }.thenBy { it.id })
         SessionReviewUiState(due?.let { PendingSessionReview(it, projectList.firstOrNull { p -> p.id == it.projectId }?.name,
             it.workedMillis(timestamp) / 60_000L) }, action.busy, action.error)
     }.catch { emit(SessionReviewUiState(error = SessionReviewError.SAVE_FAILED)) }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), SessionReviewUiState())
@@ -43,36 +44,39 @@ class SessionReviewViewModel(
     fun later(expectedId: String) {
         val review = uiState.value.review ?: return
         if (operation.value.busy || review.session.id != expectedId) return
-        operation.value = Operation(deferredId = review.session.id,
-            deferredUntil = clock() + preferences.preferences.value.timerReviewMinutes * 60_000L)
+        operation.value = operation.value.copy(error = null, deferred = operation.value.deferred +
+            (review.session.id to (clock() + preferences.preferences.value.timerReviewMinutes * 60_000L)))
     }
     fun keepAll(expectedId: String) = save(expectedId) { session, timestamp -> SessionTimeReview.keepAll(session, timestamp) }
     fun correctAndPause(expectedId: String, minutes: String) {
         if (operation.value.busy) return
         val value = minutes.trim().toLongOrNull()
-        if (value == null || value < 0) { operation.value = Operation(error = SessionReviewError.INVALID_MINUTES); return }
+        if (value == null || value < 0) { operation.value = operation.value.copy(error = SessionReviewError.INVALID_MINUTES); return }
         save(expectedId) { session, timestamp -> SessionTimeReview.correctAndPause(session, value, timestamp) }
     }
     private fun save(expectedId: String, transform: (CraftingSession, Long) -> CraftingSession?) {
         val expected = uiState.value.review?.session ?: return
         if (operation.value.busy) return
-        if (expected.id != expectedId) { operation.value = Operation(error = SessionReviewError.TIMER_CHANGED); return }
-        operation.value = Operation(busy = true)
+        if (expected.id != expectedId) { operation.value = operation.value.copy(busy = false, error = SessionReviewError.TIMER_CHANGED); return }
+        operation.value = operation.value.copy(busy = true, error = null)
         scope.launch {
             try {
-                val latest = sessions.observeActiveSession().first()
-                if (latest?.id != expected.id || latest.updatedAt != expected.updatedAt || !latest.isRunning) {
-                    operation.value = Operation(error = SessionReviewError.TIMER_CHANGED)
+                val latest = sessions.observeSessions().first().firstOrNull { it.id == expected.id }
+                if (latest?.id != expected.id || latest != expected || !latest.isRunning) {
+                    operation.value = operation.value.copy(busy = false, error = SessionReviewError.TIMER_CHANGED)
                     return@launch
                 }
                 val timestamp = clock()
                 val changed = transform(latest, timestamp)
-                if (changed == null) { operation.value = Operation(error = SessionReviewError.INVALID_MINUTES); return@launch }
-                sessions.saveSession(changed)
+                if (changed == null) { operation.value = operation.value.copy(busy = false, error = SessionReviewError.INVALID_MINUTES); return@launch }
+                if (!sessions.saveIfUnchanged(latest, changed)) {
+                    operation.value = operation.value.copy(busy = false, error = SessionReviewError.TIMER_CHANGED)
+                    return@launch
+                }
                 now.value = timestamp
-                operation.value = Operation()
+                operation.value = operation.value.copy(busy = false, error = null, deferred = operation.value.deferred - expected.id)
             } catch (error: CancellationException) { throw error
-            } catch (_: Exception) { operation.value = Operation(error = SessionReviewError.SAVE_FAILED) }
+            } catch (_: Exception) { operation.value = operation.value.copy(busy = false, error = SessionReviewError.SAVE_FAILED) }
         }
     }
     companion object {

@@ -70,6 +70,37 @@ class SessionReviewViewModelTest {
         store.active.value = SessionTimer.pause(store.active.value!!, now)
         assertNull(model.uiState.value.review)
     }
+    @Test fun olderRecoveredTimerIsReviewedWithoutChangingNewerTimer() {
+        store.active.value = store.active.value!!.copy(updatedAt = now)
+        val newer = store.active.value
+        store.extra.value = listOf(SessionTimer.start("old", "other-project", -60_000, "UTC"))
+        val model = vm()
+        assertEquals("old", model.uiState.value.review!!.session.id)
+        model.correctAndPause("old", "10")
+        assertEquals(newer, store.active.value)
+        assertEquals(600_000L, store.extra.value.single().workedMillis(now))
+        assertTrue(store.extra.value.single().isPaused)
+        assertNull(model.uiState.value.review)
+    }
+    @Test fun restoredTimersHaveIndependentDeferrals() {
+        store.extra.value = listOf(SessionTimer.start("first", null, -120_000, "UTC"), SessionTimer.start("second", null, -60_000, "UTC"))
+        val model = vm()
+        model.later("first"); assertEquals("second", model.uiState.value.review!!.session.id)
+        model.later("second"); assertEquals("s", model.uiState.value.review!!.session.id)
+        model.later("s"); assertNull(model.uiState.value.review)
+        now += 31 * 60_000; model.checkNow()
+        assertEquals("first", model.uiState.value.review!!.session.id)
+    }
+    @Test fun rejectedAtomicReviewSaveLeavesOriginalRecordAndReportsTimerChange() {
+        store.rejectComparison = true
+        val model = vm()
+        val original = store.active.value
+        model.correctAndPause("s", "10")
+        assertEquals(original, store.active.value)
+        assertEquals(SessionReviewError.TIMER_CHANGED, model.uiState.value.error)
+        assertTrue(!model.uiState.value.busy)
+    }
+
     @Test fun invalidClicksCannotUnlockAnInFlightSave() {
         val model = vm()
         val gate = CompletableDeferred<Unit>()
@@ -84,12 +115,19 @@ class SessionReviewViewModelTest {
 }
 private class ReviewSessions : SessionRepository {
     val active = MutableStateFlow<CraftingSession?>(SessionTimer.start("s", "p", 0, "UTC"))
+    val extra = MutableStateFlow<List<CraftingSession>>(emptyList())
+    var rejectComparison = false
     var fail = false
     var gate: CompletableDeferred<Unit>? = null
     override fun observeActiveSession(): Flow<CraftingSession?> = active
-    override fun observeSessions(): Flow<List<CraftingSession>> = active.map { listOfNotNull(it) }
+    override fun observeSessions(): Flow<List<CraftingSession>> = combine(active, extra) { current, more -> listOfNotNull(current) + more }
     override fun observeSessionsForProject(projectId: String): Flow<List<CraftingSession>> = observeSessions().map { it.filter { s -> s.projectId == projectId } }
-    override suspend fun saveSession(session: CraftingSession) { gate?.await(); if (fail) error("save failed"); active.value = session }
+    override suspend fun saveIfUnchanged(expected: CraftingSession, changed: CraftingSession): Boolean =
+        if (rejectComparison) false else super<SessionRepository>.saveIfUnchanged(expected, changed)
+    override suspend fun saveSession(session: CraftingSession) {
+        gate?.await(); if (fail) error("save failed")
+        if (session.id == active.value?.id) active.value = session else extra.value = extra.value.map { if (it.id == session.id) session else it }
+    }
     override suspend fun deleteSession(session: CraftingSession) = Unit
 }
 private class ReviewProjects : ProjectRepository {

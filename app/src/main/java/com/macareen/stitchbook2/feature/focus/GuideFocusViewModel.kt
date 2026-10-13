@@ -286,12 +286,12 @@ class GuideFocusViewModel(
                 val now = clock()
                 val active = sessions.observeActiveSession().first()
                 when {
-                    active == null -> sessions.saveSession(
+                    active == null -> sessions.startSession(
                         SessionTimer.start(UUID.randomUUID().toString(), current.projectId, now, zone().id)
                     )
                     active.projectId != current.projectId -> Unit
-                    active.isPaused -> sessions.saveSession(SessionTimer.resume(active, now))
-                    else -> sessions.saveSession(SessionTimer.pause(active, now))
+                    active.isPaused -> sessions.saveIfUnchanged(active, SessionTimer.resume(active, now))
+                    else -> sessions.saveIfUnchanged(active, SessionTimer.pause(active, now))
                 }
                 refreshTiming()
             } catch (error: CancellationException) {
@@ -322,7 +322,7 @@ class GuideFocusViewModel(
         if (projectId.isEmpty()) return
         try {
             if (sessions.observeActiveSession().first() == null) {
-                sessions.saveSession(SessionTimer.start(UUID.randomUUID().toString(), projectId, clock(), zone().id))
+                sessions.startSession(SessionTimer.start(UUID.randomUUID().toString(), projectId, clock(), zone().id))
             }
         } catch (error: CancellationException) {
             throw error

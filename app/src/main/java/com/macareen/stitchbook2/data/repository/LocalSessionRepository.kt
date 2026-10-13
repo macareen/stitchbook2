@@ -21,6 +21,12 @@ class LocalSessionRepository(
     override fun observeActiveSession(): Flow<CraftingSession?> =
         dao.observeActive().map { it?.toDomain() }
 
+    override suspend fun startSession(session: CraftingSession, replaceActive: Boolean) =
+        dao.startSession(session.toEntity(), replaceActive)
+
+    override suspend fun saveIfUnchanged(expected: CraftingSession, changed: CraftingSession): Boolean =
+        dao.saveIfUnchanged(expected.toEntity(), changed.toEntity())
+
     override suspend fun saveSession(session: CraftingSession) = dao.upsert(session.toEntity())
 
     override suspend fun deleteSession(session: CraftingSession) = dao.delete(session.toEntity())

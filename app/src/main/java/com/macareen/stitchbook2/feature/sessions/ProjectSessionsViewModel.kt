@@ -35,6 +35,7 @@ enum class SessionFeedback {
     INVALID_DURATION,
     INVALID_NUMBER,
     STOPPED_OTHER_PROJECT,
+    CHANGED,
     SAVE_FAILED
 }
 
@@ -145,11 +146,8 @@ class ProjectSessionsViewModel(
     /** Only one session runs at a time; starting here stops any other one first. */
     fun start() = launchSafely {
         val now = clock()
-        sessionRepository.observeActiveSession().first()?.let { other ->
-            sessionRepository.saveSession(SessionTimer.stop(other, now))
-            if (other.projectId != projectId) feedback.value = SessionFeedback.STOPPED_OTHER_PROJECT
-        }
-        sessionRepository.saveSession(SessionTimer.start(UUID.randomUUID().toString(), projectId, now, zone().id))
+        val result = sessionRepository.startSession(SessionTimer.start(UUID.randomUUID().toString(), projectId, now, zone().id), replaceActive = true)
+        if (result.stoppedProjectIds.any { it != projectId }) feedback.value = SessionFeedback.STOPPED_OTHER_PROJECT
     }
 
     fun pause() = updateActive { SessionTimer.pause(it, clock()) }
@@ -179,13 +177,14 @@ class ProjectSessionsViewModel(
             } else {
                 SessionTimer.correct(session, startedAt, minutes * 60_000L, now)
             }
-            sessionRepository.saveSession(
+            val saved = sessionRepository.saveIfUnchanged(session,
                 corrected.copy(
                     rowsCompleted = rows.value,
                     stitchesPerRow = stitches.value,
                     notes = input.notes.trim().ifEmpty { null }
                 )
             )
+            if (!saved) feedback.value = SessionFeedback.CHANGED
         }
     }
 
@@ -197,7 +196,7 @@ class ProjectSessionsViewModel(
 
     private fun updateActive(transform: (CraftingSession) -> CraftingSession) = launchSafely {
         val active = sessionRepository.observeActiveSession().first() ?: return@launchSafely
-        sessionRepository.saveSession(transform(active))
+        if (!sessionRepository.saveIfUnchanged(active, transform(active))) feedback.value = SessionFeedback.CHANGED
     }
 
     private fun fail(message: SessionFeedback) {

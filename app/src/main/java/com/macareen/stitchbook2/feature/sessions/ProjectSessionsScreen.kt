@@ -403,6 +403,7 @@ private fun FeedbackLine(message: SessionFeedback, onDismiss: () -> Unit) {
         SessionFeedback.INVALID_DURATION -> stringResource(R.string.sessions_error_duration)
         SessionFeedback.INVALID_NUMBER -> stringResource(R.string.sessions_error_number)
         SessionFeedback.STOPPED_OTHER_PROJECT -> stringResource(R.string.sessions_stopped_other)
+        SessionFeedback.CHANGED -> stringResource(R.string.sessions_changed)
         SessionFeedback.SAVE_FAILED -> stringResource(R.string.materials_error_save_failed)
     }
     val isError = message != SessionFeedback.STOPPED_OTHER_PROJECT

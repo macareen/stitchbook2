@@ -14,4 +14,5 @@
     <string name="timer_review_invalid_minutes">Enter a whole number from zero up to the current crafting minutes for this session.</string>
     <string name="timer_review_save_failed">Could not save this change. Try again.</string>
     <string name="timer_review_changed">The timer changed. Review its current time again.</string>
+    <string name="sessions_changed">This session changed. Reopen it before saving again.</string>
 </resources>
