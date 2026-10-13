@@ -15,6 +15,9 @@ object PatternTextCleanup {
     private val PAGE_NUMBER = Regex("""^(page\s*)?\d{1,3}(\s*(of|/)\s*\d{1,3})?$""", RegexOption.IGNORE_CASE)
     private val ENDS_A_THOUGHT = Regex("""[.:;!?)\]]$""")
     private val RULE = Regex("""^(?:_{3,}|[-\u2013\u2014=]{3,})$""")
+    private val NUMERIC_TAIL = Regex("""\d[\d\s.,;/()\[\]\u2013\u2014-]*[\d)\]]\s*$""")
+    private val DANGLING_WORD = Regex("""\b(?:slip|before|after|around|to|of|the|a|an|at|with|on|in|from|over|under|through|by)$""", RegexOption.IGNORE_CASE)
+    private val NUMERIC_START = Regex("""^(?:\d|[(\[]\s*\d)""")
     private const val MAX_FURNITURE_LENGTH = 100
     private const val EDGE_LINES = 2
 
@@ -52,9 +55,13 @@ object PatternTextCleanup {
     /** True when [next] carries on the sentence [previous] started. */
     private fun continues(previous: String, next: String, startsNewLine: (String) -> Boolean): Boolean {
         if (startsNewLine(next)) return false
+        if (PatternTextParser.isRowLabelOnly(previous)) return true
+        val tail = NUMERIC_TAIL.find(previous)?.value.orEmpty()
+        if (('(' in tail || '[' in tail) && NUMERIC_START.containsMatchIn(next)) return true
         if (ENDS_A_THOUGHT.containsMatchIn(previous)) return false
         // A wrapped sentence resumes in lower case, with a digit, or after a hyphen or comma.
         val first = next.first()
+        if (first.isUpperCase() && DANGLING_WORD.containsMatchIn(previous)) return true
         return previous.endsWith("-") || previous.endsWith(",") || first.isLowerCase() || first.isDigit() || first == '('
     }
 

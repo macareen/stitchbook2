@@ -41,19 +41,27 @@ object PatternTextParser {
     private const val SPAN = """\s*(?:-|\u2013|\u2014|to|through)\s*"""
 
     private val SECTION_LINE = Regex("""^Section:\s*(.+)$""", RegexOption.IGNORE_CASE)
+    private val ROW_LABEL_ONLY = Regex("""^$UNIT\s*\d+(?:$SPAN\d+)?$SIDE$SEPARATOR$""", RegexOption.IGNORE_CASE)
+    internal fun isRowLabelOnly(text: String): Boolean = ROW_LABEL_ONLY.matches(text.trim())
     private val ROW_RANGE_LINE = Regex("""^$UNIT\s*(\d+)$SPAN(\d+)$SIDE$SEPARATOR(.+)$""", RegexOption.IGNORE_CASE)
     private val ROW_SINGLE_LINE = Regex("""^$UNIT\s*(\d+)$SIDE$SEPARATOR(.+)$""", RegexOption.IGNORE_CASE)
     private val REPEAT_LINE = Regex(
         """^Rep(?:eat)?\s+$UNIT\s*(\d+)(?:(?:$SPAN|\s+(?:and|&)\s+)(\d+))?\s+(\d+)\s+times\.?$""",
         RegexOption.IGNORE_CASE
     )
+    private val TOTAL_REPEAT_PREFIX = Regex("""^(?:work|repeat)\s+$UNIT\s*\d+(?:(?:$SPAN|\s+(?:and|&)\s+)\d+)?\s+(?:a\s+)?total\s+of\b""", RegexOption.IGNORE_CASE)
+    private val TOTAL_REPEAT_LINE = Regex(
+        """^(?:work|repeat)\s+$UNIT\s*(\d+)(?:(?:$SPAN|\s+(?:and|&)\s+)(\d+))?\s+(?:a\s+)?total\s+of\s+(\d+)\s+times\b[.]?\s*(.*)$""",
+        RegexOption.IGNORE_CASE
+    )
+    private val NOTE_PREFIX = Regex("""^(?:note|tip|warning|remember)\s*:""", RegexOption.IGNORE_CASE)
     private val BULLET = Regex("""^[\u2022*\u25AA\u25CF-]\s""")
     private const val MAX_HEADING_LENGTH = 40
 
     /** A line that begins its own step, so a wrapped line is never glued onto it from above. */
     internal fun startsNewLine(text: String): Boolean =
-        SECTION_LINE.matches(text) || REPEAT_LINE.matches(text) || ROW_RANGE_LINE.matches(text) ||
-            ROW_SINGLE_LINE.matches(text) || BULLET.containsMatchIn(text) || headingTitle(text) != null ||
+        SECTION_LINE.matches(text) || isRowLabelOnly(text) || TOTAL_REPEAT_PREFIX.containsMatchIn(text) || REPEAT_LINE.matches(text) || ROW_RANGE_LINE.matches(text) ||
+            ROW_SINGLE_LINE.matches(text) || NOTE_PREFIX.containsMatchIn(text) || BULLET.containsMatchIn(text) || headingTitle(text) != null ||
             PatternMetadataSplitter.startsDetailsLine(text)
 
     /**
@@ -62,6 +70,7 @@ object PatternTextParser {
      * or a short phrase ending in a colon; never a sentence.
      */
     internal fun headingTitle(text: String): String? {
+        if (isRowLabelOnly(text)) return null
         val trimmed = text.trim()
         if (trimmed.length !in 3..MAX_HEADING_LENGTH || trimmed.endsWith(".")) return null
         val letters = trimmed.filter { it.isLetter() }
@@ -100,7 +109,7 @@ object PatternTextParser {
         SECTION_LINE.matchEntire(text)?.groupValues?.get(1)?.trim() ?: headingTitle(text)
 
     private fun isRowLine(text: String): Boolean =
-        ROW_RANGE_LINE.matches(text) || ROW_SINGLE_LINE.matches(text) || REPEAT_LINE.matches(text)
+        ROW_RANGE_LINE.matches(text) || ROW_SINGLE_LINE.matches(text) || TOTAL_REPEAT_PREFIX.containsMatchIn(text) || REPEAT_LINE.matches(text)
 
     private fun parseLines(lines: List<ExtractedLine>): ParsedPattern {
         val issues = mutableListOf<ParsingIssue>()
@@ -130,6 +139,16 @@ object PatternTextParser {
                 currentSectionTitle = sectionTitle
                 currentSectionSource = source
                 currentSection = Container()
+                continue
+            }
+
+            val totalRepeat = TOTAL_REPEAT_LINE.matchEntire(text)
+            if (totalRepeat != null) {
+                if (parseRepeatLine(totalRepeat, text, source, active(), issues)) {
+                    totalRepeat.groupValues[5].takeIf { it.isNotBlank() }?.let {
+                        active().children += ParsedInstruction(it, source)
+                    }
+                } else active().children += ParsedInstruction(text, source)
                 continue
             }
 
@@ -213,13 +232,13 @@ object PatternTextParser {
         source: SourceReference,
         container: Container,
         issues: MutableList<ParsingIssue>
-    ) {
+    ): Boolean {
         val unit = normalizeUnit(match.groupValues[1])
-        val start = match.groupValues[2].toInt()
-        val end = match.groupValues[3].takeIf { it.isNotEmpty() }?.toInt() ?: start
-        val count = match.groupValues[4].toInt()
+        val start = match.groupValues[2].toIntOrNull()
+        val end = if (match.groupValues[3].isEmpty()) start else match.groupValues[3].toIntOrNull()
+        val count = match.groupValues[4].toIntOrNull()
 
-        val resolved = if (count < 1 || end < start) {
+        val resolved = if (count == null || start == null || end == null || count < 1 || start < 1 || end < start) {
             null
         } else {
             resolveRepeatTarget(container.rowMarkers, unit, start, end)
@@ -227,7 +246,7 @@ object PatternTextParser {
 
         if (resolved == null) {
             issues += ParsingIssue("Could not find $unit $start-$end to repeat: \"$rawText\"", source)
-            return
+            return false
         }
 
         val (matchedNodes, removeCount) = resolved
@@ -236,12 +255,13 @@ object PatternTextParser {
             // (they are no longer the trailing, contiguous content), so
             // wrapping them now would silently reorder the definition.
             issues += ParsingIssue("Could not find $unit $start-$end to repeat: \"$rawText\"", source)
-            return
+            return false
         }
 
         repeat(removeCount) { container.children.removeAt(container.children.size - 1) }
         repeat(removeCount) { container.rowMarkers.removeAt(container.rowMarkers.size - 1) }
-        container.children += ParsedRepeat(count = count, children = matchedNodes, source = source)
+        container.children += ParsedRepeat(count = requireNotNull(count), children = matchedNodes, source = source)
+        return true
     }
 
     /**
