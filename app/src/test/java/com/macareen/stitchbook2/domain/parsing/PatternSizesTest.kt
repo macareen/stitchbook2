@@ -6,6 +6,30 @@ import org.junit.Test
 
 class PatternSizesTest {
 
+    @Test fun repeatedGroupedSizeLabelsAreFlattenedWithoutBracketFragments() {
+        assertEquals(listOf("A", "B", "C", "D", "E", "F", "G"), PatternSizes.labelsFrom("A (B, C, D) (E, F, G)"))
+        assertEquals(listOf("XS", "S", "M", "L", "XL"), PatternSizes.labelsFrom("XS [S; M] [L; XL]"))
+        assertEquals(listOf("Small", "Medium", "Large"), PatternSizes.labelsFrom("Small (Medium, Large)"))
+        assertEquals(emptyList<String>(), PatternSizes.labelsFrom("S (M, L"))
+        assertEquals(emptyList<String>(), PatternSizes.labelsFrom("S ((M, L))"))
+    }
+
+    @Test fun everyValueInRepeatedNumericGroupsResolvesForItsSize() {
+        val values = listOf("42", "48", "54", "60", "66", "72", "78")
+        values.indices.forEach { index ->
+            assertEquals("Cast on ${values[index]} sts.",
+                PatternSizes.resolve("Cast on 42 (48, 54, 60) (66, 72, 78) sts.", index, values.size))
+            assertEquals("Cast on ${values[index]} sts.",
+                PatternSizes.resolve("Cast on 42 [48; 54; 60] [66; 72; 78] sts.", index, values.size))
+        }
+    }
+
+    @Test fun aLongerGroupedRunNeverPartiallyResolvesAsAShorterSizeList() {
+        val original = "Work 12 (14, 16) (18, 20, 22) rows."
+        assertEquals(original, PatternSizes.resolve(original, 1, 3))
+        assertEquals(original, PatternSizes.resolve(original, 1, 5))
+    }
+
     @Test
     fun `size names are read in bracket, comma and slash forms`() {
         assertEquals(listOf("XS", "S", "M", "L"), PatternSizes.labelsFrom("XS (S, M, L)"))
