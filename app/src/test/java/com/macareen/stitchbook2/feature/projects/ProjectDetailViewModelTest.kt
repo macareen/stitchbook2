@@ -356,6 +356,51 @@ class ProjectDetailViewModelTest {
         assertTrue(model.coverSaveFailed.value)
     }
 
+    @Test
+    fun rowNotesPersistExplicitTagAndContextAndCanRetryFailedSaves() {
+        val journal = FakeDashboardJournal(emptyList())
+        val model = viewModel(FakeGuideRepository(emptyList()), FakeExecutionRepository(), journal = journal)
+        model.addRowNote("  ", JournalNoteTag.MISTAKE, "Body row 24")
+        assertEquals(RowNoteSaveState.BODY_REQUIRED, model.noteSaveState.value)
+        assertTrue(journal.entries.value.isEmpty())
+        journal.failEntrySave = true
+        model.addRowNote("  Keep body longer.  ", JournalNoteTag.ADJUSTMENT, " Body row 24 ")
+        assertEquals(RowNoteSaveState.SAVE_FAILED, model.noteSaveState.value)
+        assertTrue(journal.entries.value.isEmpty())
+        journal.failEntrySave = false
+        model.addRowNote("  Keep body longer.  ", JournalNoteTag.ADJUSTMENT, " Body row 24 ")
+        assertEquals(RowNoteSaveState.SAVED, model.noteSaveState.value)
+        val note = journal.entries.value.single()
+        assertEquals(project.id, note.projectId)
+        assertEquals("Keep body longer.", note.body)
+        assertEquals("Body row 24", note.rowContext)
+        assertEquals(JournalNoteTag.ADJUSTMENT, note.tag)
+        val editor = com.macareen.stitchbook2.feature.journal.ProjectJournalViewModel(project.id,
+            FakeProjectRepository(project), journal, externalScope = scope)
+        editor.saveEntry(note, note.entryDate, "Edited title", "Edited body")
+        assertEquals(note.tag, journal.entries.value.single().tag)
+        assertEquals(note.rowContext, journal.entries.value.single().rowContext)
+        assertEquals(note.createdAt, journal.entries.value.single().createdAt)
+        editor.saveEntry(journal.entries.value.single(), note.entryDate, "Edited title", "Edited body", JournalNoteTag.REMINDER, "  ")
+        assertEquals(JournalNoteTag.REMINDER, journal.entries.value.single().tag)
+        assertEquals(null, journal.entries.value.single().rowContext)
+    }
+
+    @Test
+    fun duplicateNoteClicksCannotStartAnotherSaveOrClearItsBusyState() {
+        val journal = FakeDashboardJournal(emptyList())
+        val pending = CompletableDeferred<Unit>()
+        journal.beforeEntrySave = pending
+        val model = viewModel(FakeGuideRepository(emptyList()), FakeExecutionRepository(), journal = journal)
+        model.addRowNote("First note", JournalNoteTag.TECHNIQUE, "round 4")
+        model.clearNoteFeedback()
+        model.addRowNote("Second note", JournalNoteTag.MISTAKE, "round 5")
+        assertEquals(RowNoteSaveState.SAVING, model.noteSaveState.value)
+        pending.complete(Unit)
+        assertEquals(RowNoteSaveState.SAVED, model.noteSaveState.value)
+        assertEquals("First note", journal.entries.value.single().body)
+    }
+
     private fun contentState(viewModel: ProjectDetailViewModel): ProjectDetailUiState.Content {
         return viewModel.uiState.value as ProjectDetailUiState.Content
     }
@@ -669,14 +714,17 @@ private class FakeExecutionRepository : ExecutionRepository {
 
 private class FakeDashboardJournal(initial: List<Photo>) : JournalRepository {
     val photos = MutableStateFlow(initial)
+    val entries = MutableStateFlow<List<JournalEntry>>(emptyList())
+    var failEntrySave = false
+    var beforeEntrySave: CompletableDeferred<Unit>? = null
     override fun observePhotos(): Flow<List<Photo>> = photos
     override fun observePhotosForProject(projectId: String): Flow<List<Photo>> = photos.map { list -> list.filter { it.projectId == projectId } }
     override fun observePhotosForStashItem(stashItemId: String): Flow<List<Photo>> = flowOf(emptyList())
     override suspend fun savePhoto(photo: Photo) { photos.value = photos.value.filterNot { it.id == photo.id } + photo }
     override suspend fun deletePhoto(photo: Photo) { photos.value = photos.value.filterNot { it.id == photo.id } }
-    override fun observeEntries(): Flow<List<JournalEntry>> = flowOf(emptyList())
-    override fun observeEntriesForProject(projectId: String): Flow<List<JournalEntry>> = flowOf(emptyList())
-    override suspend fun saveEntry(entry: JournalEntry) = Unit
+    override fun observeEntries(): Flow<List<JournalEntry>> = entries
+    override fun observeEntriesForProject(projectId: String): Flow<List<JournalEntry>> = entries.map { list -> list.filter { it.projectId == projectId } }
+    override suspend fun saveEntry(entry: JournalEntry) { beforeEntrySave?.await(); if (failEntrySave) error("Save failed"); entries.value = entries.value.filterNot { it.id == entry.id } + entry }
     override suspend fun deleteEntry(entry: JournalEntry) = Unit
     override fun observeMilestones(): Flow<List<Milestone>> = flowOf(emptyList())
     override fun observeMilestonesForProject(projectId: String): Flow<List<Milestone>> = flowOf(emptyList())

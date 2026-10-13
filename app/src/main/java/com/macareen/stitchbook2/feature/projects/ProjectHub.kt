@@ -75,7 +75,8 @@ data class ProjectHubState(
     /** Pattern guides (one per size) this project could use. */
     val patternGuides: List<Guide> = emptyList(),
     val dashboard: ProjectDashboardState = ProjectDashboardState(),
-    val coverSaveFailed: Boolean = false
+    val coverSaveFailed: Boolean = false,
+    val noteSaveState: RowNoteSaveState = RowNoteSaveState.IDLE
 )
 
 /** Edits the hub's sheets can make; each writes to the shared toolbox or counters. */
@@ -86,7 +87,9 @@ data class ProjectHubActions(
     val onAssignTool: (ToolItem) -> Unit = {},
     val onAddNewTool: (name: String, category: ToolCategory) -> Unit = { _, _ -> },
     val onUsePatternGuide: (Guide) -> Unit = {},
-    val onSetCover: (com.macareen.stitchbook2.domain.model.Photo) -> Unit = {}
+    val onSetCover: (com.macareen.stitchbook2.domain.model.Photo) -> Unit = {},
+    val onSaveRowNote: (String, com.macareen.stitchbook2.domain.model.JournalNoteTag, String) -> Unit = { _, _, _ -> },
+    val onClearNoteFeedback: () -> Unit = {}
 )
 
 /** Which bottom sheet a node opened. */

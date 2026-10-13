@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.macareen.stitchbook2.domain.model.JournalNoteTag
 import com.macareen.stitchbook2.domain.model.JournalEntry
 import com.macareen.stitchbook2.domain.model.Milestone
 import com.macareen.stitchbook2.domain.model.Photo
@@ -100,12 +101,14 @@ data class JournalEntryEntity(
     val title: String?,
     val body: String,
     @ColumnInfo(name = "created_at") val createdAt: Long,
-    @ColumnInfo(name = "updated_at") val updatedAt: Long
+    @ColumnInfo(name = "updated_at") val updatedAt: Long,
+    @ColumnInfo(defaultValue = "'GENERAL'") val tag: String = "GENERAL",
+    @ColumnInfo(name = "row_context") val rowContext: String? = null
 )
 
-fun JournalEntryEntity.toDomain() = JournalEntry(id, projectId, entryDate, title, body, createdAt, updatedAt)
+fun JournalEntryEntity.toDomain() = JournalEntry(id, projectId, entryDate, title, body, createdAt, updatedAt, JournalNoteTag.valueOf(tag), rowContext)
 
-fun JournalEntry.toEntity() = JournalEntryEntity(id, projectId, entryDate, title, body, createdAt, updatedAt)
+fun JournalEntry.toEntity() = JournalEntryEntity(id, projectId, entryDate, title, body, createdAt, updatedAt, tag.name, rowContext)
 
 @Entity(
     tableName = "milestones",

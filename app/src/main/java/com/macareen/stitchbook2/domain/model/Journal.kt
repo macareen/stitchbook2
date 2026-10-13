@@ -55,7 +55,10 @@ data class JournalEntry(
     val title: String?,
     val body: String,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val tag: JournalNoteTag = JournalNoteTag.GENERAL,
+    /** Editable snapshot of a section/row/repeat, independent of future guide edits. */
+    val rowContext: String? = null
 )
 
 /**
@@ -100,3 +103,6 @@ fun List<Photo>.beforeAfterPair(): Pair<Photo, Photo>? {
     val after = filter { it.role == PhotoRole.AFTER }.maxByOrNull { it.updatedAt } ?: return null
     return before to after
 }
+
+/** Craft-neutral working-note categories; no category is inferred from its text. */
+enum class JournalNoteTag { GENERAL, ADJUSTMENT, MISTAKE, REMINDER, TECHNIQUE }

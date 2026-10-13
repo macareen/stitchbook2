@@ -230,3 +230,5 @@ Focus renders clear comma/semicolon/sentence-separated craft actions on individu
 ### Native project page (2026-10-13)
 
 The approved project preview is implemented as a growing wavy serif header and rounded content surfaces, with a photo carousel and saved cover selection. Materials, tools, notes and guide sections appear on the page instead of being hidden behind the node map. Follow guide and the quick counter remain visible while scrolling. Long guide names and section instructions wrap; action groups are adaptive for large text. Recorded time and estimated guide/remaining-yarn values remain distinct. Working notes use recorded dates and titles until durable row tags are implemented.
+
+Tagged working notes show an explicit rose category pill and a wrapping context line. The project Add note editor scrolls at large system text sizes, retains text after failed writes and disables repeat saves while busy. Original notes remain general notes; titles never determine their category.
