@@ -3,13 +3,15 @@ package com.macareen.stitchbook2.data.repository
 import com.macareen.stitchbook2.data.database.ProjectDao
 import com.macareen.stitchbook2.data.database.toDomain
 import com.macareen.stitchbook2.data.database.toEntity
+import com.macareen.stitchbook2.domain.model.ProjectStatus
 import com.macareen.stitchbook2.domain.model.Project
 import com.macareen.stitchbook2.domain.repository.ProjectRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 class LocalProjectRepository(
-    private val projectDao: ProjectDao
+    private val projectDao: ProjectDao,
+    private val clock: () -> Long = System::currentTimeMillis
 ) : ProjectRepository {
 
     override fun observeProjects(): Flow<List<Project>> {
@@ -23,7 +25,8 @@ class LocalProjectRepository(
     }
 
     override suspend fun saveProject(project: Project) {
-        projectDao.upsert(project.toEntity())
+        if (project.status == ProjectStatus.COMPLETED) projectDao.upsertAndFinalizeSessions(project.toEntity(), clock())
+        else projectDao.upsert(project.toEntity())
     }
 
     override suspend fun deleteProject(project: Project) {

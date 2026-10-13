@@ -8,6 +8,7 @@ interface ProjectRepository {
 
     fun observeProject(id: String): Flow<Project?>
 
+    /** Moving a project to Completed also finalizes that project's open sessions atomically in local storage. */
     suspend fun saveProject(project: Project)
 
     suspend fun deleteProject(project: Project)
