@@ -90,6 +90,12 @@ interface GuideRepository {
     suspend fun useGuideInProject(projectId: String, guideId: GuideId): Unit =
         throw UnsupportedOperationException("Pattern guides are not supported here.")
 
+    /** Copies the latest published size guide into a new, unpublished size-review draft.
+     * Existing target guides are never replaced; source progress/revisions stay unchanged.
+     */
+    suspend fun copyPatternGuideToSize(sourceGuideId: GuideId, targetSize: String, name: String): Guide =
+        throw UnsupportedOperationException("Guide copying is not supported here.")
+
     /** Stops [projectId] using a pattern guide. The guide itself is kept. */
     suspend fun stopUsingGuideInProject(projectId: String, guideId: GuideId): Unit =
         throw UnsupportedOperationException("Pattern guides are not supported here.")

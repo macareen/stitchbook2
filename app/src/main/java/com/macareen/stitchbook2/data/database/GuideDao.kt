@@ -185,6 +185,38 @@ abstract class GuideDao {
     )
     protected abstract suspend fun getHighestRevisionNumber(guideId: String): Int
 
+    @Query("SELECT * FROM guides WHERE library_item_id = :patternId")
+    protected abstract suspend fun getPatternGuideRows(patternId: String): List<GuideEntity>
+
+    @Transaction
+    open suspend fun copyPatternGuideToSize(sourceGuideId: String, targetSize: String, name: String,
+        newGuideId: String, newDraftId: String, now: Long): GuideEntity {
+        val source = getGuide(sourceGuideId) ?: throw GuideNotFoundException(sourceGuideId)
+        val patternId = requireNotNull(source.libraryItemId)
+        require(source.projectId == null) { "Only reusable pattern guides can be copied between sizes." }
+        val size = targetSize.trim()
+        require(size.isNotEmpty() && name.isNotBlank())
+        val rows = getPatternGuideRows(patternId)
+        val labels = rows.mapNotNull { it.sizeLabel }
+        require(com.macareen.stitchbook2.domain.parsing.PatternSizes.indexOf(size, labels) == null) {
+            "That size already has a guide."
+        }
+        val revision = getLatestRevision(sourceGuideId) ?: error("Publish the source guide before copying it.")
+        revision.toDomain() // Validate the persisted source before introducing a copied tree.
+        val provenance = "Copied from ${source.name}, size ${source.sizeLabel}, revision ${revision.revision.revisionNumber}. Review all counts, repeats and measurements for size $size before publishing."
+        val guide = GuideEntity(newGuideId, null, patternId, size, name.trim(),
+            listOfNotNull(source.notes, provenance).joinToString("\n\n"), now, now)
+        val draft = GuideDraftEntity(newDraftId, newGuideId, null, now, now, 0)
+        val ids = revision.nodes.associate { it.nodeId to java.util.UUID.randomUUID().toString() }
+        val nodes = revision.nodes.map { old -> old.toDraftNode(newDraftId).copy(
+            nodeId = ids.getValue(old.nodeId), parentNodeId = old.parentNodeId?.let(ids::getValue)) }
+        val review = DraftNodeEntity(newDraftId, java.util.UUID.randomUUID().toString(), null,
+            nodes.count { it.parentNodeId == null }, "INSTRUCTION", null,
+            "Review needed: $provenance", null, null, null, null, null)
+        insertGuideEntity(guide); insertDraftEntity(draft); insertDraftNodeEntities(nodes + review)
+        return guide
+    }
+
     @Transaction
     open suspend fun insertGuideWithDraft(
         guide: GuideEntity,

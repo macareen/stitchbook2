@@ -33,6 +33,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
@@ -97,7 +101,8 @@ fun PatternGuidesRoute(
         viewModel::createGuide,
         onStartProject = viewModel::startProject,
         onGetRavelryPdf = viewModel::getRavelryPdf,
-        onAttachPdf = viewModel::attachPdf
+        onAttachPdf = viewModel::attachPdf,
+        onCopyGuide = viewModel::copyGuideToSize
     )
 }
 
@@ -111,7 +116,8 @@ fun PatternGuidesScreen(
     modifier: Modifier = Modifier,
     onStartProject: () -> Unit = {},
     onGetRavelryPdf: () -> Unit = {},
-    onAttachPdf: (PickedDocument) -> Unit = {}
+    onAttachPdf: (PickedDocument) -> Unit = {},
+    onCopyGuide: (String, String) -> Unit = { _, _ -> }
 ) {
     when (uiState) {
         PatternGuidesUiState.Loading -> Box(modifier.fillMaxSize()) {
@@ -123,7 +129,7 @@ fun PatternGuidesScreen(
         }
 
         is PatternGuidesUiState.Content ->
-            Content(uiState, onOpenPdf, onEditGuide, onCreateGuide, onStartProject, onGetRavelryPdf, onAttachPdf, modifier)
+            Content(uiState, onOpenPdf, onEditGuide, onCreateGuide, onStartProject, onGetRavelryPdf, onAttachPdf, onCopyGuide, modifier)
     }
 }
 
@@ -136,11 +142,13 @@ private fun Content(
     onStartProject: () -> Unit,
     onGetRavelryPdf: () -> Unit,
     onAttachPdf: (PickedDocument) -> Unit,
+    onCopyGuide: (String, String) -> Unit,
     modifier: Modifier
 ) {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     val scope = rememberCoroutineScope()
+    var copyingGuideId by rememberSaveable { mutableStateOf<String?>(null) }
     var attachFailed by rememberSaveable { mutableStateOf(false) }
     val pickPdf = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) scope.launch {
@@ -224,11 +232,11 @@ private fun Content(
                     requestedSize = size
                     showNewGuide = true
                 })
-            } else entries.forEach { entry -> GuideRow(entry, onClick = { onEditGuide(entry.guide.id.value) }) }
+            } else entries.forEach { entry -> GuideWithCopy(entry, !state.isCreating, { onEditGuide(entry.guide.id.value) }, { copyingGuideId = entry.guide.id.value }) }
         }
         state.guides.filter {
             com.macareen.stitchbook2.domain.parsing.PatternSizes.indexOf(it.guide.sizeLabel.orEmpty(), state.sizeChoices) == null
-        }.forEach { entry -> GuideRow(entry, onClick = { onEditGuide(entry.guide.id.value) }) }
+        }.forEach { entry -> GuideWithCopy(entry, !state.isCreating, { onEditGuide(entry.guide.id.value) }, { copyingGuideId = entry.guide.id.value }) }
         PatternDetailsCard(state.pattern)
         val problem = when {
             attachFailed || state.pdfProblem == PatternPdfProblem.ATTACH_FAILED -> R.string.pattern_pdf_attach_failed
@@ -244,6 +252,12 @@ private fun Content(
                 style = MaterialTheme.typography.bodyMedium
             )
         }
+    }
+
+    state.guides.firstOrNull { it.guide.id.value == copyingGuideId }?.let { source ->
+        CopyGuideDialog(source.guide.sizeLabel.orEmpty(), state.sizeChoices,
+            state.guides.mapNotNull { it.guide.sizeLabel }, state.isCreating, state.createFailed,
+            { target -> onCopyGuide(source.guide.id.value, target) }, { if (!state.isCreating) copyingGuideId = null })
     }
 
     if (showNewGuide) {
@@ -333,6 +347,47 @@ private fun GuideRow(entry: PatternGuideEntry, onClick: () -> Unit) {
             QuietText(text = stringResource(if (entry.isPublished) R.string.pattern_guides_ready else R.string.pattern_guides_draft))
         }
     }
+}
+
+@Composable
+private fun GuideWithCopy(entry: PatternGuideEntry, enabled: Boolean, onEdit: () -> Unit, onCopy: () -> Unit) {
+    Column {
+        GuideRow(entry, onEdit)
+        if (entry.isPublished && entry.guide.projectId == null) TextButton(onClick = onCopy, enabled = enabled) {
+            Text(stringResource(R.string.guide_copy_action))
+        }
+    }
+}
+
+@Composable
+internal fun CopyGuideDialog(sourceSize: String, choices: List<String>, existing: List<String>, busy: Boolean,
+    failed: Boolean, onCopy: (String) -> Unit, onDismiss: () -> Unit) {
+    var size by rememberSaveable { mutableStateOf("") }
+    var reviewed by rememberSaveable { mutableStateOf(false) }
+    val available = size.isNotBlank() && com.macareen.stitchbook2.domain.parsing.PatternSizes.indexOf(size, existing) == null
+    AlertDialog(onDismissRequest = { if (!busy) onDismiss() }, title = { Text(stringResource(R.string.guide_copy_action)) },
+        text = {
+            val keyboard = LocalSoftwareKeyboardController.current
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(stringResource(R.string.guide_copy_help, sourceSize), style = MaterialTheme.typography.bodyMedium)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                choices.filter { com.macareen.stitchbook2.domain.parsing.PatternSizes.indexOf(it, existing) == null }.forEach { label ->
+                    FilterChip(selected = size == label, onClick = { size = label }, enabled = !busy, label = { Text(label) })
+                }
+            }
+            OutlinedTextField(size, { size = it }, enabled = !busy, label = { Text(stringResource(R.string.pattern_guides_size_field)) },
+                singleLine = true, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { keyboard?.hide() }))
+            if (size.isNotBlank() && !available) Text(stringResource(R.string.guide_copy_exists), color = MaterialTheme.colorScheme.error)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(reviewed, { reviewed = it }, enabled = !busy)
+                Text(stringResource(R.string.guide_copy_review), style = MaterialTheme.typography.bodySmall)
+            }
+            if (failed) Text(stringResource(R.string.guide_copy_failed), color = MaterialTheme.colorScheme.error)
+        } }, confirmButton = { Column {
+            TextButton(onClick = { onCopy(size.trim()) }, enabled = available && reviewed && !busy) { Text(stringResource(R.string.guide_copy_create)) }
+            TextButton(onClick = onDismiss, enabled = !busy) { Text(stringResource(R.string.cancel)) }
+        } })
 }
 
 @Composable

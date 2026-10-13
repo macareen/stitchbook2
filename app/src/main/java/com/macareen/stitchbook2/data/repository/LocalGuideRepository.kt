@@ -107,6 +107,9 @@ class LocalGuideRepository(
         guideDao.useGuideInProject(projectId, guideId.value)
     }
 
+    override suspend fun copyPatternGuideToSize(sourceGuideId: GuideId, targetSize: String, name: String): Guide =
+        guideDao.copyPatternGuideToSize(sourceGuideId.value, targetSize, name, newId(), newId(), currentTimeMillis()).toDomain()
+
     override suspend fun stopUsingGuideInProject(projectId: String, guideId: GuideId) {
         guideDao.deleteProjectGuideLink(projectId, guideId.value)
     }

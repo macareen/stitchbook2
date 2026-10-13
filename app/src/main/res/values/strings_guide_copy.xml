@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="guide_copy_action">Copy to another size</string>
+    <string name="guide_copy_help">Copy the latest published guide for size %1$s into an editable draft. Counts, repeats and measurements stay as written; check them against the original pattern for your new size.</string>
+    <string name="guide_copy_review">I will review and adjust the new size before publishing.</string>
+    <string name="guide_copy_create">Copy into a draft</string>
+    <string name="guide_copy_exists">That size already has a guide. Open it to edit instead.</string>
+    <string name="guide_copy_failed">Could not copy this guide. Check the source and target size, then try again. Existing guides are kept.</string>
+</resources>

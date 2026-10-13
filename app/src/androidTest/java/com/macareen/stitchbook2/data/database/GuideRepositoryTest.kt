@@ -424,6 +424,67 @@ class GuideRepositoryTest {
         assertEquals(listOf(reusable.id), repository.observeGuides("hat").first().map { it.id })
     }
 
+    @Test
+    fun copyUsesPublishedTreeWithNewIdsAndRetainsSourceDraftAndRevision() = runBlocking<Unit> {
+        insertPattern("pattern"); enqueueIds("source", "source-draft")
+        val source = repository.createPatternGuide("pattern", "M", "Body M")
+        repository.saveDraft(repository.loadDraft(source.id)!!.withValidTree("Knit 20"))
+        enqueueIds("source-revision")
+        repository.publishDraft(source.id)
+        val revision = repository.getLatestRevision(source.id)!!
+        repository.saveDraft(repository.loadDraft(source.id)!!.withValidTree("Unpublished change"))
+        val sourceDraft = repository.loadDraft(source.id)!!
+        enqueueIds("copy", "copy-draft")
+        val copy = repository.copyPatternGuideToSize(source.id, " L ", "Body L")
+        val draft = repository.loadDraft(copy.id)!!
+        assertNull(repository.getLatestRevision(copy.id)); assertNull(draft.baseRevisionId)
+        assertEquals("L", copy.sizeLabel); assertNull(copy.projectId)
+        org.junit.Assert.assertTrue(copy.notes!!.contains("revision 1"))
+        assertEquals(sourceDraft, repository.loadDraft(source.id)); assertEquals(revision, repository.getLatestRevision(source.id))
+        org.junit.Assert.assertTrue(draft.nodes.any { it.instructionText == "Knit 20" })
+        org.junit.Assert.assertTrue(draft.nodes.none { it.instructionText == "Unpublished change" })
+        org.junit.Assert.assertTrue(draft.nodes.any { it.instructionText?.startsWith("Review needed:") == true })
+        org.junit.Assert.assertTrue(draft.nodes.map { it.id }.toSet().intersect(sourceDraft.nodes.map { it.id }.toSet()).isEmpty())
+        assertEquals(2, draft.nodes.single { it.type == DraftNodeType.REPEAT }.repeatCount)
+        assertEquals(3, draft.nodes.single { it.type == DraftNodeType.RANGE }.rangeEndInclusive)
+        draft.toGuideDefinitionForPublication(DefinitionRevisionId("validation"))
+    }
+
+    @Test
+    fun copyingToExistingSizeOrFromUnpublishedGuideDoesNotReplaceAnything() = runBlocking {
+        insertPattern("pattern"); enqueueIds("source", "source-draft")
+        val source = repository.createPatternGuide("pattern", "M", "Body M")
+        enqueueIds("attempt", "attempt-draft")
+        var failed = false
+        try { repository.copyPatternGuideToSize(source.id, "L", "Body L") } catch (_: Exception) { failed = true }
+        org.junit.Assert.assertTrue(failed)
+        assertEquals(listOf(source), repository.observePatternGuides("pattern").first())
+        repository.saveDraft(repository.loadDraft(source.id)!!.withValidTree("Knit")); enqueueIds("revision")
+        repository.publishDraft(source.id)
+        val before = repository.loadDraft(source.id)
+        enqueueIds("second", "second-draft")
+        failed = false
+        try { repository.copyPatternGuideToSize(source.id, " m ", "Replacement") } catch (_: IllegalArgumentException) { failed = true }
+        org.junit.Assert.assertTrue(failed)
+        assertEquals(listOf(source), repository.observePatternGuides("pattern").first())
+        assertEquals(before, repository.loadDraft(source.id))
+    }
+
+    @Test
+    fun failedCopyRollsBackGuideDraftAndNodes() = runBlocking {
+        insertPattern("pattern"); enqueueIds("source", "source-draft")
+        val source = repository.createPatternGuide("pattern", "M", "Body M")
+        repository.saveDraft(repository.loadDraft(source.id)!!.withValidTree("Knit")); enqueueIds("revision")
+        repository.publishDraft(source.id)
+        database.openHelper.writableDatabase.execSQL("CREATE TRIGGER reject_test_copy BEFORE INSERT ON draft_nodes WHEN NEW.draft_id = 'copy-draft' BEGIN SELECT RAISE(ABORT, 'test rejection'); END")
+        enqueueIds("copy", "copy-draft")
+        var failed = false
+        try { repository.copyPatternGuideToSize(source.id, "L", "Body L") } catch (_: Exception) { failed = true }
+        org.junit.Assert.assertTrue(failed)
+        assertNull(repository.getGuide(GuideId("copy"))); assertNull(repository.loadDraft(GuideId("copy")))
+        assertEquals(listOf(source), repository.observePatternGuides("pattern").first())
+    }
+
     private fun insertPattern(id: String) {
         database.openHelper.writableDatabase.execSQL(
             "INSERT INTO library_items (id, title, craft, tags, bookmarked, created_at, updated_at) " +
