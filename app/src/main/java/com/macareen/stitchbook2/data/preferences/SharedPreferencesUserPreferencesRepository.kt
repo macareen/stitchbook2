@@ -17,7 +17,7 @@ private const val KEY_MEASUREMENT_SYSTEM = "measurement_system"
 
 /**
  * Plain platform `SharedPreferences` rather than a new DataStore dependency:
- * three enum values don't justify another library (AGENTS.md: "add a
+ * These small display choices do not justify another library (AGENTS.md: "add a
  * framework only when a demonstrated need justifies it").
  */
 class SharedPreferencesUserPreferencesRepository(context: Context) : UserPreferencesRepository {
@@ -27,6 +27,12 @@ class SharedPreferencesUserPreferencesRepository(context: Context) : UserPrefere
 
     private val _preferences = MutableStateFlow(read())
     override val preferences: StateFlow<UserPreferences> = _preferences.asStateFlow()
+
+    override fun setTimerReviewMinutes(minutes: Int) {
+        require(minutes in com.macareen.stitchbook2.domain.model.SessionTimeReview.thresholdRange)
+        sharedPreferences.edit().putInt("timer_review_minutes", minutes).apply()
+        _preferences.value = _preferences.value.copy(timerReviewMinutes = minutes)
+    }
 
     override fun setNavigationStyle(style: BottomNavigationStyle) {
         sharedPreferences.edit().putString("navigation_style", style.storageValue).apply()
@@ -44,6 +50,7 @@ class SharedPreferencesUserPreferencesRepository(context: Context) : UserPrefere
     }
 
     private fun read(): UserPreferences = UserPreferences(
+        timerReviewMinutes = sharedPreferences.getInt("timer_review_minutes", 30).takeIf { it in 1..1440 } ?: 30,
         navigationStyle = BottomNavigationStyle.fromStorageValue(sharedPreferences.getString("navigation_style", null)),
         themeMode = ThemeMode.fromStorageValue(sharedPreferences.getString(KEY_THEME_MODE, null)),
         measurementSystem = MeasurementSystem.fromStorageValue(

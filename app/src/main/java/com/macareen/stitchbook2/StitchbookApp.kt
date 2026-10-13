@@ -1,5 +1,9 @@
 package com.macareen.stitchbook2
 
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.macareen.stitchbook2.feature.sessions.SessionReviewViewModel
+import com.macareen.stitchbook2.feature.sessions.SessionReviewRoute
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -99,5 +103,12 @@ fun StitchbookApp(
             navController = navController,
             modifier = Modifier.padding(innerPadding)
         )
+    }
+    val application = LocalContext.current.applicationContext as? StitchbookApplication
+    if (application != null) {
+        val container = application.container
+        val timerReview: SessionReviewViewModel = viewModel(factory = SessionReviewViewModel.factory(
+            container.sessionRepository, container.projectRepository, container.userPreferencesRepository))
+        SessionReviewRoute(timerReview)
     }
 }

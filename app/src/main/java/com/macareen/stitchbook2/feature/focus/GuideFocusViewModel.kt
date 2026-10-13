@@ -2,6 +2,7 @@ package com.macareen.stitchbook2.feature.focus
 
 import com.macareen.stitchbook2.domain.model.ProjectStatus
 import com.macareen.stitchbook2.domain.repository.ProjectRepository
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.update
 import java.util.UUID
 import java.time.ZoneId
@@ -180,6 +181,15 @@ class GuideFocusViewModel(
 
     init {
         refresh()
+        sessionRepository?.let { repository ->
+            scope.launch {
+                repository.observeSessions().collect {
+                    try { refreshTiming()
+                    } catch (error: CancellationException) { throw error
+                    } catch (_: Exception) { /* Timing must not interrupt guide execution. */ }
+                }
+            }
+        }
     }
 
     /** Re-derives UI state from whatever is currently persisted. */

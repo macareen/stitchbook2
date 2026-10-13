@@ -542,3 +542,7 @@ Single rows keep their number in the step text ("Row 3 (RS): Knit."), and genera
 - Home photo dashboard: current-project latest attached photo, Continue/Open project and real quick actions are implemented. Explicit user-selected project covers and the approved full project-page redesign remain separate work.
 
 - Focus action-per-line presentation is available for existing and new guides; it preserves grouped sequences and does not turn a row into additional tracked steps. Settings uses a cog in Words navigation for a compact bar.
+
+- Configurable long-running timer review: default 30 minutes, checks foreground and recovered running sessions, offers Count all time, correction with pause, and Later. Corrected sessions preserve original intervals and portable correction notes. Finished historical sessions remain editable through session correction.
+
+- Renewed LooseLoop audit adds practical follow-ups beyond the original phase list: project-completion timer finalization, recovery/restore reconciliation without double-counting, counter-scoped time with explicit attribution, and direct manual time entries. See docs/LOOSELOOP_FUNCTIONAL_FINDINGS.md for confirmed vs inferred evidence.

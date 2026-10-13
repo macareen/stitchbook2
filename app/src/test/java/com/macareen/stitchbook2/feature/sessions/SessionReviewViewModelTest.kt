@@ -1,0 +1,108 @@
+package com.macareen.stitchbook2.feature.sessions
+
+import com.macareen.stitchbook2.domain.model.*
+import com.macareen.stitchbook2.domain.preferences.*
+import com.macareen.stitchbook2.domain.repository.*
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
+import org.junit.Assert.*
+import org.junit.Test
+
+class SessionReviewViewModelTest {
+    private val scope = CoroutineScope(Dispatchers.Unconfined)
+    private var now = 900 * 60_000L
+    private val store = ReviewSessions()
+    private val preferences = ReviewPreferences()
+    private fun vm() = SessionReviewViewModel(store, ReviewProjects(), preferences, scope, { now }).also { model ->
+        scope.launch { model.uiState.collect {} }
+    }
+    @Test fun restoredOvernightSessionCanBeCorrectedTo10Minutes() {
+        val model = vm()
+        assertEquals(900L, model.uiState.value.review!!.workedMinutes)
+        assertEquals("My cardigan", model.uiState.value.review!!.projectName)
+        model.correctAndPause("s", "10")
+        assertEquals(600_000L, store.active.value!!.workedMillis(now))
+        assertTrue(store.active.value!!.isPaused)
+        assertNull(model.uiState.value.review)
+    }
+    @Test fun keepAllPersistsCheckpointAndAsksAfterTheNextInterval() {
+        val model = vm()
+        model.keepAll("s")
+        assertNull(model.uiState.value.review)
+        assertEquals(now, store.active.value!!.updatedAt)
+        assertEquals(now, store.active.value!!.workedMillis(now))
+        now += 31 * 60_000
+        model.checkNow()
+        assertNotNull(model.uiState.value.review)
+    }
+    @Test fun invalidInputAndSaveFailureKeepOriginalTime() {
+        val model = vm()
+        model.correctAndPause("s", "999999999999999999999")
+        assertEquals(SessionReviewError.INVALID_MINUTES, model.uiState.value.error)
+        store.fail = true
+        model.correctAndPause("s", "10")
+        assertEquals(SessionReviewError.SAVE_FAILED, model.uiState.value.error)
+        assertEquals(now, store.active.value!!.workedMillis(now))
+    }
+    @Test fun staleDialogCannotChangeAnotherProjectTimer() {
+        val model = vm()
+        store.active.value = SessionTimer.start("other", "other-project", 0, "UTC")
+        model.correctAndPause("s", "10")
+        assertEquals(SessionReviewError.TIMER_CHANGED, model.uiState.value.error)
+        assertEquals("other", store.active.value!!.id)
+        assertEquals(now, store.active.value!!.workedMillis(now))
+    }
+    @Test fun laterDefersWithoutDiscardingTime() {
+        val model = vm()
+        model.later("s")
+        assertNull(model.uiState.value.review)
+        assertEquals(now, store.active.value!!.workedMillis(now))
+        now += 31 * 60_000
+        model.checkNow()
+        assertNotNull(model.uiState.value.review)
+    }
+    @Test fun configurationAndPausesAreApplied() {
+        preferences.setTimerReviewMinutes(1000)
+        val model = vm()
+        assertNull(model.uiState.value.review)
+        preferences.setTimerReviewMinutes(30)
+        assertNotNull(model.uiState.value.review)
+        store.active.value = SessionTimer.pause(store.active.value!!, now)
+        assertNull(model.uiState.value.review)
+    }
+    @Test fun invalidClicksCannotUnlockAnInFlightSave() {
+        val model = vm()
+        val gate = CompletableDeferred<Unit>()
+        store.gate = gate
+        model.keepAll("s")
+        assertTrue(model.uiState.value.busy)
+        model.correctAndPause("s", "bad")
+        assertTrue(model.uiState.value.busy)
+        gate.complete(Unit)
+        assertNull(model.uiState.value.review)
+    }
+}
+private class ReviewSessions : SessionRepository {
+    val active = MutableStateFlow<CraftingSession?>(SessionTimer.start("s", "p", 0, "UTC"))
+    var fail = false
+    var gate: CompletableDeferred<Unit>? = null
+    override fun observeActiveSession(): Flow<CraftingSession?> = active
+    override fun observeSessions(): Flow<List<CraftingSession>> = active.map { listOfNotNull(it) }
+    override fun observeSessionsForProject(projectId: String): Flow<List<CraftingSession>> = observeSessions().map { it.filter { s -> s.projectId == projectId } }
+    override suspend fun saveSession(session: CraftingSession) { gate?.await(); if (fail) error("save failed"); active.value = session }
+    override suspend fun deleteSession(session: CraftingSession) = Unit
+}
+private class ReviewProjects : ProjectRepository {
+    private val project = Project("p", "My cardigan", Craft.KNITTING, ProjectType.CARDIGAN, ProjectStatus.ACTIVE, null, 0, 0)
+    override fun observeProjects(): Flow<List<Project>> = flowOf(listOf(project))
+    override fun observeProject(id: String): Flow<Project?> = flowOf(project.takeIf { it.id == id })
+    override suspend fun saveProject(project: Project) = Unit
+    override suspend fun deleteProject(project: Project) = Unit
+}
+private class ReviewPreferences : UserPreferencesRepository {
+    override val preferences = MutableStateFlow(UserPreferences())
+    override fun setTimerReviewMinutes(minutes: Int) { preferences.value = preferences.value.copy(timerReviewMinutes = minutes) }
+    override fun setNavigationStyle(style: BottomNavigationStyle) = Unit
+    override fun setThemeMode(mode: ThemeMode) = Unit
+    override fun setMeasurementSystem(system: MeasurementSystem) = Unit
+}

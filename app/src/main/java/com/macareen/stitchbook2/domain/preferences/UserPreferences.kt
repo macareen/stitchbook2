@@ -11,7 +11,8 @@ import kotlinx.coroutines.flow.StateFlow
 data class UserPreferences(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val measurementSystem: MeasurementSystem = MeasurementSystem.IMPERIAL,
-    val navigationStyle: BottomNavigationStyle = BottomNavigationStyle.WORDS
+    val navigationStyle: BottomNavigationStyle = BottomNavigationStyle.WORDS,
+    val timerReviewMinutes: Int = com.macareen.stitchbook2.domain.model.SessionTimeReview.DEFAULT_MINUTES
 )
 
 enum class BottomNavigationStyle(val storageValue: String) {
@@ -50,6 +51,8 @@ enum class MeasurementSystem(val storageValue: String) {
 
 interface UserPreferencesRepository {
     val preferences: StateFlow<UserPreferences>
+
+    fun setTimerReviewMinutes(minutes: Int)
 
     fun setNavigationStyle(style: BottomNavigationStyle)
 
