@@ -783,7 +783,8 @@ private fun PatternGuidePicker(guides: List<Guide>, onChoose: (Guide) -> Unit, o
                     TextButton(onClick = { onChoose(guide) }, modifier = Modifier.fillMaxWidth()) {
                         val size = guide.sizeLabel?.takeUnless { guide.name.endsWith(it) }
                         Text(
-                            text = listOfNotNull(guide.name, size?.let { stringResource(R.string.pattern_guides_size, it) })
+                            text = listOfNotNull(guide.name, size?.let { stringResource(R.string.pattern_guides_size, it) },
+                                if (guide.libraryItemId == null) stringResource(R.string.guide_pattern_removed) else null)
                                 .joinToString(" · "),
                             modifier = Modifier.fillMaxWidth()
                         )

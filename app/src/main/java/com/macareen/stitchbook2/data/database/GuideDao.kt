@@ -45,7 +45,7 @@ abstract class GuideDao {
     @Query(
         """
         SELECT * FROM guides
-        WHERE library_item_id IS NOT NULL
+        WHERE project_id IS NULL
         ORDER BY name COLLATE NOCASE ASC, size_label COLLATE NOCASE ASC, id ASC
         """
     )

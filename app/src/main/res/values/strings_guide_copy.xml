@@ -6,4 +6,6 @@
     <string name="guide_copy_create">Copy into a draft</string>
     <string name="guide_copy_exists">That size already has a guide. Open it to edit instead.</string>
     <string name="guide_copy_failed">Could not copy this guide. Check the source and target size, then try again. Existing guides are kept.</string>
+    <string name="guide_pattern_removed">Pattern reference removed</string>
+    <string name="pattern_remove_reference">Remove reference</string>
 </resources>
