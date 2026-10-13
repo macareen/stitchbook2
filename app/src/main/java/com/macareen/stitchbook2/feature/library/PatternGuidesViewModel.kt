@@ -1,5 +1,7 @@
 package com.macareen.stitchbook2.feature.library
 
+import com.macareen.stitchbook2.domain.library.completedProjectCount
+import kotlinx.coroutines.flow.flowOf
 import com.macareen.stitchbook2.domain.model.PatternNames
 import com.macareen.stitchbook2.domain.model.ProjectFromPattern
 import com.macareen.stitchbook2.domain.model.ProjectPatternLink
@@ -58,7 +60,8 @@ sealed interface PatternGuidesUiState {
         /** Whether "Get the PDF" from Ravelry is offered. */
         val canGetRavelryPdf: Boolean = false,
         val ravelryPdf: RavelryPdfState = RavelryPdfState(),
-        val pdfSizeChoices: List<String> = emptyList()
+        val pdfSizeChoices: List<String> = emptyList(),
+        val completedProjects: Int = 0
     ) : PatternGuidesUiState {
         /** PDF sizes take precedence; saved Library sizes remain a fallback. */
         val sizeChoices: List<String> get() = pdfSizeChoices.ifEmpty { PatternSizes.labelsFrom(pattern.sizes.orEmpty()) }
@@ -161,6 +164,11 @@ class PatternGuidesViewModel(
         val pdfProblem: PatternPdfProblem? = null
     )
 
+    private val completedProjects = combine(
+        projectRepository?.observeProjects() ?: flowOf(emptyList()),
+        materialsRepository?.observePatternLinks() ?: flowOf(emptyList())
+    ) { projects, links -> completedProjectCount(libraryItemId, projects, links) }
+
     val uiState: StateFlow<PatternGuidesUiState> = combine(
         libraryRepository.observeLibraryItem(libraryItemId),
         guideRepository.observePatternGuides(libraryItemId).map { guides ->
@@ -185,6 +193,9 @@ class PatternGuidesViewModel(
             )
         }
     }
+        .combine(completedProjects) { state, count ->
+            if (state is PatternGuidesUiState.Content) state.copy(completedProjects = count) else state
+        }
         .catch { emit(PatternGuidesUiState.Missing) }
         .stateIn(scope, SharingStarted.WhileSubscribed(5_000), PatternGuidesUiState.Loading)
 

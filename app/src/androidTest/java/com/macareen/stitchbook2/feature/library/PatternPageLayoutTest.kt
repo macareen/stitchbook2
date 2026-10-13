@@ -62,13 +62,14 @@ class PatternPageLayoutTest {
             CompositionLocalProvider(LocalDensity provides Density(density.density, scale)) {
                 StitchbookTheme(darkTheme = dark) {
                     Surface(Modifier.systemBarsPadding()) {
-                        PatternGuidesScreen(PatternGuidesUiState.Content(pattern, listOf(PatternGuideEntry(guide, true)), false, false),
+                        PatternGuidesScreen(PatternGuidesUiState.Content(pattern, listOf(PatternGuideEntry(guide, true)), false, false, completedProjects = 2),
                             onOpenPdf = {}, onEditGuide = { opened = it }, onCreateGuide = { size, _ -> selected = size })
                     }
                 }
             }
         }
         compose.onNodeWithText("Autumn Cardigan").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Made in 2 completed projects").assertIsDisplayed()
         capture(dark, scale, "top")
         compose.onNodeWithText("Read more").performScrollTo().performClick()
         compose.onNodeWithText("Read less").performScrollTo().assertIsDisplayed().performClick()

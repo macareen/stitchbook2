@@ -1,6 +1,10 @@
 package com.macareen.stitchbook2.feature.library
 
 import com.macareen.stitchbook2.domain.model.Project
+import com.macareen.stitchbook2.domain.model.ProjectPatternLink
+import com.macareen.stitchbook2.domain.model.YarnAllocation
+import com.macareen.stitchbook2.domain.model.StashItem
+import com.macareen.stitchbook2.domain.repository.MaterialsRepository
 import com.macareen.stitchbook2.domain.model.ProjectStatus
 import com.macareen.stitchbook2.domain.model.ProjectType
 import com.macareen.stitchbook2.domain.repository.ProjectRepository
@@ -194,6 +198,28 @@ class PatternGuidesViewModelTest {
         assertEquals("project-1", viewModel.startedProjectId.value)
     }
 
+    @Test fun completedProjectCountUpdatesWithRecordedStatusAndLinks() = runBlocking<Unit> {
+        val projects = LiveProjects()
+        val materials = LivePatternLinks()
+        val viewModel = PatternGuidesViewModel("pattern", FakeLibrary(listOf(pattern)), FakePatternGuides(), scope,
+            projectRepository = projects, materialsRepository = materials)
+        suspend fun awaitCount(expected: Int) = withTimeout(5_000) {
+            viewModel.uiState.first { it is PatternGuidesUiState.Content && it.completedProjects == expected }
+        }
+        val project = Project("one", "One", Craft.LOOM_KNITTING, ProjectType.CARDIGAN, ProjectStatus.ACTIVE, null, 0, 0)
+        projects.saveProject(project)
+        materials.links.value = listOf(ProjectPatternLink("one", "pattern"))
+        awaitCount(0)
+        projects.saveProject(project.copy(status = ProjectStatus.COMPLETED))
+        awaitCount(1)
+        materials.links.value = emptyList()
+        awaitCount(0)
+        materials.links.value = listOf(ProjectPatternLink("one", "pattern"))
+        awaitCount(1)
+        projects.deleteProject(project)
+        awaitCount(0)
+    }
+
     private fun viewModel(guides: FakePatternGuides): PatternGuidesViewModel =
         PatternGuidesViewModel("pattern", FakeLibrary(listOf(pattern)), guides, scope).also { vm ->
             scope.launch { vm.uiState.collect {} }
@@ -273,4 +299,25 @@ private class SavedProjects : ProjectRepository {
     override suspend fun deleteProject(project: Project) {
         saved -= project
     }
+}
+
+private class LiveProjects : ProjectRepository {
+    val projects = MutableStateFlow<List<Project>>(emptyList())
+    override fun observeProjects(): Flow<List<Project>> = projects
+    override fun observeProject(id: String): Flow<Project?> = projects.map { list -> list.find { it.id == id } }
+    override suspend fun saveProject(project: Project) { projects.value = projects.value.filterNot { it.id == project.id } + project }
+    override suspend fun deleteProject(project: Project) { projects.value = projects.value.filterNot { it.id == project.id } }
+}
+
+private class LivePatternLinks : MaterialsRepository {
+    val links = MutableStateFlow<List<ProjectPatternLink>>(emptyList())
+    override fun observePatternLinks(): Flow<List<ProjectPatternLink>> = links
+    override fun observeAllocations(): Flow<List<YarnAllocation>> = flowOf(emptyList())
+    override fun observeAllocationsForProject(projectId: String): Flow<List<YarnAllocation>> = flowOf(emptyList())
+    override fun observePatternsForProject(projectId: String): Flow<List<LibraryItem>> = flowOf(emptyList())
+    override suspend fun linkPattern(link: ProjectPatternLink) { links.value += link }
+    override suspend fun unlinkPattern(link: ProjectPatternLink) { links.value -= link }
+    override suspend fun saveAllocation(allocation: YarnAllocation) = error("Unused")
+    override suspend fun deleteAllocation(allocation: YarnAllocation) = error("Unused")
+    override suspend fun recordConsumption(item: StashItem, allocation: YarnAllocation) = error("Unused")
 }

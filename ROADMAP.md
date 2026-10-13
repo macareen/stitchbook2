@@ -6,11 +6,11 @@ Every phase that adds durable user records must also extend the current versione
 
 ## Core flow: pattern → size guide → project → knitting view
 
-The product's centre, cutting across the phases below. Status as of 2026-10-08:
+The product's centre, cutting across the phases below. Status as of 2026-10-13:
 
 1. **Pattern folder (done):** one chosen folder (on the phone or in Drive) fills the Library; files are referenced, never copied.
 2. **Guides by size (done):** a guide belongs to a pattern and a size, and any project can use it (schema v19). Progress is kept per project (schema v20).
-3. **Size-aware drafts (grouped and alternating sizes):** *Fill from the pattern* keeps one size's numbers and drops the size list. Charts, "for size L only" lines, and on-device AI help remain open (Phases 12–13).
+3. **Size-aware drafts (grouped and alternating sizes):** *Fill from the pattern* keeps one size's numbers and drops the size list. Explicit inline size-only instructions and bounded branches ending at All sizes are supported, with unresolved selectors retained for review. Charts, arbitrary size-dependent construction, target loops and on-device AI help remain open (Phases 12–13).
 4. **Guide overview (done):** a scannable list of sections, spans, repeats and steps with done, current and to-do marks; tap to jump.
 5. **Knitting view (done):**
    - The step and "Row 4 of 10".
@@ -51,12 +51,12 @@ Fix next, from the second phone test (2026-10-09), most important first:
    - Home's project card meta wraps ("updated 8..."). Implemented 2026-10-12: craft and compact locale-aware update dates occupy separate lines; cards widen with font scale and quick links wrap to preserve readable labels.
    - The draft editor title shows the typed lower-case guide name.
 
-Reference-app investigation (2026-10-12): [documented findings](docs/LOOSELOOP_FUNCTIONAL_FINDINGS.md) from static inspection distinguished confirmed local behavior from remote/unknown parsing. LooseLoop's parser runs as a remote job; its local guide model supports size-specific prose, repeated/mirrored pieces, measurement and stitch-count loops, and executable charts. These are capability targets for incremental offline, exportable Stitchbook slices. Explicit inline size-only instructions and bounded All sizes prose blocks are implemented with source retention and conservative review issues. Next prioritize manual, exportable target-loop execution, then pieces and manual charts; arbitrary size-dependent construction still needs structured-model work. Bigger page changes still require approved mockups. Same-PDF runtime parity is not yet verified.
+Reference-app investigation (2026-10-12): [documented findings](docs/LOOSELOOP_FUNCTIONAL_FINDINGS.md) from static inspection distinguished confirmed local behavior from remote/unknown parsing. LooseLoop's parser runs as a remote job; its local guide model supports size-specific prose, repeated/mirrored pieces, measurement and stitch-count loops, and executable charts. These are capability targets for incremental offline, exportable Stitchbook slices. Explicit inline size-only instructions and bounded All sizes prose blocks are implemented with source retention and conservative review issues. Next prioritize manual, exportable target-loop execution, then pieces and manual charts; arbitrary size-dependent construction still needs structured-model work. Both pattern/project page mockups were approved on 2026-10-12; implementation is proceeding in separate slices. Same-PDF runtime parity is not yet verified.
 
 Wanted next (from the user's inspiration, 2026-10-08):
 
-A standalone [pattern/project layout preview](docs/mockups/pattern-project-preview.html) is ready for review. It uses sample data and local bundled fonts, with interactive size-guide, photo-cover and counter controls, light/dark themes and larger text. These proposed Android page changes await the user's explicit layout approval.
-- **Pattern page:** a photo with a details card (designer, category, difficulty, description with "Read more"), a count of finished projects, and PDF actions (view, replace, remove). Sizes get a list with a "Build guide" or "N pieces" state per size, and gauge, materials (held-together strands and alternatives) and tools each get their own card. A pattern-guide summary shows guides built and total sizes. The page also gets "Start another project", "Duplicate pattern" and "Delete pattern".
+The standalone [pattern/project layout preview](docs/mockups/pattern-project-preview.html) was approved on 2026-10-12. It uses original sample data and local bundled fonts. The pattern layout and recorded completed-project count are implemented; the project layout remains to be built.
+- **Pattern page (partly implemented):** wavy header with title/designer/craft, PDF cover, expandable notes, a row for every detected size with Build guide/Draft/Ready, separate gauge/tools/yardage cards, and a recorded completed-project count. Start project and Open PDF work. Still planned: category/difficulty, structured held-together yarn strands and alternatives, real piece counts, a built-guides summary, in-page edit/replace/remove PDF actions, and duplicate/delete actions.
 - **Project page:** a coloured wavy header with status and start date. Below it, a pattern card (designer, size, View PDF) beside a stats card (time worked). A photo carousel with "Set as cover", and yarn and tools picked from the stash. Row notes tagged by type (for example "Mistake") at a row, and charts attached to the pattern. The guide shows per-section % with expandable parts (time worked, row X of Y). A sticky "Follow guide" button names the current part, with a quick counter.
 - **Calculators (done):** Home > Calculators spreads increases or decreases evenly (with an option to centre them for flat pieces). It also converts yarn amounts into skeins of your yarn, and adapts stitch and row counts to your gauge (`CraftCalculators`, unit-tested).
 
@@ -530,3 +530,5 @@ Single rows keep their number in the step text ("Row 3 (RS): Knit."), and genera
 2026-10-12: Random PDF filenames are handled by conservative first-page title detection during new folder imports and guide creation. Clear detected titles can replace generated filename names while preserving custom names and original PDFs; uncertain titles keep the filename fallback.
 
 2026-10-12 pattern-page layout slice: approved wavy header, original PDF cover, expandable notes, all detected size rows with draft/ready/build actions, and separate existing gauge/tools/yardage cards. Further slices still cover pattern edit/overflow actions and recorded completed-project counts, followed by the approved project-page redesign.
+
+2026-10-13: Pattern headers show a live completed-project total only when positive, based on recorded Completed status and distinct pattern links. No completion is inferred from dates, guide publication or progress.
