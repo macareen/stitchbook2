@@ -43,6 +43,9 @@ class LocalExecutionRepository(
         return executionDao.getActiveExecutionAggregate(guideId.value, projectId)?.toDomain()
     }
 
+    override suspend fun getLatestExecutionForProject(guideId: GuideId, projectId: String): PersistedExecution? =
+        executionDao.getLatestProjectExecutionAggregate(guideId.value, projectId)?.toDomain()
+
     override suspend fun hasActiveExecutionAnywhere(guideId: GuideId): Boolean =
         executionDao.hasAnyActiveExecution(guideId.value)
 

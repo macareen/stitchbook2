@@ -133,7 +133,7 @@ class HomeViewModel(
             activeProjects = activeProjects,
             resumeGuide = resumeGuide,
             currentProject = current,
-            currentPhoto = latestDashboardPhoto(current?.id, photos)
+            currentPhoto = latestDashboardPhoto(current?.id, photos, current?.coverPhotoId)
         )
     }
 
@@ -156,6 +156,7 @@ internal fun dashboardProject(activeProjects: List<Project>, resumeProjectId: St
     activeProjects.firstOrNull { it.id == resumeProjectId }
         ?: activeProjects.maxWithOrNull(compareBy<Project> { it.updatedAt }.thenBy { it.id })
 
-internal fun latestDashboardPhoto(projectId: String?, photos: List<Photo>): Photo? =
+internal fun latestDashboardPhoto(projectId: String?, photos: List<Photo>, coverPhotoId: String? = null): Photo? =
+    photos.firstOrNull { projectId != null && it.projectId == projectId && it.id == coverPhotoId } ?:
     if (projectId == null) null else photos.filter { it.projectId == projectId }
         .maxWithOrNull(compareBy<Photo> { it.createdAt }.thenBy { it.id })

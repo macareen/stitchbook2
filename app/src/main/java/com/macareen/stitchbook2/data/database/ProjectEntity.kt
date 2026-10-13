@@ -23,7 +23,8 @@ data class ProjectEntity(
     @ColumnInfo(name = "custom_type_label") val customTypeLabel: String? = null,
     @ColumnInfo(name = "start_date") val startDate: String? = null,
     @ColumnInfo(name = "target_date") val targetDate: String? = null,
-    @ColumnInfo(name = "completed_date") val completedDate: String? = null
+    @ColumnInfo(name = "completed_date") val completedDate: String? = null,
+    @ColumnInfo(name = "cover_photo_id") val coverPhotoId: String? = null
 )
 
 fun ProjectEntity.toDomain(): Project {
@@ -44,7 +45,8 @@ fun ProjectEntity.toDomain(): Project {
         customTypeLabel = customTypeLabel,
         startDate = startDate,
         targetDate = targetDate,
-        completedDate = completedDate
+        completedDate = completedDate,
+        coverPhotoId = coverPhotoId
     )
 }
 
@@ -63,7 +65,8 @@ fun Project.toEntity(): ProjectEntity {
         customTypeLabel = customTypeLabel,
         startDate = startDate,
         targetDate = targetDate,
-        completedDate = completedDate
+        completedDate = completedDate,
+        coverPhotoId = coverPhotoId
     )
 }
 

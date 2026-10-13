@@ -178,6 +178,13 @@ abstract class ExecutionDao {
         return getExecutionAggregate(executionId)
     }
 
+    @Query("SELECT * FROM executions WHERE guide_id = :guideId AND project_id = :projectId ORDER BY created_at DESC, id DESC LIMIT 1")
+    protected abstract suspend fun getLatestProjectExecutionEntity(guideId: String, projectId: String): ExecutionEntity?
+
+    @Transaction
+    open suspend fun getLatestProjectExecutionAggregate(guideId: String, projectId: String): ExecutionAggregate? =
+        getLatestProjectExecutionEntity(guideId, projectId)?.let { loadAggregate(it) }
+
     @Transaction
     open suspend fun getExecutionAggregatesForGuide(
         guideId: String

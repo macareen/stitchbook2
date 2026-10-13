@@ -431,19 +431,19 @@ private val PatternHeaderShape = GenericShape { size, _ ->
 
 @Composable
 private fun PatternPageHeader(pattern: LibraryItem, completedProjects: Int) {
-    Surface(shape = PatternHeaderShape, color = MaterialTheme.colorScheme.secondaryContainer,
+    Surface(shape = PatternHeaderShape, color = MaterialTheme.colorScheme.primaryContainer,
         modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(horizontal = 24.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
             Text(pattern.title, style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.onSecondaryContainer)
+                color = MaterialTheme.colorScheme.onPrimaryContainer)
             pattern.author?.let { Text(it, style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer) }
+                color = MaterialTheme.colorScheme.onPrimaryContainer) }
             if (completedProjects > 0) Text(
                 pluralStringResource(R.plurals.pattern_page_completed_projects, completedProjects, completedProjects),
-                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
             if (pattern.craft != Craft.OTHER) Text(stringResource(pattern.craft.labelResource()),
-                style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
         }
     }
 }

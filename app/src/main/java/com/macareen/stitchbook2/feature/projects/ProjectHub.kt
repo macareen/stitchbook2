@@ -73,7 +73,9 @@ data class ProjectHubState(
     val counters: List<Counter> = emptyList(),
     val toolbox: List<ToolItem> = emptyList(),
     /** Pattern guides (one per size) this project could use. */
-    val patternGuides: List<Guide> = emptyList()
+    val patternGuides: List<Guide> = emptyList(),
+    val dashboard: ProjectDashboardState = ProjectDashboardState(),
+    val coverSaveFailed: Boolean = false
 )
 
 /** Edits the hub's sheets can make; each writes to the shared toolbox or counters. */
@@ -83,7 +85,8 @@ data class ProjectHubActions(
     val onAddCounter: (name: String, unitLabel: String, goal: Int?) -> Unit = { _, _, _ -> },
     val onAssignTool: (ToolItem) -> Unit = {},
     val onAddNewTool: (name: String, category: ToolCategory) -> Unit = { _, _ -> },
-    val onUsePatternGuide: (Guide) -> Unit = {}
+    val onUsePatternGuide: (Guide) -> Unit = {},
+    val onSetCover: (com.macareen.stitchbook2.domain.model.Photo) -> Unit = {}
 )
 
 /** Which bottom sheet a node opened. */
@@ -102,13 +105,14 @@ internal fun ProjectHubHeader(
     onShareCard: () -> Unit,
     onExportJson: () -> Unit,
     onExportMarkdown: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    showMetadata: Boolean = true
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     Row(verticalAlignment = Alignment.Top) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = project.name, style = MaterialTheme.typography.headlineMedium)
-            Text(
+            Text(text = project.name, style = MaterialTheme.typography.headlineLarge)
+            if (showMetadata) Text(
                 text = listOfNotNull(
                     stringResource(project.craft.labelResource()),
                     project.typeLabelOrNull(),

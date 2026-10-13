@@ -18,7 +18,9 @@ data class Project(
     /** ISO-8601 local dates ("yyyy-MM-dd"): date-only concepts per ARCHITECTURE.md §9. */
     val startDate: String? = null,
     val targetDate: String? = null,
-    val completedDate: String? = null
+    val completedDate: String? = null,
+    /** Project-owned photo reference; independent of before/after roles. */
+    val coverPhotoId: String? = null
 )
 
 enum class Craft(val storageValue: String) {

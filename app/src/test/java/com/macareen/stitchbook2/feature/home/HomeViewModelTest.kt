@@ -54,6 +54,9 @@ class HomeViewModelTest {
         val latest = photo("latest", "first", 5)
         val photos = listOf(photo("older", "first", 1), latest, photo("other", "recent", 99), photo("stash", null, 100))
         assertEquals(latest, latestDashboardPhoto("first", photos))
+        assertEquals("older", latestDashboardPhoto("first", photos, "older")?.id)
+        assertEquals(latest, latestDashboardPhoto("first", photos, "other"))
+        assertEquals(latest, latestDashboardPhoto("first", photos, "deleted-photo"))
         assertNull(latestDashboardPhoto(null, photos))
         assertNull(latestDashboardPhoto("missing", photos))
     }

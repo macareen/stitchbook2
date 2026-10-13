@@ -226,3 +226,7 @@ The approved pattern-page layout now has a growing serif title in a shallow wavy
 Focus instructions use the serif instruction role at 22sp with 30sp line height. Elapsed values show Now under one minute, then total whole minutes; estimated step time is marked in a full-width helper below the tiles. Bottom navigation defaults to words, with a saved Icons choice in Settings; labels wrap into additional rows at large text sizes while preserving tab semantics and touch targets.
 
 Focus renders clear comma/semicolon/sentence-separated craft actions on individual lines with an 8dp gap. Parenthesized, bracketed, quoted and starred stitch sequences remain together; the stored guide and tracked row are unchanged. In Words navigation, Settings is a labelled cog to keep all five destinations on one row at ordinary and 110% text sizes. Large accessibility text can still wrap.
+
+### Native project page (2026-10-13)
+
+The approved project preview is implemented as a growing wavy serif header and rounded content surfaces, with a photo carousel and saved cover selection. Materials, tools, notes and guide sections appear on the page instead of being hidden behind the node map. Follow guide and the quick counter remain visible while scrolling. Long guide names and section instructions wrap; action groups are adaptive for large text. Recorded time and estimated guide/remaining-yarn values remain distinct. Working notes use recorded dates and titles until durable row tags are implemented.

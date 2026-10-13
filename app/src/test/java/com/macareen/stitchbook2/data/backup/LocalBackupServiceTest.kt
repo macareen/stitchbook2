@@ -145,6 +145,15 @@ class LocalBackupServiceTest {
     )
 
     @Test
+    fun coverSelectionRoundTripsAndOlderBackupsRemainCompatible() {
+        val covered = project.copy(coverPhotoId = "photo-1")
+        val json = covered.toJson()
+        assertEquals(covered, json.toProject())
+        json.remove("coverPhotoId")
+        assertEquals(null, json.toProject().coverPhotoId)
+    }
+
+    @Test
     fun exportedJsonRoundTripsThroughImportIntoAFreshRepositorySet() = runBlocking {
         val sourceProjects = FakeProjectRepository(listOf(project))
         val sourceLibrary = FakeLibraryRepository(listOf(libraryItem))

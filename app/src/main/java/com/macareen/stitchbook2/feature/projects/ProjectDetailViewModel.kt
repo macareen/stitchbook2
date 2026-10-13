@@ -1,6 +1,9 @@
 package com.macareen.stitchbook2.feature.projects
 
 import com.macareen.stitchbook2.domain.model.ProjectPatternLink
+import com.macareen.stitchbook2.domain.execution.*
+import com.macareen.stitchbook2.domain.model.*
+import com.macareen.stitchbook2.domain.repository.StashRepository
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -66,7 +69,10 @@ enum class PdfImportError {
 
 data class GuideListEntry(
     val guide: Guide,
-    val action: GuideEntryAction
+    val action: GuideEntryAction,
+    val progress: GuideProgressSummary? = null,
+    val sections: List<OverviewEntry> = emptyList(),
+    val nextInstruction: String? = null
 )
 
 sealed interface ProjectDetailUiState {
@@ -111,7 +117,8 @@ class ProjectDetailViewModel(
     private val sessionRepository: SessionRepository? = null,
     private val clock: () -> Long = System::currentTimeMillis,
     private val newId: () -> String = { UUID.randomUUID().toString() },
-    externalScope: CoroutineScope? = null
+    externalScope: CoroutineScope? = null,
+    private val stashRepository: StashRepository? = null
 ) : ViewModel() {
 
     private val scope: CoroutineScope = externalScope ?: viewModelScope
@@ -119,6 +126,8 @@ class ProjectDetailViewModel(
     private val createGuideState = MutableStateFlow(CreateGuideState())
     private val pdfImportState = MutableStateFlow(PdfImportState())
     private val _exportFeedback = MutableStateFlow<ProjectExportFeedback?>(null)
+    private val _coverSaveFailed = MutableStateFlow(false)
+    val coverSaveFailed = _coverSaveFailed.asStateFlow()
     private val entryRefresh = MutableStateFlow(0)
 
     /** Outcome of the last project export, kept apart from [uiState]'s already-wide combine. */
@@ -131,7 +140,7 @@ class ProjectDetailViewModel(
                 .catch { emit(ProjectLoadState.Failed) },
             // Execution state has no Flow, so a refresh re-resolves each entry action.
             combine(guideRepository.observeGuides(projectId), entryRefresh) { guides, _ -> guides }
-                .map { guides -> guides.map { guide -> GuideListEntry(guide, resolveEntryAction(guide)) } }
+                .map { guides -> guides.map { guide -> resolveGuideEntry(guide) } }
                 .catch { emit(emptyList()) },
             deleteState,
             createGuideState,
@@ -174,6 +183,40 @@ class ProjectDetailViewModel(
      * wins over a published Revision: only one can ever be true at once
      * for a real Guide, and Continue must never be offered alongside Start.
      */
+    private suspend fun resolveGuideEntry(guide: Guide): GuideListEntry {
+        val action = resolveEntryAction(guide)
+        return try {
+            val execution = executionRepository.getActiveExecution(guide.id, projectId)
+                ?: executionRepository.getLatestExecutionForProject(guide.id, projectId)
+            val revision = if (execution != null) guideRepository.loadRevision(execution.state.definitionRevisionId)
+                else guideRepository.getLatestRevision(guide.id)
+            if (revision == null) return GuideListEntry(guide, action)
+            val validated = GuideDefinitionValidator.validate(revision.definition)
+            val completed = execution?.state?.completedAddresses.orEmpty()
+            val current = execution?.state?.currentAddress
+            GuideListEntry(guide, action, GuideProgressSummary.of(validated, completed),
+                OverviewEntry.overviewOf(validated, completed, current).filter { it.kind == OverviewEntry.Kind.SECTION },
+                (current?.let { validated.node(it.instructionNodeId) } as? Instruction)?.text)
+        } catch (error: CancellationException) { throw error
+        } catch (_: Exception) { GuideListEntry(guide, action) }
+    }
+
+    val dashboard = combine(
+        combine(
+            journalRepository?.observePhotosForProject(projectId) ?: flowOf(emptyList()),
+            journalRepository?.observeEntriesForProject(projectId) ?: flowOf(emptyList()),
+            materialsRepository?.observePatternsForProject(projectId) ?: flowOf(emptyList())
+        ) { photos, notes, patterns -> ProjectDashboardState(photos = photos.sortedByDescending { it.createdAt },
+            notes = notes.sortedForDisplay(), patterns = patterns) },
+        sessionRepository?.observeSessionsForProject(projectId) ?: flowOf(emptyList()),
+        materialsRepository?.observeAllocationsForProject(projectId) ?: flowOf(emptyList()),
+        stashRepository?.observeStashItems() ?: flowOf(emptyList())
+    ) { base, sessions, allocations, stash ->
+        base.copy(sessionCount = sessions.size, workedMillis = sessions.sumOf { it.workedMillis(clock()) },
+            yarn = allocations.mapNotNull { allocation -> stash.firstOrNull { it.id == allocation.stashItemId }
+                ?.let { ProjectYarn(it, allocation) } })
+    }.catch { emit(ProjectDashboardState()) }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), ProjectDashboardState())
+
     private suspend fun resolveEntryAction(guide: Guide): GuideEntryAction {
         return try {
             if (executionRepository.getActiveExecution(guide.id, projectId) != null) {
@@ -356,6 +399,19 @@ class ProjectDetailViewModel(
         base.copy(journal = journalCount, workedMillis = sessions.sumOf { it.workedMillis(now) })
     }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), ProjectConnections())
 
+    fun setCoverPhoto(photo: Photo) {
+        if (photo.projectId != projectId) return
+        scope.launch {
+            _coverSaveFailed.value = false
+            try {
+                val latest = repository.observeProject(projectId).first() ?: return@launch
+                val exists = journalRepository?.observePhotosForProject(projectId)?.first()?.any { it.id == photo.id } == true
+                if (exists) repository.saveProject(latest.copy(coverPhotoId = photo.id, updatedAt = clock()))
+            } catch (error: CancellationException) { throw error
+            } catch (_: Exception) { _coverSaveFailed.value = true }
+        }
+    }
+
     fun incrementCounter(counter: Counter) {
         val repository = counterRepository ?: return
         scope.launch { runCatchingWrite { IncrementCounterUseCase(repository)(counter) } }
@@ -518,7 +574,8 @@ class ProjectDetailViewModel(
             counterRepository: CounterRepository,
             materialsRepository: MaterialsRepository,
             journalRepository: JournalRepository,
-            sessionRepository: SessionRepository
+            sessionRepository: SessionRepository,
+            stashRepository: StashRepository
         ): ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 ProjectDetailViewModel(
@@ -532,7 +589,8 @@ class ProjectDetailViewModel(
                     counterRepository,
                     materialsRepository,
                     journalRepository,
-                    sessionRepository
+                    sessionRepository,
+                    stashRepository = stashRepository
                 )
             }
         }
