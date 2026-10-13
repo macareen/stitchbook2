@@ -16,6 +16,8 @@ import com.macareen.stitchbook2.domain.execution.PersistedExecutionTransitionRes
 import com.macareen.stitchbook2.domain.guide.DefinitionRevision
 import com.macareen.stitchbook2.domain.guide.Guide
 import com.macareen.stitchbook2.domain.guide.GuideDraft
+import com.macareen.stitchbook2.domain.model.*
+import com.macareen.stitchbook2.domain.repository.JournalRepository
 import com.macareen.stitchbook2.domain.model.Craft
 import com.macareen.stitchbook2.domain.model.Counter
 import com.macareen.stitchbook2.domain.model.Project
@@ -334,6 +336,26 @@ class ProjectDetailViewModelTest {
         assertEquals(1, connections.counters)
     }
 
+    @Test
+    fun coverSelectionChecksOwnershipAndExistenceAndPreservesPhotoRoles() {
+        val projects = FakeProjectRepository(project)
+        val photo = Photo("photo", project.id, null, "content://test/photo", "cardigan.png", null, null, null, PhotoRole.BEFORE, 1, 2)
+        val journal = FakeDashboardJournal(listOf(photo))
+        val model = viewModel(FakeGuideRepository(emptyList()), FakeExecutionRepository(), projects = projects, journal = journal)
+        model.setCoverPhoto(photo.copy(projectId = "another-project"))
+        assertEquals(null, projects.value.value.coverPhotoId)
+        model.setCoverPhoto(photo.copy(id = "missing"))
+        assertEquals(null, projects.value.value.coverPhotoId)
+        model.setCoverPhoto(photo)
+        assertEquals(photo.id, projects.value.value.coverPhotoId)
+        assertEquals(PhotoRole.BEFORE, journal.photos.value.single().role)
+        assertEquals(project.name, projects.value.value.name)
+        assertEquals(project.notes, projects.value.value.notes)
+        projects.failSave = true
+        model.setCoverPhoto(photo)
+        assertTrue(model.coverSaveFailed.value)
+    }
+
     private fun contentState(viewModel: ProjectDetailViewModel): ProjectDetailUiState.Content {
         return viewModel.uiState.value as ProjectDetailUiState.Content
     }
@@ -356,11 +378,13 @@ class ProjectDetailViewModelTest {
         executions: FakeExecutionRepository,
         tools: FakeToolRepository = FakeToolRepository(emptyList()),
         backupService: BackupService? = null,
-        counters: CounterRepository? = null
+        counters: CounterRepository? = null,
+        projects: FakeProjectRepository = FakeProjectRepository(project),
+        journal: JournalRepository? = null
     ): ProjectDetailViewModel {
         val viewModel = ProjectDetailViewModel(
             projectId = project.id,
-            repository = FakeProjectRepository(project),
+            repository = projects,
             guideRepository = guides,
             executionRepository = executions,
             toolRepository = tools,
@@ -371,6 +395,7 @@ class ProjectDetailViewModelTest {
             ),
             backupService = backupService,
             counterRepository = counters,
+            journalRepository = journal,
             newId = { "id-${++idCounter}" },
             externalScope = scope
         )
@@ -424,10 +449,12 @@ private object NeverCalledPdfTextExtractor : PdfTextExtractor {
         throw AssertionError("PDF import is not exercised by ProjectDetailViewModelTest")
 }
 
-private class FakeProjectRepository(private val project: Project) : ProjectRepository {
-    override fun observeProjects(): Flow<List<Project>> = flowOf(listOf(project))
-    override fun observeProject(id: String): Flow<Project?> = flowOf(project.takeIf { it.id == id })
-    override suspend fun saveProject(project: Project) = Unit
+private class FakeProjectRepository(project: Project) : ProjectRepository {
+    val value = MutableStateFlow(project)
+    var failSave = false
+    override fun observeProjects(): Flow<List<Project>> = value.map { listOf(it) }
+    override fun observeProject(id: String): Flow<Project?> = value.map { it.takeIf { it.id == id } }
+    override suspend fun saveProject(project: Project) { if (failSave) error("Save failed"); value.value = project }
     override suspend fun deleteProject(project: Project) = Unit
 }
 
@@ -638,4 +665,21 @@ private class FakeExecutionRepository : ExecutionRepository {
         targetAddress: ExecutionAddress
     ): PersistedExecutionTransitionResult =
         throw UnsupportedOperationException("Not used by ProjectDetailViewModel")
+}
+
+private class FakeDashboardJournal(initial: List<Photo>) : JournalRepository {
+    val photos = MutableStateFlow(initial)
+    override fun observePhotos(): Flow<List<Photo>> = photos
+    override fun observePhotosForProject(projectId: String): Flow<List<Photo>> = photos.map { list -> list.filter { it.projectId == projectId } }
+    override fun observePhotosForStashItem(stashItemId: String): Flow<List<Photo>> = flowOf(emptyList())
+    override suspend fun savePhoto(photo: Photo) { photos.value = photos.value.filterNot { it.id == photo.id } + photo }
+    override suspend fun deletePhoto(photo: Photo) { photos.value = photos.value.filterNot { it.id == photo.id } }
+    override fun observeEntries(): Flow<List<JournalEntry>> = flowOf(emptyList())
+    override fun observeEntriesForProject(projectId: String): Flow<List<JournalEntry>> = flowOf(emptyList())
+    override suspend fun saveEntry(entry: JournalEntry) = Unit
+    override suspend fun deleteEntry(entry: JournalEntry) = Unit
+    override fun observeMilestones(): Flow<List<Milestone>> = flowOf(emptyList())
+    override fun observeMilestonesForProject(projectId: String): Flow<List<Milestone>> = flowOf(emptyList())
+    override suspend fun saveMilestones(milestones: List<Milestone>) = Unit
+    override suspend fun deleteMilestone(milestone: Milestone) = Unit
 }

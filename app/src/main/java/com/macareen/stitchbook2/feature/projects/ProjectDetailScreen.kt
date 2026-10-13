@@ -58,7 +58,6 @@ import com.macareen.stitchbook2.domain.model.Craft
 import com.macareen.stitchbook2.domain.model.GuideStatus
 import com.macareen.stitchbook2.domain.model.Project
 import com.macareen.stitchbook2.domain.model.PatternNames
-import com.macareen.stitchbook2.domain.model.ProjectNode
 import com.macareen.stitchbook2.domain.model.ProjectStatus
 import com.macareen.stitchbook2.domain.model.ProjectType
 import com.macareen.stitchbook2.domain.model.ToolItem
@@ -66,7 +65,6 @@ import com.macareen.stitchbook2.domain.model.nextStepFor
 import com.macareen.stitchbook2.ui.components.DetailLine
 import com.macareen.stitchbook2.ui.components.LabelPill
 import com.macareen.stitchbook2.ui.components.PrimaryActionButton
-import com.macareen.stitchbook2.ui.components.ProjectNodeMap
 import com.macareen.stitchbook2.ui.components.QuietText
 import com.macareen.stitchbook2.ui.components.SecondaryActionButton
 import com.macareen.stitchbook2.ui.components.SectionHeader
@@ -89,7 +87,9 @@ fun ProjectDetailRoute(
     onProjectDeleted: () -> Unit,
     onOpenGuide: (String) -> Unit,
     onEditDraft: (String) -> Unit,
-    onOpenSection: (ProjectSection) -> Unit
+    onOpenSection: (ProjectSection) -> Unit,
+    onOpenPattern: (String) -> Unit = {},
+    onOpenPdf: (String) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val exportFeedback by viewModel.exportFeedback.collectAsStateWithLifecycle()
@@ -97,6 +97,8 @@ fun ProjectDetailRoute(
     val projectCounters by viewModel.projectCounters.collectAsStateWithLifecycle()
     val toolbox by viewModel.toolbox.collectAsStateWithLifecycle()
     val patternGuides by viewModel.availablePatternGuides.collectAsStateWithLifecycle()
+    val dashboard by viewModel.dashboard.collectAsStateWithLifecycle()
+    val coverSaveFailed by viewModel.coverSaveFailed.collectAsStateWithLifecycle()
 
     // Coming back from Focus Mode or the Draft editor can change a guide's Start/Continue state.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
@@ -125,6 +127,7 @@ fun ProjectDetailRoute(
         onCreateGuideFromPdf = viewModel::createGuideFromPdf,
         onUnassignTool = viewModel::unassignTool,
         onOpenSection = onOpenSection,
+        onOpenPattern = onOpenPattern, onOpenPdf = onOpenPdf,
         exportFeedback = exportFeedback,
         onExportProject = viewModel::exportProject,
         onDismissExportFeedback = viewModel::dismissExportFeedback,
@@ -132,7 +135,9 @@ fun ProjectDetailRoute(
             connections = connections,
             counters = projectCounters,
             toolbox = toolbox,
-            patternGuides = patternGuides
+            patternGuides = patternGuides,
+            dashboard = dashboard,
+            coverSaveFailed = coverSaveFailed
         ),
         hubActions = ProjectHubActions(
             onIncrementCounter = viewModel::incrementCounter,
@@ -140,7 +145,8 @@ fun ProjectDetailRoute(
             onAddCounter = viewModel::addCounter,
             onAssignTool = viewModel::assignTool,
             onAddNewTool = viewModel::addNewTool,
-            onUsePatternGuide = viewModel::usePatternGuide
+            onUsePatternGuide = viewModel::usePatternGuide,
+            onSetCover = viewModel::setCoverPhoto
         )
     )
 }
@@ -161,7 +167,9 @@ fun ProjectDetailScreen(
     onExportProject: (ProjectExportFormat, suspend (String) -> Unit) -> Unit = { _, _ -> },
     onDismissExportFeedback: () -> Unit = {},
     hubState: ProjectHubState = ProjectHubState(),
-    hubActions: ProjectHubActions = ProjectHubActions()
+    hubActions: ProjectHubActions = ProjectHubActions(),
+    onOpenPattern: (String) -> Unit = {},
+    onOpenPdf: (String) -> Unit = {}
 ) {
     when (uiState) {
         ProjectDetailUiState.Loading -> {
@@ -206,6 +214,7 @@ fun ProjectDetailScreen(
                 onDismissExportFeedback = onDismissExportFeedback,
                 hubState = hubState,
                 hubActions = hubActions,
+                onOpenPattern = onOpenPattern, onOpenPdf = onOpenPdf,
                 modifier = modifier
             )
         }
@@ -228,6 +237,8 @@ private fun ProjectDetailContent(
     onDismissExportFeedback: () -> Unit,
     hubState: ProjectHubState,
     hubActions: ProjectHubActions,
+    onOpenPattern: (String) -> Unit,
+    onOpenPdf: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showDeleteConfirmation by remember { mutableStateOf(false) }
@@ -288,49 +299,37 @@ private fun ProjectDetailContent(
             )
         }
     )
-    val nodes = hubNodes(hubState.connections) { node ->
-        when (node) {
-            ProjectNode.GUIDES -> openSheet = HubSheet.GUIDES
-            ProjectNode.TOOLS -> openSheet = HubSheet.TOOLS
-            ProjectNode.COUNTERS -> openSheet = HubSheet.COUNTERS
-            ProjectNode.PATTERNS, ProjectNode.YARN -> onOpenSection(ProjectSection.MATERIALS)
-            ProjectNode.JOURNAL -> onOpenSection(ProjectSection.JOURNAL)
-            ProjectNode.TIME -> onOpenSection(ProjectSection.SESSIONS)
-        }
-    }
 
+    Column(modifier = modifier.fillMaxSize()) {
     Column(
         verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.medium),
-        modifier = modifier
-            .fillMaxSize()
+        modifier = Modifier.weight(1f).fillMaxWidth()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = StitchbookSpacing.large, vertical = StitchbookSpacing.medium)
     ) {
-        ProjectHubHeader(
-            project = project,
-            isDeleting = state.isDeleting,
-            onEdit = { onEditProject(project.id) },
-            onShareCard = { onOpenSection(ProjectSection.CARD) },
-            onExportJson = { exportJsonLauncher.launch(projectExportFileName(project.name, ProjectExportFormat.JSON)) },
-            onExportMarkdown = { exportMarkdownLauncher.launch(projectExportFileName(project.name, ProjectExportFormat.MARKDOWN)) },
-            onDelete = { showDeleteConfirmation = true }
-        )
-
-        NextStepRow(
-            step = nextStep,
-            onOpenGuide = onOpenGuide,
-            onEditDraft = onEditDraft,
-            onAddGuide = { showAddGuideDialog = true }
-        )
-
-        ProjectNodeMap(centreLabel = project.typeLabelOrNull() ?: stringResource(project.craft.labelResource()), nodes = nodes)
-
-        if (ProjectNode.entries.all { hubState.connections.count(it) == 0 }) {
-            EmptyHubHint()
+        ProjectPageHero(project) {
+            ProjectHubHeader(
+                project = project, isDeleting = state.isDeleting,
+                onEdit = { onEditProject(project.id) },
+                onShareCard = { onOpenSection(ProjectSection.CARD) },
+                onExportJson = { exportJsonLauncher.launch(projectExportFileName(project.name, ProjectExportFormat.JSON)) },
+                onExportMarkdown = { exportMarkdownLauncher.launch(projectExportFileName(project.name, ProjectExportFormat.MARKDOWN)) },
+                onDelete = { showDeleteConfirmation = true }, showMetadata = false
+            )
         }
-
+        ProjectDashboardBeforeGuides(hubState.dashboard, state.guideEntries, onOpenSection, project.coverPhotoId, hubActions.onSetCover, onOpenPattern, onOpenPdf, hubState.coverSaveFailed)
+        ProjectDashboardTools(state.assignedTools) { openSheet = HubSheet.TOOLS }
+        GuidesSection(
+            guideEntries = state.guideEntries, isCreatingGuide = state.isCreatingGuide,
+            createGuideFailed = state.createGuideFailed, isImportingPdf = state.isImportingPdf,
+            pdfImportError = state.pdfImportError, onOpenGuide = onOpenGuide, onEditDraft = onEditDraft,
+            onAddGuide = { showAddGuideDialog = true },
+            onCreateGuideFromPdf = { pickPdfLauncher.launch(arrayOf("application/pdf")) },
+            onImportWithAssistant = { onOpenSection(ProjectSection.ASSISTED_IMPORT) },
+            patternGuides = hubState.patternGuides, onUsePatternGuide = hubActions.onUsePatternGuide
+        )
+        ProjectDashboardAfterGuides(hubState.dashboard, onOpenSection)
         ProjectDetailsLine(project)
-
         if (state.deleteFailed) {
             Text(
                 text = stringResource(R.string.project_delete_error),
@@ -351,6 +350,20 @@ private fun ProjectDetailContent(
                 TextButton(onClick = onDismissExportFeedback) { Text(text = stringResource(R.string.settings_dismiss)) }
             }
         }
+    }
+
+    Surface(color = MaterialTheme.colorScheme.surfaceContainer, shadowElevation = 4.dp) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+            when (nextStep) {
+                is com.macareen.stitchbook2.domain.model.ProjectNextStep.ContinueGuide -> PrimaryActionButton(
+                    stringResource(R.string.project_page_follow_guide), { onOpenGuide(nextStep.guideId) }, Modifier.fillMaxWidth())
+                is com.macareen.stitchbook2.domain.model.ProjectNextStep.StartGuide -> PrimaryActionButton(
+                    stringResource(R.string.project_page_follow_guide), { onOpenGuide(nextStep.guideId) }, Modifier.fillMaxWidth())
+                else -> NextStepRow(nextStep, onOpenGuide, onEditDraft, { showAddGuideDialog = true })
+            }
+            ProjectQuickCounter(hubState.counters, hubActions) { openSheet = HubSheet.COUNTERS }
+        }
+    }
     }
 
     when (openSheet) {
@@ -606,14 +619,15 @@ private fun GuideListItem(
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
     ) {
-        Row(
+        Column(Modifier.padding(StitchbookSpacing.medium), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        FlowRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(StitchbookSpacing.medium),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
                     text = entry.guide.name,
                     style = MaterialTheme.typography.cardTitle
@@ -639,6 +653,8 @@ private fun GuideListItem(
                     onClick = onClick
                 )
             }
+        }
+            ProjectGuideProgress(entry)
         }
     }
 }

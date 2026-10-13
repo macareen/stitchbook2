@@ -136,3 +136,5 @@ The debug APK is normally produced under `app/build/outputs/apk/debug/`.
 - [Architecture](ARCHITECTURE.md)
 - [Contributing](CONTRIBUTING.md)
 - [Development and agent guidance](AGENTS.md)
+
+Project detail now brings photos, linked pattern/PDF actions, recorded time, yarn allocations, tools, guide sections and working notes together. Choose a project photo as its cover; Home uses it too, and the choice travels in JSON/Markdown exports. Follow guide and a project counter remain visible while scrolling.

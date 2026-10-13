@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+<string name="project_page_started">Started %1$s</string>
+<string name="project_page_pattern">Pattern</string>
+<string name="project_page_manage_patterns">View patterns and PDFs</string>
+<string name="project_page_no_pattern">Link a pattern from your library.</string>
+<string name="project_page_stats">Your progress</string>
+<string name="project_page_time_recorded">Time recorded</string>
+<string name="project_page_sessions">%1$d crafting sessions</string>
+<string name="project_page_guide_progress">Guide progress</string>
+<string name="project_page_estimated">Estimated from stitch counts</string>
+<string name="project_page_photos">Project photos</string>
+<string name="project_page_manage_photos">Add or manage photos</string>
+<string name="project_page_no_photos">Keep a little record of how it grows.</string>
+<string name="project_page_photo_position">%1$d of %2$d</string>
+<string name="project_page_previous">Previous</string>
+<string name="project_page_next">Next</string>
+<string name="project_page_yarn">Yarn from your stash</string>
+<string name="project_page_manage_yarn">Manage yarn</string>
+<string name="project_page_no_yarn">Choose yarn from your stash for this project.</string>
+<string name="project_page_yarn_reserved">%1$s %2$s reserved</string>
+<string name="project_page_yarn_used">%1$s %2$s used</string>
+<string name="project_page_tools">Tools in use</string>
+<string name="project_page_manage_tools">Manage tools</string>
+<string name="project_page_no_tools">Choose tools from your collection.</string>
+<string name="project_page_notes">Working notes</string>
+<string name="project_page_manage_notes">Add or manage notes</string>
+<string name="project_page_no_notes">Keep adjustments and reminders here.</string>
+<string name="project_page_steps">%1$d of %2$d steps</string>
+<string name="project_page_next_instruction">Next: %1$s</string>
+<string name="project_page_cover">Project cover</string>
+<string name="project_page_set_cover">Set as cover</string>
+<string name="project_page_view_pattern">View pattern</string>
+<string name="project_page_view_pdf">View PDF</string>
+<string name="project_page_remaining_yarn">Estimated remaining in stash: %1$s yd (from weighed remainder)</string>
+<string name="project_page_follow_guide">Follow guide</string>
+<string name="project_page_no_progress">Start a guide to track progress.</string>
+<string name="project_page_cover_error">Could not save this cover. Please try again.</string>
+</resources>

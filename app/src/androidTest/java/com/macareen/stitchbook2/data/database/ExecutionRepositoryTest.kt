@@ -71,6 +71,20 @@ class ExecutionRepositoryTest {
         database.close()
     }
 
+    @Test
+    fun latestProjectProgressIncludesCompletionAndNeverUsesAnotherProjectsExecution() = runBlocking {
+        val guide = createGuideWithSimpleRevision("shared", "draft", "revision", occurrences = 2)
+        enqueueIds("first-project")
+        var first = executionRepository.createExecution(guide, DefinitionRevisionId("revision"), "project-a")
+        repeat(2) { first = executionRepository.applyComplete(first.state.executionId, first.version).execution }
+        enqueueIds("second-project")
+        val second = executionRepository.createExecution(guide, DefinitionRevisionId("revision"), "project-b")
+        assertEquals(first.state.executionId, executionRepository.getLatestExecutionForProject(guide, "project-a")?.state?.executionId)
+        assertTrue(executionRepository.getLatestExecutionForProject(guide, "project-a")!!.state.isComplete)
+        assertEquals(second.state.executionId, executionRepository.getLatestExecutionForProject(guide, "project-b")?.state?.executionId)
+        assertNull(executionRepository.getLatestExecutionForProject(guide, "project-c"))
+    }
+
     // ---- Creation ----
 
     @Test

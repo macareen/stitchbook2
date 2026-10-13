@@ -65,6 +65,10 @@ interface ExecutionRepository {
     /** Loads the ACTIVE Execution for [guideId] in [projectId] (null: opened on its own), or null if none. */
     suspend fun getActiveExecution(guideId: GuideId, projectId: String? = null): PersistedExecution?
 
+    /** Most recent progress for this project only, including completed executions. */
+    suspend fun getLatestExecutionForProject(guideId: GuideId, projectId: String): PersistedExecution? =
+        getActiveExecution(guideId, projectId)
+
     /** Whether anyone, in any project or none, is part-way through [guideId]. */
     suspend fun hasActiveExecutionAnywhere(guideId: GuideId): Boolean = getActiveExecution(guideId) != null
 

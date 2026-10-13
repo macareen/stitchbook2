@@ -196,6 +196,7 @@ internal fun Project.toJson(): JSONObject = JSONObject().apply {
     put("startDate", startDate ?: JSONObject.NULL)
     put("targetDate", targetDate ?: JSONObject.NULL)
     put("completedDate", completedDate ?: JSONObject.NULL)
+    put("coverPhotoId", coverPhotoId ?: JSONObject.NULL)
 }
 
 internal fun JSONObject.toProject(): Project = Project(
@@ -217,7 +218,8 @@ internal fun JSONObject.toProject(): Project = Project(
     customTypeLabel = optNullableString("customTypeLabel"),
     startDate = optNullableString("startDate"),
     targetDate = optNullableString("targetDate"),
-    completedDate = optNullableString("completedDate")
+    completedDate = optNullableString("completedDate"),
+    coverPhotoId = optNullableString("coverPhotoId")
 )
 
 internal fun LibraryItem.toJson(): JSONObject = JSONObject().apply {

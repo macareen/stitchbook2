@@ -18,7 +18,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Bump alongside `StitchbookDatabase.version`; every migration chain below must reach it. */
-private const val CURRENT_SCHEMA_VERSION = 20
+private const val CURRENT_SCHEMA_VERSION = 21
 
 @RunWith(AndroidJUnit4::class)
 class StitchbookMigrationTest {
@@ -85,6 +85,21 @@ class StitchbookMigrationTest {
         if (::database.isInitialized) database.close()
         context.deleteDatabase(DATABASE_NAME)
         context.deleteDatabase(HELPER_DATABASE_NAME)
+    }
+
+    @Test
+    fun migrationTwentyToTwentyOnePreservesProjectsAndAddsNullableCover() {
+        migrationHelper.createDatabase(HELPER_DATABASE_NAME, 20).use { db ->
+            db.execSQL("INSERT INTO projects (id, name, craft, project_type, status, notes, created_at, updated_at) VALUES ('cover-project', 'Cardigan', 'KNITTING', 'CARDIGAN', 'ACTIVE', 'Keep notes', 1, 2)")
+        }
+        migrationHelper.runMigrationsAndValidate(HELPER_DATABASE_NAME, 21, true, MIGRATION_20_21).use { db ->
+            db.query("SELECT name, notes, cover_photo_id FROM projects WHERE id = 'cover-project'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("Cardigan", cursor.getString(0))
+                assertEquals("Keep notes", cursor.getString(1))
+                assertTrue(cursor.isNull(2))
+            }
+        }
     }
 
     @Test
@@ -715,7 +730,8 @@ class StitchbookMigrationTest {
             MIGRATION_16_17,
             MIGRATION_17_18,
             MIGRATION_18_19,
-            MIGRATION_19_20
+            MIGRATION_19_20,
+            MIGRATION_20_21
         ).use { db ->
             db.query(
                 "SELECT name, notes, description, construction_method, custom_type_label, start_date, target_date, completed_date FROM projects WHERE id = 'existing-project'"

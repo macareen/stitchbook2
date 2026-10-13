@@ -36,7 +36,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         JournalEntryEntity::class,
         CraftingSessionEntity::class
     ],
-    version = 20,
+    version = 21,
     exportSchema = true
 )
 abstract class StitchbookDatabase : RoomDatabase() {
@@ -100,7 +100,8 @@ val ALL_MIGRATIONS: Array<Migration>
         MIGRATION_16_17,
         MIGRATION_17_18,
         MIGRATION_18_19,
-        MIGRATION_19_20
+        MIGRATION_19_20,
+        MIGRATION_20_21
     )
 
 val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -1088,5 +1089,12 @@ val MIGRATION_19_20 = object : Migration(19, 20) {
         db.query("PRAGMA foreign_key_check").use { cursor ->
             check(!cursor.moveToFirst()) { "Progress migration left a broken reference in ${cursor.getString(0)}." }
         }
+    }
+}
+
+/** A nullable photo reference; originals and existing before/after roles remain untouched. */
+val MIGRATION_20_21 = object : Migration(20, 21) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `projects` ADD COLUMN `cover_photo_id` TEXT")
     }
 }

@@ -396,7 +396,8 @@ fun StitchbookNavHost(
                     counterRepository = counterRepository,
                     materialsRepository = materialsRepository,
                     journalRepository = journalRepository,
-                    sessionRepository = sessionRepository
+                    sessionRepository = sessionRepository,
+                    stashRepository = stashRepository
                 )
             )
             ProjectDetailRoute(
@@ -416,6 +417,8 @@ fun StitchbookNavHost(
                 onEditDraft = { guideId ->
                     navController.navigate(DraftEditorDestination.route(guideId, projectId))
                 },
+                onOpenPattern = { navController.navigate(PatternGuidesDestination.route(it)) },
+                onOpenPdf = { navController.navigate(PdfViewerDestination.route(it)) },
                 onOpenSection = { section ->
                     navController.navigate(section.route(projectId))
                 }

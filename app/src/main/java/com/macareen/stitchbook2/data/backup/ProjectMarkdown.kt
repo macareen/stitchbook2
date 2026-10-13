@@ -36,6 +36,7 @@ fun projectMarkdown(project: Project, snapshot: BackupSnapshot, now: Long): Stri
     field("Started", project.startDate)
     field("Target", project.targetDate)
     field("Completed", project.completedDate)
+    field("Cover photo reference", project.coverPhotoId)
     line()
     project.description?.takeIf { it.isNotBlank() }?.let {
         line("### Description")
