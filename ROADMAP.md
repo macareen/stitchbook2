@@ -15,10 +15,10 @@ The product's centre, cutting across the phases below. Status as of 2026-10-13:
 5. **Knitting view (done):**
    - The step and "Row 4 of 10".
    - Stitch-weighted %, labelled as an estimate where counts are carried.
-   - Total time and time on this step, from crafting sessions.
+   - Recorded total crafting time and a clearly labelled per-step estimate; an exact per-step time ledger remains open.
    - The PDF opened at the step's page.
 6. **Hub cohesion (done):**
-   - Using a pattern guide links its pattern to the project.
+   - Using a reusable guide atomically links its current pattern to the project. Kept guides remain reusable after their Library reference is removed; published guides can be copied into reviewed drafts for another size.
    - Knitting makes a planned project active.
    - Home's Continue card shows progress.
    - The hub names the craft.
@@ -27,7 +27,7 @@ The product's centre, cutting across the phases below. Status as of 2026-10-13:
 8. **Cozy redesign (done):** the approved mockup across Home, Library, Stash, Tools and the knitting view, with a heart yarn-ball icon and bundled Fraunces and Nunito fonts (see DESIGN_SYSTEM.md).
 
 Still open from the first phone test:
-- Confirming Ravelry PDF download on a real key (built: *Get the PDF from Ravelry* on a pattern's page; the endpoints still need a live check).
+- Ravelry PDF API download remains unresolved: two owned PDFs work in the phone browser, but safe diagnostics show volume files HTTP 200 followed by PDF-link HTTP 403. Browser download plus attaching the original document remains available; no unsupported OAuth fix is claimed.
 - Confirm Ravelry yarn-photo rendering with a real stash pull (implemented with cache-only offline browsing).
 - Matching a pattern's suggested needles to the needles you own.
 
@@ -45,20 +45,22 @@ Fix next, from the second phone test (2026-10-09), most important first:
    - The yarn and gauge calculators show no answer, because a result only appears once every field is filled, including "to convert". Show an answer as soon as enough is known, and say what's missing.
    - Implemented 2026-10-12: yarn totals appear before the own-skein amount is entered; stitch and row gauge pairs independently show a multiplier and optional converted count, with missing-input prompts. Labels are short and single-line, and fields share a scalable minimum height.
 5. **Knitting view time tiles cut text off** ("under a minute" shows as "under a"). Implemented 2026-10-12: compact labels such as "<1 min" and "1h 05m", with scalable tile height and preserved estimate labels.
-6. **Ravelry PDF download fails** with "wouldn't hand over this PDF with your key". Implemented safe stage/HTTP diagnostics and documented product-attachment IDs in 2026-10-12. Personal account keys already grant all permissions; OAuth library-pdf scope is a separate requirement for OAuth callers. Removed the unsupported key-upgrade advice. Exact phone failure remains to be checked; see [download findings](docs/RAVELRY_DOWNLOAD_FINDINGS.md).
+6. **Ravelry PDF download fails** with "wouldn't hand over this PDF with your key". Implemented safe stage/HTTP diagnostics and documented product-attachment IDs in 2026-10-12. Personal account keys already grant all permissions; OAuth library-pdf scope is a separate requirement for OAuth callers. Removed the unsupported key-upgrade advice. Phone checks show PDF-link HTTP 403 for two owned browser-downloadable patterns after volume-file HTTP 200; the exact cause remains unresolved. See [download findings](docs/RAVELRY_DOWNLOAD_FINDINGS.md).
 7. **Ravelry yarn photos on stash cards** (photos the user added on Ravelry). Implemented 2026-10-12: first_photo thumbnails are imported as portable Photo source references, photo-only changes participate in yarn review, local attachments keep cover priority, and bounded cacheDir images are downloaded only during explicit pulls. Full-library JSON preserves links; evicted/restored caches refill on a later pull. Real-account rendering remains to be checked.
 8. **Small layout issues:**
    - Home's project card meta wraps ("updated 8..."). Implemented 2026-10-12: craft and compact locale-aware update dates occupy separate lines; cards widen with font scale and quick links wrap to preserve readable labels.
    - The draft editor title shows the typed lower-case guide name.
 
-Reference-app investigation (2026-10-12): [documented findings](docs/LOOSELOOP_FUNCTIONAL_FINDINGS.md) from static inspection distinguished confirmed local behavior from remote/unknown parsing. LooseLoop's parser runs as a remote job; its local guide model supports size-specific prose, repeated/mirrored pieces, measurement and stitch-count loops, and executable charts. These are capability targets for incremental offline, exportable Stitchbook slices. Explicit inline size-only instructions and bounded All sizes prose blocks are implemented with source retention and conservative review issues. Next prioritize manual, exportable target-loop execution, then pieces and manual charts; arbitrary size-dependent construction still needs structured-model work. Both pattern/project page mockups were approved on 2026-10-12; implementation is proceeding in separate slices. Same-PDF runtime parity is not yet verified.
+Reference-app investigation (2026-10-12): [documented findings](docs/LOOSELOOP_FUNCTIONAL_FINDINGS.md) from static inspection distinguished confirmed local behavior from remote/unknown parsing. LooseLoop's parser runs as a remote job; its local guide model supports size-specific prose, repeated/mirrored pieces, measurement and stitch-count loops, and executable charts. These are capability targets for incremental offline, exportable Stitchbook slices. Explicit inline size-only instructions and bounded All sizes prose blocks are implemented with source retention and conservative review issues. Next prioritize manual, exportable target-loop execution, then pieces and manual charts; arbitrary size-dependent construction still needs structured-model work. Both pattern/project page mockups were approved on 2026-10-12; native pattern/project layouts are implemented, with remaining pieces/charts/materials details below. Same-PDF runtime parity is not yet verified.
 
 Wanted next (from the user's inspiration, 2026-10-08):
 
-The standalone [pattern/project layout preview](docs/mockups/pattern-project-preview.html) was approved on 2026-10-12. It uses original sample data and local bundled fonts. The pattern layout and recorded completed-project count are implemented; the project layout remains to be built.
+The standalone [pattern/project layout preview](docs/mockups/pattern-project-preview.html) was approved on 2026-10-12. It uses original sample data and local bundled fonts. The native pattern and project layouts, cover selection, tagged working notes and recorded completed-project count are implemented. No synthetic piece counts or section-time measurements are shown.
 - **Pattern page (partly implemented):** wavy header with title/designer/craft, PDF cover, expandable notes, a row for every detected size with Build guide/Draft/Ready, separate gauge/tools/yardage cards, and a recorded completed-project count. Start project and Open PDF work. Still planned: category/difficulty, structured held-together yarn strands and alternatives, real piece counts, a built-guides summary, in-page edit/replace/remove PDF actions, and duplicate/delete actions.
-- **Project page:** a coloured wavy header with status and start date. Below it, a pattern card (designer, size, View PDF) beside a stats card (time worked). A photo carousel with "Set as cover", and yarn and tools picked from the stash. Row notes tagged by type (for example "Mistake") at a row, and charts attached to the pattern. The guide shows per-section % with expandable parts (time worked, row X of Y). A sticky "Follow guide" button names the current part, with a quick counter.
+- **Project page (implemented):** rose wavy header with status/start date, linked-pattern/PDF and recorded-stat cards, photo carousel with durable Set as cover, allocated/used yarn and tools, tagged working notes with editable guide-position snapshots, per-section guide progress and next instruction, and sticky Follow guide/quick counter. Large text stacks the cards. Still open: chart attachments/execution, recorded section-time attribution and structured piece instances.
 - **Calculators (done):** Home > Calculators spreads increases or decreases evenly (with an option to centre them for flat pieces). It also converts yarn amounts into skeins of your yarn, and adapts stitch and row counts to your gauge (`CraftCalculators`, unit-tested).
+
+2026-10-13 additions from the reference audit: configurable long-running timer review, automatic completion finalization, finished manual time entries with overlap/DST review and portable source, atomic timer starts and stale-write protection, independent review of recovered running sessions, atomic guide/pattern attachment, reviewed copy-to-size drafts and access to kept guides after Library removal. These are independently implemented; reference runtime and remote-parser parity remain unverified.
 
 ## Phase 0 — Working Compose app and repository setup
 

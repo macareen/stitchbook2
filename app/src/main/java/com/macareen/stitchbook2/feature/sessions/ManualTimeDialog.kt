@@ -1,5 +1,7 @@
 package com.macareen.stitchbook2.feature.sessions
 
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -27,6 +29,10 @@ fun ManualTimeDialog(state: ManualEntryState, onSave: (ManualTimeInput) -> Unit,
     var minutes by rememberSaveable { mutableStateOf("") }
     var notes by rememberSaveable { mutableStateOf("") }
     var offset by rememberSaveable { mutableStateOf<String?>(null) }
+    val errorRequester = remember { BringIntoViewRequester() }
+    LaunchedEffect(state.error) {
+        if (state.error != null) { withFrameNanos { }; errorRequester.bringIntoView() }
+    }
     val busy = state.status == ManualEntryStatus.SAVING
     val overlap = state.error == ManualTimeError.POSSIBLE_OVERLAP
     AlertDialog(onDismissRequest = { if (!busy) onDismiss() }, title = { Text(stringResource(R.string.manual_time_add)) },
@@ -49,7 +55,7 @@ fun ManualTimeDialog(state: ManualEntryState, onSave: (ManualTimeInput) -> Unit,
                 OutlinedTextField(notes, { notes = it; onChanged() }, enabled = !busy, minLines = 2,
                     label = { Text(stringResource(R.string.manual_time_notes)) }, modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done), keyboardActions = keyboardActions)
-                state.error?.let { Text(stringResource(it.labelResource()), color = MaterialTheme.colorScheme.error) }
+                state.error?.let { Text(stringResource(it.labelResource()), color = MaterialTheme.colorScheme.error, modifier = Modifier.bringIntoViewRequester(errorRequester)) }
             }
         },
         confirmButton = { Column {
