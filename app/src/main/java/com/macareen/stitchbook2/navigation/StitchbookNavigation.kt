@@ -94,7 +94,8 @@ fun StitchbookNavHost(
                 factory = HomeViewModel.factory(
                     projectRepository = projectRepository,
                     guideRepository = guideRepository,
-                    executionRepository = executionRepository
+                    executionRepository = executionRepository,
+                    journalRepository = journalRepository
                 )
             )
             HomeRoute(
