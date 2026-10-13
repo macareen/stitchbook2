@@ -32,7 +32,7 @@ class DownloadRavelryPdf(
     sealed interface Result {
         /** [otherPdfs] counts further PDFs on the same volume that were not downloaded. */
         data class Saved(val fileName: String, val alreadyInFolder: Boolean, val otherPdfs: Int) : Result
-        data class Failed(val problem: Problem, val httpStatus: Int? = null, val stage: RavelryRequestStage? = null) : Result
+        data class Failed(val problem: Problem, val httpStatus: Int? = null, val stage: RavelryRequestStage? = null, val browserUrl: String? = null) : Result
     }
 
     /** Whether [item] is something this can fetch a PDF for. */
@@ -75,9 +75,12 @@ class DownloadRavelryPdf(
 
         val existing = folder.listPdfs().firstOrNull { it.displayName.equals(fileName, ignoreCase = true) }
         val saved = existing ?: try {
-            val attachmentId = attachment.id ?: return Result.Failed(Problem.NO_DIRECT_DOWNLOAD)
+            val attachmentId = attachment.id ?: return Result.Failed(Problem.NO_DIRECT_DOWNLOAD, browserUrl = RavelryBrowserUrls.validated(attachment.browserUrl))
             val url = api.downloadLink(credentials, attachmentId)
             folder.saveNewPdf(fileName) { out -> PdfSignatureCheck(out).use { api.downloadFile(url, it) } }
+        } catch (error: RavelryAuthException) {
+            return Result.Failed(if (error.httpStatus == 403) Problem.PERMISSION_DENIED else Problem.KEY_REFUSED,
+                error.httpStatus, error.stage, RavelryBrowserUrls.validated(attachment.browserUrl))
         } catch (error: PatternFileExistsException) {
             // The name was taken after the check above: link that file rather than replace it.
             folder.listPdfs().firstOrNull { it.displayName.equals(error.displayName, ignoreCase = true) } ?: throw error

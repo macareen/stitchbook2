@@ -220,6 +220,20 @@ class PatternGuidesViewModelTest {
         awaitCount(0)
     }
 
+    @Test fun attachingAnOriginalPdfPreservesCustomMetadataAndExistingGuides() {
+        val original = pattern.copy(title = "My chosen name", notes = "Keep this", pdfLastViewedPage = 4)
+        val library = FakeLibrary(listOf(original))
+        val guides = FakePatternGuides().also { it.add(guide("existing", "M"), published = true) }
+        val vm = PatternGuidesViewModel("pattern", library, guides, scope, clock = { 77 })
+        scope.launch { vm.uiState.collect {} }
+        vm.attachPdf(com.macareen.stitchbook2.domain.model.PickedDocument("content://original", "random.pdf"))
+        val state = vm.uiState.value as PatternGuidesUiState.Content
+        assertEquals(original.copy(pdfUri = "content://original", pdfFileName = "random.pdf", pdfLastViewedPage = null, updatedAt = 77), state.pattern)
+        assertEquals("existing", state.guides.single().guide.id.value)
+        assertTrue(state.guides.single().isPublished)
+        assertTrue(!state.isCreating)
+    }
+
     private fun viewModel(guides: FakePatternGuides): PatternGuidesViewModel =
         PatternGuidesViewModel("pattern", FakeLibrary(listOf(pattern)), guides, scope).also { vm ->
             scope.launch { vm.uiState.collect {} }

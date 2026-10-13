@@ -61,7 +61,8 @@ internal object RavelryJson {
             val productId = attachment.number("product_attachment_id")
                 ?: if (key == "product_attachments") attachment.number("id") else null
             val id = productId?.takeIf { it.isFinite() && it > 0 && it % 1.0 == 0.0 }?.toLong()
-            RavelryAttachment(id = id, fileName = attachment.text("filename") ?: attachment.text("file_name") ?: attachment.text("name"))
+            RavelryAttachment(id = id, fileName = attachment.text("filename") ?: attachment.text("file_name") ?: attachment.text("name"),
+                browserUrl = com.macareen.stitchbook2.domain.ravelry.RavelryBrowserUrls.validated(attachment.text("ravelry_download_url")))
         }
     }
 
