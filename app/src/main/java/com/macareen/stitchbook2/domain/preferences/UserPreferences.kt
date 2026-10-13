@@ -10,8 +10,17 @@ import kotlinx.coroutines.flow.StateFlow
  */
 data class UserPreferences(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
-    val measurementSystem: MeasurementSystem = MeasurementSystem.IMPERIAL
+    val measurementSystem: MeasurementSystem = MeasurementSystem.IMPERIAL,
+    val navigationStyle: BottomNavigationStyle = BottomNavigationStyle.WORDS
 )
+
+enum class BottomNavigationStyle(val storageValue: String) {
+    WORDS("WORDS"), ICONS("ICONS");
+    companion object {
+        fun fromStorageValue(value: String?): BottomNavigationStyle =
+            entries.firstOrNull { it.storageValue == value } ?: WORDS
+    }
+}
 
 enum class ThemeMode(val storageValue: String) {
     SYSTEM("SYSTEM"),
@@ -41,6 +50,8 @@ enum class MeasurementSystem(val storageValue: String) {
 
 interface UserPreferencesRepository {
     val preferences: StateFlow<UserPreferences>
+
+    fun setNavigationStyle(style: BottomNavigationStyle)
 
     fun setThemeMode(mode: ThemeMode)
 

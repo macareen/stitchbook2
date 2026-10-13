@@ -545,7 +545,7 @@
     <string name="focus_progress_steps">%1$d%% done · %2$d of %3$d steps</string>
     <string name="focus_time">%1$s in total · %2$s on this step</string>
     <string name="focus_time_estimated">%1$s in total · about %2$s on this step</string>
-    <string name="focus_time_under_minute">&lt;1 min</string>
+    <string name="focus_time_under_minute">Now</string>
     <string name="focus_time_minutes">%1$d min</string>
     <string name="focus_time_hours">%1$dh %2$02dm</string>
     <string name="focus_timer_start">Start timer</string>
@@ -583,7 +583,6 @@
     <string name="library_card_more_actions">More for this pattern</string>
     <string name="focus_tile_total">Total</string>
     <string name="focus_tile_step">This step</string>
-    <string name="focus_tile_step_estimated">about %1$s</string>
     <string name="pattern_guides_start_project">Start a project with this pattern</string>
     <string name="pattern_details_yardage">About %1$d yards</string>
     <string name="ravelry_pdf_get">Get the PDF from Ravelry</string>
@@ -645,4 +644,8 @@
     <string name="calculators_gauge_sts_factor">Stitches: multiply by %1$.3f</string>
     <string name="calculators_gauge_rows_factor">Rows: multiply by %1$.3f</string>
     <string name="calculators_values_too_large">These values are too large to calculate. Check the amounts.</string>
+    <string name="focus_step_time_estimate_note">Step time estimated</string>
+    <string name="settings_navigation_label">Bottom navigation</string>
+    <string name="settings_navigation_words">Words</string>
+    <string name="settings_navigation_icons">Icons</string>
 </resources>

@@ -62,7 +62,7 @@ Typography roles are defined in `ui/theme/Type.kt` as Material3 `Typography` slo
 | --- | --- | --- |
 | `screenTitle` | `titleLarge` | Guide name on Ready-to-start/Completed/message screens |
 | `sectionLabel` | `labelLarge` | Quiet guide-name/context label during an active execution |
-| `instruction` | `headlineMedium` | The current instruction — the dominant, reading-optimized element |
+| `instruction` | `headlineMedium` at 22sp / 30sp | The current instruction — the dominant, reading-optimized element |
 | `metadata` | `bodyMedium` | Range/repeat position, breadcrumbs, transient feedback |
 | `buttonLabel` | `labelLarge` | Primary/secondary button text |
 
@@ -222,3 +222,5 @@ Home project cards keep craft and update date on separate metadata lines. Update
 ### Pattern page layout
 
 The approved pattern-page layout now has a growing serif title in a shallow wavy header, the same reproducible first-page PDF cover as the Library, expandable notes based on actual text overflow, and separate gauge, tools and yarn-needed cards. Large fonts stack the cover above notes. Every detected size has a row: existing guides retain Draft/Ready status and open in the editor; missing guides open the ordinary review dialog with that size preselected. The manual size chooser, original PDF opening, project creation, and explicit Ravelry PDF actions remain available. The size dialog scrolls at larger fonts. No difficulty, piece counts or completed-project totals are inferred.
+
+Focus instructions use the serif instruction role at 22sp with 30sp line height. Elapsed values show Now under one minute, then total whole minutes; estimated step time is marked in a full-width helper below the tiles. Bottom navigation defaults to words, with a saved Icons choice in Settings; labels wrap into additional rows at large text sizes while preserving tab semantics and touch targets.

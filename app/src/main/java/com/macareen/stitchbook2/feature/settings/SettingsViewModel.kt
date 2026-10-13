@@ -74,6 +74,8 @@ class SettingsViewModel(
 
     val preferences: StateFlow<UserPreferences> = preferencesRepository.preferences
 
+    fun setNavigationStyle(style: com.macareen.stitchbook2.domain.preferences.BottomNavigationStyle) = preferencesRepository.setNavigationStyle(style)
+
     fun setThemeMode(mode: ThemeMode) = preferencesRepository.setThemeMode(mode)
 
     fun setMeasurementSystem(system: MeasurementSystem) = preferencesRepository.setMeasurementSystem(system)

@@ -38,7 +38,8 @@ import com.macareen.stitchbook2.ui.components.StitchbookBottomBar
 @Composable
 fun StitchbookApp(
     modifier: Modifier = Modifier,
-    navController: NavHostController = rememberNavController()
+    navController: NavHostController = rememberNavController(),
+    navigationStyle: com.macareen.stitchbook2.domain.preferences.BottomNavigationStyle = com.macareen.stitchbook2.domain.preferences.BottomNavigationStyle.WORDS
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
@@ -82,6 +83,7 @@ fun StitchbookApp(
                 }?.route
                 StitchbookBottomBar(
                     items = items,
+                    style = navigationStyle,
                     selectedKey = selectedKey,
                     onSelect = { item ->
                         TopLevelDestination.entries

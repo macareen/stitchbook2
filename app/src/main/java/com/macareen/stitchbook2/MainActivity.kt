@@ -26,7 +26,7 @@ class MainActivity : ComponentActivity() {
             }
             StitchbookTheme(darkTheme = darkTheme) {
                 CompositionLocalProvider(LocalMeasurementSystem provides preferences.measurementSystem) {
-                    StitchbookApp()
+                    StitchbookApp(navigationStyle = preferences.navigationStyle)
                 }
             }
         }

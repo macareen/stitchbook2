@@ -1,5 +1,7 @@
 package com.macareen.stitchbook2.feature.settings
 
+import com.macareen.stitchbook2.domain.preferences.BottomNavigationStyle
+
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -81,6 +83,7 @@ fun SettingsRoute(viewModel: SettingsViewModel, ravelrySection: @Composable () -
         preferences = preferences,
         onThemeModeChanged = viewModel::setThemeMode,
         onMeasurementSystemChanged = viewModel::setMeasurementSystem,
+        onNavigationStyleChanged = viewModel::setNavigationStyle,
         onExport = viewModel::exportBackup,
         onImport = viewModel::previewImport,
         onConfirmImport = viewModel::confirmImport,
@@ -104,6 +107,7 @@ fun SettingsScreen(
     onReset: () -> Unit,
     onDismissFeedback: () -> Unit,
     modifier: Modifier = Modifier,
+    onNavigationStyleChanged: (BottomNavigationStyle) -> Unit = {},
     ravelrySection: @Composable () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -163,7 +167,8 @@ fun SettingsScreen(
             PreferencesCard(
                 preferences = preferences,
                 onThemeModeChanged = onThemeModeChanged,
-                onMeasurementSystemChanged = onMeasurementSystemChanged
+                onMeasurementSystemChanged = onMeasurementSystemChanged,
+                onNavigationStyleChanged = onNavigationStyleChanged
             )
         }
 
@@ -264,7 +269,8 @@ private fun GuardrailsCard() {
 private fun PreferencesCard(
     preferences: UserPreferences,
     onThemeModeChanged: (ThemeMode) -> Unit,
-    onMeasurementSystemChanged: (MeasurementSystem) -> Unit
+    onMeasurementSystemChanged: (MeasurementSystem) -> Unit,
+    onNavigationStyleChanged: (BottomNavigationStyle) -> Unit
 ) {
     Card(
         shape = MaterialTheme.shapes.extraLarge,
@@ -285,6 +291,11 @@ private fun PreferencesCard(
                     fontWeight = FontWeight.SemiBold
                 )
             }
+            Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
+            QuietText(text = stringResource(R.string.settings_navigation_label))
+            ChoiceChipRow(options = BottomNavigationStyle.entries, selected = preferences.navigationStyle,
+                optionLabel = { stringResource(if (it == BottomNavigationStyle.WORDS) R.string.settings_navigation_words else R.string.settings_navigation_icons) },
+                onSelected = onNavigationStyleChanged)
             Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
             QuietText(text = stringResource(R.string.settings_theme_label))
             Spacer(modifier = Modifier.height(StitchbookSpacing.small))

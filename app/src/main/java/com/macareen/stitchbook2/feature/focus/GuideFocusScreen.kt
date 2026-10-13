@@ -540,7 +540,7 @@ private fun TimeTiles(
             )
             TimeTile(
                 label = stringResource(R.string.focus_tile_step),
-                value = if (time.stepIsEstimated) stringResource(R.string.focus_tile_step_estimated, step) else step,
+                value = step,
                 modifier = Modifier.weight(1f)
             )
             if (timer != FocusTimer.OTHER_PROJECT) {
@@ -567,6 +567,7 @@ private fun TimeTiles(
                 }
             }
         }
+        if (time.stepIsEstimated) QuietText(text = stringResource(R.string.focus_step_time_estimate_note), style = MaterialTheme.typography.bodySmall)
         when (timer) {
             FocusTimer.PAUSED -> QuietText(text = stringResource(R.string.focus_timer_paused), style = MaterialTheme.typography.bodySmall)
             FocusTimer.OTHER_PROJECT -> QuietText(text = stringResource(R.string.focus_timer_other_project), style = MaterialTheme.typography.bodySmall)
@@ -603,8 +604,7 @@ private fun workedText(millis: Long): String {
     val minutes = millis / 60_000
     return when {
         minutes < 1 -> stringResource(R.string.focus_time_under_minute)
-        minutes < 60 -> stringResource(R.string.focus_time_minutes, minutes)
-        else -> stringResource(R.string.focus_time_hours, minutes / 60, minutes % 60)
+        else -> stringResource(R.string.focus_time_minutes, minutes)
     }
 }
 

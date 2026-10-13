@@ -536,3 +536,5 @@ Single rows keep their number in the step text ("Row 3 (RS): Knit."), and genera
 2026-10-13 phone-parser follow-up: total Work rows 1 and 2 repeats, standalone PDF row labels, capitalized Marker continuations and wrapped size groups are handled together. Size guide/advice prose no longer suppresses all size resolution. Native April extraction verified all nine sizes with zero review issues; M has two-row repeats of 9, 18 and 7. Existing guides must be rebuilt explicitly to receive parser changes; published progress is preserved.
 
 - Pattern-page PDF recovery: browser download and direct SAF attachment are available when Ravelry refuses the API request. Resolving account/API-specific 403 responses remains open; browser access alone does not establish an API authorization requirement.
+
+- Bottom navigation now offers a saved Words/Icons display preference. Focus uses smaller serif instructions and Now/N min elapsed values, with estimated step time identified below the tiles.
