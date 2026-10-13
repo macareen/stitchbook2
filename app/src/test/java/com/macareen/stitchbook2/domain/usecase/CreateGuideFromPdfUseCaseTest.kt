@@ -27,6 +27,38 @@ import org.junit.Test
 
 class CreateGuideFromPdfUseCaseTest {
 
+    @Test fun `detected PDF title repairs filename titles but preserves custom names and original files`() = runBlocking {
+        val document = ExtractedDocument(1, listOf("AUTUMN CARDIGAN", "Sizes: S, M, L", "BODY", "Cast on 40 (44, 48) sts.")
+            .mapIndexed { i, text -> ExtractedLine(text, SourceReference(1, i + 1)) })
+        for (custom in listOf(false, true)) {
+            val oldTitle = if (custom) "My autumn knit" else "random-123"
+            val pattern = LibraryItem(id = "p", title = oldTitle, craft = Craft.KNITTING, author = null,
+                sourceUrl = null, tags = emptyList(), notes = null, bookmarked = false, createdAt = 0, updatedAt = 0,
+                pdfUri = "content://patterns/123", pdfFileName = "random-123.pdf")
+            val library = FakeLibraryRepository(pattern)
+            val repository = FakeGuideRepository()
+            val useCase = CreateGuideFromPdfUseCase(FakePdfTextExtractor(document), repository, idGenerator(), library)
+            val result = useCase.forPattern("p", "M", null, "$oldTitle \u00b7 M", ByteArrayInputStream(ByteArray(0))) as CreateGuideFromPdfUseCase.Result.Success
+            val expected = if (custom) oldTitle else "AUTUMN CARDIGAN"
+            assertEquals(expected, library.item!!.title)
+            assertEquals("$expected \u00b7 M", repository.getGuide(result.guideId)!!.name)
+            assertEquals(pattern.pdfUri, library.item!!.pdfUri)
+            assertEquals(pattern.pdfFileName, library.item!!.pdfFileName)
+            assertTrue(repository.lastSavedDraft!!.nodes.none { it.instructionText?.contains("AUTUMN CARDIGAN") == true })
+        }
+    }
+
+    @Test fun `automatic project imports use document titles while explicit guide names are kept`() = runBlocking {
+        val document = ExtractedDocument(1, listOf("AUTUMN CARDIGAN", "Cast on 40 sts.")
+            .mapIndexed { i, text -> ExtractedLine(text, SourceReference(1, i + 1)) })
+        for (prefer in listOf(false, true)) {
+            val repository = FakeGuideRepository()
+            val useCase = CreateGuideFromPdfUseCase(FakePdfTextExtractor(document), repository, idGenerator())
+            val result = useCase("p", "random-123", ByteArrayInputStream(ByteArray(0)), prefer) as CreateGuideFromPdfUseCase.Result.Success
+            assertEquals(if (prefer) "AUTUMN CARDIGAN" else "random-123", repository.getGuide(result.guideId)!!.name)
+        }
+    }
+
     private fun idGenerator(): () -> String {
         var counter = 0
         return { "node-${counter++}" }

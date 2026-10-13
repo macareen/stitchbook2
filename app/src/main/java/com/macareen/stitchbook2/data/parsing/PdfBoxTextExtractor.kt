@@ -78,6 +78,7 @@ class PdfBoxTextExtractor(
 
             return ExtractedDocument(
                 pageCount = pageCount,
+                metadataTitle = doc.documentInformation.title,
                 lines = lines.sortedWith(compareBy({ it.source.pageNumber }, { it.source.lineNumber }))
             )
         }
