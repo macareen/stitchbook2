@@ -84,6 +84,7 @@ fun SettingsRoute(viewModel: SettingsViewModel, ravelrySection: @Composable () -
         onThemeModeChanged = viewModel::setThemeMode,
         onMeasurementSystemChanged = viewModel::setMeasurementSystem,
         onNavigationStyleChanged = viewModel::setNavigationStyle,
+        onTimerReviewMinutesChanged = viewModel::setTimerReviewMinutes,
         onExport = viewModel::exportBackup,
         onImport = viewModel::previewImport,
         onConfirmImport = viewModel::confirmImport,
@@ -107,6 +108,7 @@ fun SettingsScreen(
     onReset: () -> Unit,
     onDismissFeedback: () -> Unit,
     modifier: Modifier = Modifier,
+    onTimerReviewMinutesChanged: (Int) -> Unit = {},
     onNavigationStyleChanged: (BottomNavigationStyle) -> Unit = {},
     ravelrySection: @Composable () -> Unit = {}
 ) {
@@ -168,7 +170,8 @@ fun SettingsScreen(
                 preferences = preferences,
                 onThemeModeChanged = onThemeModeChanged,
                 onMeasurementSystemChanged = onMeasurementSystemChanged,
-                onNavigationStyleChanged = onNavigationStyleChanged
+                onNavigationStyleChanged = onNavigationStyleChanged,
+                onTimerReviewMinutesChanged = onTimerReviewMinutesChanged
             )
         }
 
@@ -270,8 +273,12 @@ private fun PreferencesCard(
     preferences: UserPreferences,
     onThemeModeChanged: (ThemeMode) -> Unit,
     onMeasurementSystemChanged: (MeasurementSystem) -> Unit,
-    onNavigationStyleChanged: (BottomNavigationStyle) -> Unit
+    onNavigationStyleChanged: (BottomNavigationStyle) -> Unit,
+    onTimerReviewMinutesChanged: (Int) -> Unit
 ) {
+    val reviewKeyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    var reviewMinutes by remember(preferences.timerReviewMinutes) { mutableStateOf(preferences.timerReviewMinutes.toString()) }
+    val validMinutes = reviewMinutes.toIntOrNull()?.takeIf { it in 1..1440 }
     Card(
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
@@ -296,6 +303,17 @@ private fun PreferencesCard(
             ChoiceChipRow(options = BottomNavigationStyle.entries, selected = preferences.navigationStyle,
                 optionLabel = { stringResource(if (it == BottomNavigationStyle.WORDS) R.string.settings_navigation_words else R.string.settings_navigation_icons) },
                 onSelected = onNavigationStyleChanged)
+            Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
+            QuietText(text = stringResource(R.string.settings_timer_review_label))
+            OutlinedTextField(value = reviewMinutes, onValueChange = { reviewMinutes = it },
+                label = { Text(stringResource(R.string.settings_timer_review_minutes)) }, singleLine = true,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number, imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { reviewKeyboard?.hide() }),
+                isError = validMinutes == null, modifier = Modifier.fillMaxWidth())
+            QuietText(text = stringResource(R.string.settings_timer_review_help))
+            TextButton(onClick = { validMinutes?.let(onTimerReviewMinutesChanged) }, enabled = validMinutes != null) {
+                Text(stringResource(R.string.settings_timer_review_save))
+            }
             Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
             QuietText(text = stringResource(R.string.settings_theme_label))
             Spacer(modifier = Modifier.height(StitchbookSpacing.small))

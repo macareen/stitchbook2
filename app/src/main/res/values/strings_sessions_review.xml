@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_timer_review_label">Check running timers</string>
+    <string name="settings_timer_review_minutes">Minutes</string>
+    <string name="settings_timer_review_help">Choose 1-1440 minutes. A timer running longer without a pause or review asks whether to count all its time.</string>
+    <string name="settings_timer_review_save">Save timer check</string>
+    <string name="timer_review_title">Check your timer</string>
+    <string name="timer_review_body">This session currently counts %1$d min. Do you want all of that time in your stats?</string>
+    <string name="timer_review_actual_minutes">Crafting minutes</string>
+    <string name="timer_review_correction_help">Correcting the time pauses the timer and records the excluded time in the session. Resume when ready. Later leaves the timer running.</string>
+    <string name="timer_review_correct">Correct and pause</string>
+    <string name="timer_review_keep">Count all time</string>
+    <string name="timer_review_later">Later</string>
+    <string name="timer_review_invalid_minutes">Enter a whole number from zero up to the current crafting minutes for this session.</string>
+    <string name="timer_review_save_failed">Could not save this change. Try again.</string>
+    <string name="timer_review_changed">The timer changed. Review its current time again.</string>
+</resources>

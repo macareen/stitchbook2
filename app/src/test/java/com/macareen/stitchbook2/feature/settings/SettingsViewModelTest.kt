@@ -142,6 +142,7 @@ class SettingsViewModelTest {
 
     private class FakePreferences : UserPreferencesRepository {
         override val preferences: StateFlow<UserPreferences> = MutableStateFlow(UserPreferences())
+        override fun setTimerReviewMinutes(minutes: Int) = Unit
         override fun setNavigationStyle(style: com.macareen.stitchbook2.domain.preferences.BottomNavigationStyle) = Unit
         override fun setThemeMode(mode: ThemeMode) = Unit
         override fun setMeasurementSystem(system: MeasurementSystem) = Unit

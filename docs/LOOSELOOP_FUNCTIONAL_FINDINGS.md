@@ -10,7 +10,7 @@ The XAPK contains a base APK, an ARM64 native split, English/French resource spl
 
 Evidence identifiers below refer to function indices in this exact bundle. They are reproducible investigation anchors, not source to copy. `confirmed` means a field or branch was traced in bytecode; `inferred` means an architectural interpretation of those observations; `unknown` requires runtime or server-side evidence. UI text was examined as supporting evidence and is paraphrased here.
 
-No reference-app account was used and no reference service was called. No identical-input PDF comparison or reference-app runtime test has been performed. The available Pixel_8 AVD is x86_64; this XAPK supplies an ARM64 native split. Do not assume it runs on that emulator. No April Cardigan PDF or screenshots were supplied in this chat; the numeric examples come from the user's request.
+No reference-app account was used and no reference service was called. No identical-input PDF comparison or reference-app runtime test has been performed. The available Pixel_8 AVD is x86_64; this XAPK supplies an ARM64 native split. Do not assume it runs on that emulator. At the initial audit, no permissioned cardigan fixture was available. Subsequent Stitchbook-only checks use the privately supplied April Cardigan PDF and phone screenshots; they still do not establish reference-app runtime parser parity.
 
 ## PDF parsing: what the APK can and cannot reveal
 
@@ -85,3 +85,35 @@ For each feature, label static evidence separately from observed runtime output.
 - PR #70: partial calculator feedback and aligned fields; 587 unit tests, lint/build and three emulator UI checks passed. Compact time labels and adaptive large-font controls follow the user's phone feedback; session arithmetic is unchanged.
 
 - PR #71: compact/scalable time tiles and adaptive action buttons; 587 unit tests, lint/build and thirteen focused emulator checks passed. Standalone project PDF title filtering now uses the generated filename-stem name. Pattern details remain portable through JSON and Library CSV; linked-pattern details are not currently expanded in project Markdown.
+
+## Revisit: timer recovery and additional useful behaviours (2026-10-13)
+
+The user reported LooseLoop asking what to do with time recovered from a timer left running, and requested this behaviour plus a fresh audit beyond the existing roadmap. The same XAPK was read again in memory with the existing Hermes tool. No app/service was executed, no reference account was used, and no source, binary, artwork, credential or arbitrary bundle string was added to the repository.
+
+**New confirmed static evidence:**
+
+- Initial timer state includes `inactivityTimeoutMinutes` and `pendingInactivityDecision` (21504).
+- `calculateRecoveredTime` has branches referencing the inactivity setting, `MAX_RECOVERY_MS`, and reason tags for automatic pause/inactivity timeout (31244). Exact defaults and every runtime edge case are not established by this inspection.
+- Stale-running recovery carries a recovery checkpoint and pending state (31165); recovery handles running/paused state and start/pause/end timestamps (31192).
+- Live display construction references `MAX_LIVE_TIMER_GROWTH_MS` and total elapsed time (31305). A timer projection is distinct from the session records that account for time.
+- Reconciliation builds a canonical scope/source and distinguishes completed elapsed time from a resumable session (31497, 31503). Project timer scopes and standalone-counter timer maps have separate paths (30561-30581, 21378-21379).
+- Dedicated project-completion timer finalization and open-session closing paths exist (31347-31349, 30755-30763). Their full failure and retry behaviour is not runtime-verified.
+- A manual-entry elapsed-time helper distinguishes manual records by source (31316-31318). The complete manual-entry UI is not verified.
+
+**Observed by the user:** the reference app asks about unpaused/recovered time. **Inferred:** the pending decision and timeout/recovery branches support that experience. Static names alone do not prove identical dialog choices, automatic pause timing or an exact inactivity algorithm.
+
+### Independent Stitchbook application and next priorities
+
+| Useful capability | Stitchbook action | Evidence / status |
+| --- | --- | --- |
+| Review suspicious running time instead of silently trusting an overnight clock | Configurable foreground/return check; Count all time, correct crafting minutes and pause, or defer | Implemented independently; 900-to-10-minute and real database/UI tests. Uses existing portable session fields. |
+| Protect grouped written instructions while making actions easy to scan | Separate clear actions visually; retain bracketed/quoted/starred sequences and the tracked row | PR #87; user-requested presentation, not claimed reference UI parity. |
+| Close timers when a project is completed | Prioritize explicit completion handling with atomic local updates | New follow-up from completion paths; prevent timers surviving a finished project. |
+| Reconcile elapsed projections with canonical sessions | Keep session records as accounting truth; audit restored/multiple-active timers and prevent duplicate contributions | Existing single-timer model partly covers this; recovery/restore edge cases deserve separate fixtures. |
+| Standalone-counter time with clear ownership | Consider counter-scoped sessions and intentional project attribution | Additional capability beyond current project timers; never double-count counter and project time. |
+| Add manual crafting time without briefly starting a timer | Evaluate a direct manual-entry workflow using the existing session record and exports | Helper verified, full reference UI unknown; Stitchbook currently corrects existing sessions. |
+| Preserve uncertain timer recovery for review | Prefer explicit user choices and portable correction history over silent truncation | Stitchbook retains the original interval and prior pauses; timing caps are evidence to investigate, not a policy to copy. |
+| Piece-aware target loops and measurement checkpoints | Continue the previously identified execution-format work with scoped cycles, user confirmation and exports | Still a functional gap; do not fabricate fixed repeats for unknown-length work. |
+| Conflicting extraction suggestions and held-together/alternative yarn | Prioritize actionable material suggestions and role-aware yarn planning when those screens are extended | Previously confirmed capabilities remain useful even outside a phase checklist. |
+
+This report is a living capability list. A useful observed behaviour is not excluded merely because it was absent from the old roadmap. Each implementation still needs original code, craft-neutral semantics, offline essential use, portable data and proportionate validation. Completed parser/metadata/UI slices should not be re-investigated just to rerun the audit; focus subsequent passes on the remaining execution, recovery and planning gaps.
