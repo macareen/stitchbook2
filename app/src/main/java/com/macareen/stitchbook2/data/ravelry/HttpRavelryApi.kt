@@ -31,7 +31,8 @@ class HttpRavelryApi(
     private val fetch: (url: String, authorization: String) -> HttpResult = { url, authorization -> httpCall("GET", url, authorization) },
     private val post: (url: String, authorization: String) -> HttpResult = { url, authorization -> httpCall("POST", url, authorization) },
     private val downloadTo: (url: String, into: OutputStream) -> Unit = ::httpDownload,
-    private val onHttpResult: (RavelryRequestStage, Int) -> Unit = { _, _ -> }
+    private val onHttpResult: (RavelryRequestStage, Int) -> Unit = { _, _ -> },
+    private val onPdfDenial: (RavelryPdfDenial) -> Unit = {}
 ) : RavelryApi {
 
     data class HttpResult(val status: Int, val body: String)
@@ -107,7 +108,10 @@ class HttpRavelryApi(
         onHttpResult(stage, result.status)
         return when (result.status) {
             in 200..299 -> result.body
-            401, 403 -> throw RavelryAuthException("Ravelry did not accept this request (HTTP ${result.status}).", result.status, stage)
+            401, 403 -> {
+                if (stage == RavelryRequestStage.PDF_LINK) onPdfDenial(RavelryPdfDenial.classify(result.body))
+                throw RavelryAuthException("Ravelry did not accept this request (HTTP ${result.status}).", result.status, stage)
+            }
             else -> throw RavelryUnavailableException("Ravelry answered HTTP ${result.status}.", httpStatus = result.status, stage = stage)
         }
     }

@@ -154,6 +154,8 @@ class DefaultAppContainer(context: Context) : AppContainer {
 
     private val ravelryApi = HttpRavelryApi(onHttpResult = { stage, status ->
         android.util.Log.i("RavelryHttp", "${stage.name} HTTP $status")
+    }, onPdfDenial = { category ->
+        android.util.Log.i("RavelryPdfDenial", category.name)
     })
 
     override val ravelrySync: RavelrySync = RavelrySync(
