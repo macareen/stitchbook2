@@ -75,7 +75,8 @@ fun StitchbookApp(
                     BottomBarItem(
                         key = destination.route,
                         label = stringResource(destination.title),
-                        icon = destination.icon
+                        icon = destination.icon,
+                        preferIcon = destination == TopLevelDestination.Settings
                     )
                 }
                 val selectedKey = TopLevelDestination.entries.firstOrNull { destination ->

@@ -177,7 +177,8 @@ class GuideFocusScreenTest {
             )
         )
 
-        composeTestRule.onNodeWithText(longInstruction).assertIsDisplayed()
+        composeTestRule.onNodeWithText("Yarn over").assertIsDisplayed()
+        composeTestRule.onNodeWithText("knit two together").assertIsDisplayed()
         composeTestRule.onNodeWithText("Complete").assertIsDisplayed().assertIsEnabled()
         composeTestRule.onNodeWithText("Previous").assertIsDisplayed().assertIsEnabled()
         composeTestRule.onNodeWithText("Resume at earliest incomplete step").assertIsDisplayed()
