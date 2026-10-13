@@ -244,6 +244,21 @@ class PatternGuidesViewModel(
         }
     }
 
+    fun copyGuideToSize(sourceGuideId: String, targetSize: String) {
+        val content = uiState.value as? PatternGuidesUiState.Content ?: return
+        if (creation.value.isCreating || targetSize.isBlank()) return
+        val source = content.guides.firstOrNull { it.guide.id.value == sourceGuideId && it.isPublished } ?: return
+        creation.value = CreationState(isCreating = true)
+        scope.launch {
+            try {
+                val name = PatternNames.guide(content.pattern.title, targetSize, content.pattern.pdfFileName)
+                created.value = guideRepository.copyPatternGuideToSize(source.guide.id, targetSize, name).id.value
+                creation.value = CreationState()
+            } catch (error: CancellationException) { throw error
+            } catch (_: Exception) { creation.value = CreationState(failed = true) }
+        }
+    }
+
     private suspend fun fillFromPattern(
         useCase: CreateGuideFromPdfUseCase,
         pdfUri: String,

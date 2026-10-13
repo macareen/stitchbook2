@@ -234,6 +234,35 @@ class PatternGuidesViewModelTest {
         assertTrue(!state.isCreating)
     }
 
+    @Test fun copyingRequiresPublishedSourceAndOpensNamedDraft() {
+        val guides = FakePatternGuides().also {
+            it.add(guide("ready", "M"), published = true)
+            it.add(guide("draft", "S"), published = false)
+        }
+        val vm = viewModel(guides)
+        vm.copyGuideToSize("draft", "L"); vm.copyGuideToSize("ready", " ")
+        assertTrue(guides.copies.isEmpty())
+        vm.copyGuideToSize("ready", " L ")
+        assertEquals(Triple("ready", " L ", "Seaside Cardigan \u00b7 L"), guides.copies.single())
+        assertEquals("created-1", vm.createdGuideId.value)
+    }
+
+    @Test fun failedCopyCanRetryAndBusyCopyRejectsDuplicateRequests() {
+        val guides = FakePatternGuides().also { it.add(guide("ready", "M"), published = true); it.failCopy = true }
+        val vm = viewModel(guides)
+        vm.copyGuideToSize("ready", "L")
+        assertTrue((vm.uiState.value as PatternGuidesUiState.Content).createFailed)
+        assertEquals(null, vm.createdGuideId.value)
+        guides.failCopy = false
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        guides.copyGate = gate
+        vm.copyGuideToSize("ready", "L"); vm.copyGuideToSize("ready", "XL")
+        assertEquals(2, guides.copies.size)
+        gate.complete(Unit)
+        assertEquals("created-1", vm.createdGuideId.value)
+        assertTrue(!(vm.uiState.value as PatternGuidesUiState.Content).createFailed)
+    }
+
     private fun viewModel(guides: FakePatternGuides): PatternGuidesViewModel =
         PatternGuidesViewModel("pattern", FakeLibrary(listOf(pattern)), guides, scope).also { vm ->
             scope.launch { vm.uiState.collect {} }
@@ -254,6 +283,15 @@ private class FakeLibrary(items: List<LibraryItem>) : LibraryRepository {
 }
 
 private class FakePatternGuides : GuideRepository {
+    val copies = mutableListOf<Triple<String, String, String>>()
+    var failCopy = false
+    var copyGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+    override suspend fun copyPatternGuideToSize(sourceGuideId: GuideId, targetSize: String, name: String): Guide {
+        copies += Triple(sourceGuideId.value, targetSize, name)
+        copyGate?.await()
+        if (failCopy) error("Test failure")
+        return createPatternGuide("pattern", targetSize.trim(), name)
+    }
     private val guides = MutableStateFlow<List<Guide>>(emptyList())
     private val published = mutableSetOf<String>()
     val created = mutableListOf<Guide>()
