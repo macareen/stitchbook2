@@ -18,7 +18,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Bump alongside `StitchbookDatabase.version`; every migration chain below must reach it. */
-private const val CURRENT_SCHEMA_VERSION = 21
+private const val CURRENT_SCHEMA_VERSION = 22
 
 @RunWith(AndroidJUnit4::class)
 class StitchbookMigrationTest {
@@ -85,6 +85,20 @@ class StitchbookMigrationTest {
         if (::database.isInitialized) database.close()
         context.deleteDatabase(DATABASE_NAME)
         context.deleteDatabase(HELPER_DATABASE_NAME)
+    }
+
+    @Test
+    fun migrationTwentyOneToTwentyTwoPreservesNotesWithoutInventingTagsOrRows() {
+        migrationHelper.createDatabase(HELPER_DATABASE_NAME, 21).use { db ->
+            db.execSQL("INSERT INTO projects (id, name, craft, project_type, status, notes, created_at, updated_at) VALUES ('p', 'Shawl', 'CROCHET', 'SHAWL', 'ACTIVE', NULL, 1, 2)")
+            db.execSQL("INSERT INTO journal_entries (id, project_id, entry_date, title, body, created_at, updated_at) VALUES ('n', 'p', '2026-10-13', 'Keep title', 'Keep body', 1, 2)")
+        }
+        migrationHelper.runMigrationsAndValidate(HELPER_DATABASE_NAME, 22, true, MIGRATION_21_22).use { db ->
+            db.query("SELECT title, body, tag, row_context FROM journal_entries WHERE id = 'n'").use { cursor ->
+                assertTrue(cursor.moveToFirst()); assertEquals("Keep title", cursor.getString(0)); assertEquals("Keep body", cursor.getString(1))
+                assertEquals("GENERAL", cursor.getString(2)); assertTrue(cursor.isNull(3))
+            }
+        }
     }
 
     @Test
@@ -731,7 +745,8 @@ class StitchbookMigrationTest {
             MIGRATION_17_18,
             MIGRATION_18_19,
             MIGRATION_19_20,
-            MIGRATION_20_21
+            MIGRATION_20_21,
+            MIGRATION_21_22
         ).use { db ->
             db.query(
                 "SELECT name, notes, description, construction_method, custom_type_label, start_date, target_date, completed_date FROM projects WHERE id = 'existing-project'"

@@ -42,7 +42,7 @@ class ProjectDashboardTest {
         val guide = Guide(GuideId("guide"), project.id, "Seaside cardigan - M", null, 1, 2)
         val section = OverviewEntry(NodeId("body"), 0, OverviewEntry.Kind.SECTION, "Body", OverviewStatus.CURRENT,
             3, 8, ExecutionAddress(DefinitionRevisionId("revision"), NodeId("row"), emptyList()))
-        val entry = GuideListEntry(guide, GuideEntryAction.CONTINUE, GuideProgressSummary(3, 8, .375, ProgressBasis.STEPS), listOf(section), "Knit to the next marker.")
+        val entry = GuideListEntry(guide, GuideEntryAction.CONTINUE, GuideProgressSummary(3, 8, .375, ProgressBasis.STEPS), listOf(section), "Knit to the next marker.", currentContext = "Body row 24")
         val counter = Counter("counter", project.id, "Body rows", "rows", 29, null, 1, 2, null, null, null, false)
         var cover by mutableStateOf(project.coverPhotoId)
         var opened: String? = null
@@ -57,7 +57,7 @@ class ProjectDashboardTest {
                         onEditProject = {}, onDeleteProject = {}, onOpenGuide = { opened = it }, onEditDraft = {},
                         onCreateGuide = {}, onCreateGuideFromPdf = { _, _ -> }, onUnassignTool = {}, onOpenSection = { sectionOpened = it },
                         hubState = ProjectHubState(counters = listOf(counter), dashboard = ProjectDashboardState(photos = photos,
-                            notes = listOf(JournalEntry("note", project.id, "2026-10-09", "Adjustment", "Make the body longer.", 1, 2)),
+                            notes = listOf(JournalEntry("note", project.id, "2026-10-09", "Adjustment", "Make the body longer.", 1, 2, JournalNoteTag.ADJUSTMENT, "Body row 24")),
                             patterns = listOf(pattern), sessionCount = 5, workedMillis = 385 * 60_000L)),
                         hubActions = ProjectHubActions(onIncrementCounter = { incremented = true }, onDecrementCounter = { decremented = true },
                             onSetCover = { cover = it.id }), onOpenPattern = { opened = it }, onOpenPdf = { opened = "pdf:$it" })
@@ -86,6 +86,12 @@ class ProjectDashboardTest {
         compose.onNodeWithText("Next: Knit to the next marker.").performScrollTo().assertIsDisplayed()
         capture(dark, scale, "guide")
         compose.onNodeWithText("Make the body longer.").performScrollTo().assertIsDisplayed()
+        compose.onAllNodesWithText("Adjustment").assertCountEquals(2)
+        compose.onNodeWithText("Body row 24").assertExists()
+        compose.onNodeWithText("Add note").performScrollTo().performClick()
+        compose.onNodeWithText("Guide position").performScrollTo().assertExists()
+        compose.onNode(hasText("Body row 24") and hasSetTextAction()).assertExists()
+        compose.onNodeWithText("Cancel").performClick()
         compose.onNodeWithText("Add or manage notes").performScrollTo().performClick()
         compose.runOnIdle { assertEquals(ProjectSection.JOURNAL, sectionOpened) }
         compose.onNodeWithText("+").assertIsDisplayed().performClick()

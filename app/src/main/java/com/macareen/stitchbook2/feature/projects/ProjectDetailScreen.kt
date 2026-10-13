@@ -98,6 +98,7 @@ fun ProjectDetailRoute(
     val toolbox by viewModel.toolbox.collectAsStateWithLifecycle()
     val patternGuides by viewModel.availablePatternGuides.collectAsStateWithLifecycle()
     val dashboard by viewModel.dashboard.collectAsStateWithLifecycle()
+    val noteSaveState by viewModel.noteSaveState.collectAsStateWithLifecycle()
     val coverSaveFailed by viewModel.coverSaveFailed.collectAsStateWithLifecycle()
 
     // Coming back from Focus Mode or the Draft editor can change a guide's Start/Continue state.
@@ -137,7 +138,8 @@ fun ProjectDetailRoute(
             toolbox = toolbox,
             patternGuides = patternGuides,
             dashboard = dashboard,
-            coverSaveFailed = coverSaveFailed
+            coverSaveFailed = coverSaveFailed,
+            noteSaveState = noteSaveState
         ),
         hubActions = ProjectHubActions(
             onIncrementCounter = viewModel::incrementCounter,
@@ -146,7 +148,9 @@ fun ProjectDetailRoute(
             onAssignTool = viewModel::assignTool,
             onAddNewTool = viewModel::addNewTool,
             onUsePatternGuide = viewModel::usePatternGuide,
-            onSetCover = viewModel::setCoverPhoto
+            onSetCover = viewModel::setCoverPhoto,
+            onSaveRowNote = viewModel::addRowNote,
+            onClearNoteFeedback = viewModel::clearNoteFeedback
         )
     )
 }
@@ -243,6 +247,10 @@ private fun ProjectDetailContent(
 ) {
     var showDeleteConfirmation by remember { mutableStateOf(false) }
     var openSheet by remember { mutableStateOf<HubSheet?>(null) }
+    var showRowNoteDialog by remember { mutableStateOf(false) }
+    LaunchedEffect(hubState.noteSaveState) {
+        if (hubState.noteSaveState == RowNoteSaveState.SAVED) showRowNoteDialog = false
+    }
     var showAddGuideDialog by remember { mutableStateOf(false) }
     val project = state.project
 
@@ -328,7 +336,9 @@ private fun ProjectDetailContent(
             onImportWithAssistant = { onOpenSection(ProjectSection.ASSISTED_IMPORT) },
             patternGuides = hubState.patternGuides, onUsePatternGuide = hubActions.onUsePatternGuide
         )
-        ProjectDashboardAfterGuides(hubState.dashboard, onOpenSection)
+        ProjectDashboardAfterGuides(hubState.dashboard, onOpenSection) {
+            hubActions.onClearNoteFeedback(); showRowNoteDialog = true
+        }
         ProjectDetailsLine(project)
         if (state.deleteFailed) {
             Text(
@@ -402,6 +412,12 @@ private fun ProjectDetailContent(
             )
         }
         null -> Unit
+    }
+
+    if (showRowNoteDialog) {
+        val entry = state.guideEntries.firstOrNull { it.action == GuideEntryAction.CONTINUE }
+        RowNoteDialog(entry?.currentContext.orEmpty(), hubState.noteSaveState, hubActions.onSaveRowNote,
+            { if (hubState.noteSaveState != RowNoteSaveState.SAVING) showRowNoteDialog = false })
     }
 
     if (showDeleteConfirmation) {

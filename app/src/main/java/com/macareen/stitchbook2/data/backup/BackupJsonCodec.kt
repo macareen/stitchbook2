@@ -18,6 +18,7 @@ import com.macareen.stitchbook2.domain.model.Counter
 import com.macareen.stitchbook2.domain.model.CounterNote
 import com.macareen.stitchbook2.domain.model.Craft
 import com.macareen.stitchbook2.domain.model.CraftingSession
+import com.macareen.stitchbook2.domain.model.JournalNoteTag
 import com.macareen.stitchbook2.domain.model.JournalEntry
 import com.macareen.stitchbook2.domain.model.LibraryItem
 import com.macareen.stitchbook2.domain.model.Milestone
@@ -561,6 +562,8 @@ internal fun JournalEntry.toJson(): JSONObject = JSONObject().apply {
     put("entryDate", entryDate)
     put("title", title ?: JSONObject.NULL)
     put("body", body)
+    put("tag", tag.name)
+    put("rowContext", rowContext ?: JSONObject.NULL)
     put("createdAt", createdAt)
     put("updatedAt", updatedAt)
 }
@@ -572,7 +575,9 @@ internal fun JSONObject.toJournalEntry(): JournalEntry = JournalEntry(
     title = optNullableString("title"),
     body = getString("body"),
     createdAt = getLong("createdAt"),
-    updatedAt = getLong("updatedAt")
+    updatedAt = getLong("updatedAt"),
+    tag = JournalNoteTag.valueOf(optString("tag", "GENERAL")),
+    rowContext = optNullableString("rowContext")
 )
 
 internal fun CraftingSession.toJson(): JSONObject = JSONObject().apply {

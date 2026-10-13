@@ -36,7 +36,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         JournalEntryEntity::class,
         CraftingSessionEntity::class
     ],
-    version = 21,
+    version = 22,
     exportSchema = true
 )
 abstract class StitchbookDatabase : RoomDatabase() {
@@ -101,7 +101,8 @@ val ALL_MIGRATIONS: Array<Migration>
         MIGRATION_17_18,
         MIGRATION_18_19,
         MIGRATION_19_20,
-        MIGRATION_20_21
+        MIGRATION_20_21,
+        MIGRATION_21_22
     )
 
 val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -1096,5 +1097,13 @@ val MIGRATION_19_20 = object : Migration(19, 20) {
 val MIGRATION_20_21 = object : Migration(20, 21) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE `projects` ADD COLUMN `cover_photo_id` TEXT")
+    }
+}
+
+/** Preserve existing journal entries as general notes without an invented row context. */
+val MIGRATION_21_22 = object : Migration(21, 22) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `journal_entries` ADD COLUMN `tag` TEXT NOT NULL DEFAULT 'GENERAL'")
+        db.execSQL("ALTER TABLE `journal_entries` ADD COLUMN `row_context` TEXT")
     }
 }

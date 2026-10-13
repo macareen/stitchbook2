@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+<string name="row_note_add">Add note</string>
+<string name="row_note_general">General</string>
+<string name="row_note_adjustment">Adjustment</string>
+<string name="row_note_mistake">Mistake</string>
+<string name="row_note_reminder">Reminder</string>
+<string name="row_note_technique">Technique</string>
+<string name="row_note_context">Guide position</string>
+<string name="row_note_context_help">Taken from your current guide step when available. Edit it or leave it blank.</string>
+<string name="row_note_body">Note</string>
+<string name="row_note_save_failed">Could not save this note. Your text is still here; please try again.</string>
+<string name="row_note_body_required">Write a note before saving.</string>
+</resources>

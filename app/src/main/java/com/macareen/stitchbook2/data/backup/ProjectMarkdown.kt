@@ -148,6 +148,9 @@ fun projectMarkdown(project: Project, snapshot: BackupSnapshot, now: Long): Stri
             val title = entry.title?.takeIf { it.isNotBlank() }?.let { " — ${it.trim()}" }.orEmpty()
             line("### ${entry.entryDate}$title")
             line()
+            if (entry.tag != com.macareen.stitchbook2.domain.model.JournalNoteTag.GENERAL) line("Tag: ${entry.tag.name.lowercase()}")
+            entry.rowContext?.let { line("Context: $it") }
+            if (entry.tag != com.macareen.stitchbook2.domain.model.JournalNoteTag.GENERAL || entry.rowContext != null) line()
             line(entry.body.trim())
             line()
         }

@@ -145,6 +145,17 @@ class LocalBackupServiceTest {
     )
 
     @Test
+    fun taggedNotesRoundTripAndOldNotesStayGeneralWithoutContext() {
+        val note = JournalEntry("note", project.id, "2026-10-13", "Adjustment", "Keep longer", 1, 2,
+            com.macareen.stitchbook2.domain.model.JournalNoteTag.ADJUSTMENT, "Body row 24")
+        val json = note.toJson()
+        assertEquals(note, json.toJournalEntry())
+        json.remove("tag"); json.remove("rowContext")
+        assertEquals(com.macareen.stitchbook2.domain.model.JournalNoteTag.GENERAL, json.toJournalEntry().tag)
+        assertEquals(null, json.toJournalEntry().rowContext)
+    }
+
+    @Test
     fun coverSelectionRoundTripsAndOlderBackupsRemainCompatible() {
         val covered = project.copy(coverPhotoId = "photo-1")
         val json = covered.toJson()

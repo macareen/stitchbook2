@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.macareen.stitchbook2.domain.model.JournalNoteTag
 import com.macareen.stitchbook2.domain.model.JournalEntry
 import com.macareen.stitchbook2.domain.model.Milestone
 import com.macareen.stitchbook2.domain.model.Photo
@@ -174,7 +175,8 @@ class ProjectJournalViewModel(
 
     fun deleteMilestone(milestone: Milestone) = launchSafely { journalRepository.deleteMilestone(milestone) }
 
-    fun saveEntry(original: JournalEntry?, entryDate: String, title: String, body: String) {
+    fun saveEntry(original: JournalEntry?, entryDate: String, title: String, body: String,
+        tag: JournalNoteTag = original?.tag ?: JournalNoteTag.GENERAL, rowContext: String = original?.rowContext.orEmpty()) {
         val normalizedBody = body.trim()
         if (normalizedBody.isEmpty()) {
             feedback.value = JournalFeedback.BODY_REQUIRED
@@ -194,6 +196,7 @@ class ProjectJournalViewModel(
                     entryDate = date.toString(),
                     title = title.trim().ifEmpty { null },
                     body = normalizedBody,
+                    tag = tag, rowContext = rowContext.trim().ifEmpty { null },
                     createdAt = original?.createdAt ?: now,
                     updatedAt = now
                 )

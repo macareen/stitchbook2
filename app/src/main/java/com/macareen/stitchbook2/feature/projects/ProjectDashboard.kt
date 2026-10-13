@@ -142,10 +142,12 @@ internal fun ProjectDashboardTools(tools: List<ToolItem>, onTools: () -> Unit) {
  }
 
 @Composable
-internal fun ProjectDashboardAfterGuides(state: ProjectDashboardState, onSection: (ProjectSection) -> Unit) {
+internal fun ProjectDashboardAfterGuides(state: ProjectDashboardState, onSection: (ProjectSection) -> Unit, onAddNote: () -> Unit) {
     ProjectPageSection(stringResource(R.string.project_page_notes), stringResource(R.string.project_page_manage_notes), { onSection(ProjectSection.JOURNAL) }) {
+        TextButton(onClick = onAddNote) { Text(stringResource(R.string.row_note_add)) }
         if (state.notes.isEmpty()) QuietText(stringResource(R.string.project_page_no_notes))
         state.notes.take(5).forEach { note ->
+            com.macareen.stitchbook2.feature.journal.WorkingNoteMetadata(note)
             QuietText(note.entryDate)
             note.title?.let { Text(it, style = MaterialTheme.typography.titleMedium) }
             Text(note.body, style = MaterialTheme.typography.bodyMedium)

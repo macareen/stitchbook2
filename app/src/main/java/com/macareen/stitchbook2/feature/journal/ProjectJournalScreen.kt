@@ -53,6 +53,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.macareen.stitchbook2.R
 import com.macareen.stitchbook2.data.photos.documentDisplayName
 import com.macareen.stitchbook2.data.photos.persistReadAccess
+import com.macareen.stitchbook2.domain.model.JournalNoteTag
 import com.macareen.stitchbook2.domain.model.JournalEntry
 import com.macareen.stitchbook2.domain.model.Milestone
 import com.macareen.stitchbook2.domain.model.Photo
@@ -99,7 +100,7 @@ data class JournalActions(
     val onSaveMilestone: (Milestone?, String, String, String) -> Unit = { _, _, _, _ -> },
     val onMoveMilestone: (String, Int) -> Unit = { _, _ -> },
     val onDeleteMilestone: (Milestone) -> Unit = {},
-    val onSaveEntry: (JournalEntry?, String, String, String) -> Unit = { _, _, _, _ -> },
+    val onSaveEntry: (JournalEntry?, String, String, String, JournalNoteTag, String) -> Unit = { _, _, _, _, _, _ -> },
     val onDeleteEntry: (JournalEntry) -> Unit = {},
     val onDismissFeedback: () -> Unit = {}
 )
@@ -264,9 +265,9 @@ fun ProjectJournalScreen(
         )
         is JournalDialog.EditEntry -> EntryDialog(
             original = current.entry,
-            onSave = { date, title, body ->
+            onSave = { date, title, body, tag, context ->
                 dialog = null
-                actions.onSaveEntry(current.entry, date, title, body)
+                actions.onSaveEntry(current.entry, date, title, body, tag, context)
             },
             onDismiss = { dialog = null }
         )
@@ -395,6 +396,7 @@ private fun MilestoneRow(
 @Composable
 private fun EntryCard(entry: JournalEntry, onEdit: () -> Unit, onDelete: () -> Unit) {
     ContentCard {
+        WorkingNoteMetadata(entry)
         QuietText(text = entry.entryDate)
         entry.title?.let { Text(text = it, style = MaterialTheme.typography.cardTitle) }
         Spacer(modifier = Modifier.height(StitchbookSpacing.extraSmall))
@@ -546,11 +548,13 @@ private fun MilestoneDialog(
 @Composable
 private fun EntryDialog(
     original: JournalEntry?,
-    onSave: (String, String, String) -> Unit,
+    onSave: (String, String, String, JournalNoteTag, String) -> Unit,
     onDismiss: () -> Unit
 ) {
     var date by remember { mutableStateOf(original?.entryDate ?: java.time.LocalDate.now().toString()) }
     var title by remember { mutableStateOf(original?.title.orEmpty()) }
+    var tag by remember { mutableStateOf(original?.tag ?: JournalNoteTag.GENERAL) }
+    var context by remember { mutableStateOf(original?.rowContext.orEmpty()) }
     var body by remember { mutableStateOf(original?.body.orEmpty()) }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -562,6 +566,8 @@ private fun EntryDialog(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)
             ) {
+                NoteTagChoices(tag, { tag = it })
+                OutlinedTextField(context, { context = it }, label = { Text(stringResource(R.string.row_note_context)) }, modifier = Modifier.fillMaxWidth())
                 DateField(value = date, onValueChange = { date = it }, label = stringResource(R.string.journal_entry_date))
                 OutlinedTextField(
                     value = title,
@@ -580,7 +586,7 @@ private fun EntryDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onSave(date, title, body) }, enabled = body.isNotBlank()) {
+            TextButton(onClick = { onSave(date, title, body, tag, context) }, enabled = body.isNotBlank()) {
                 Text(text = stringResource(R.string.journal_save))
             }
         },

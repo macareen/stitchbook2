@@ -138,3 +138,5 @@ The debug APK is normally produced under `app/build/outputs/apk/debug/`.
 - [Development and agent guidance](AGENTS.md)
 
 Project detail now brings photos, linked pattern/PDF actions, recorded time, yarn allocations, tools, guide sections and working notes together. Choose a project photo as its cover; Home uses it too, and the choice travels in JSON/Markdown exports. Follow guide and a project counter remain visible while scrolling.
+
+Add a tagged working note directly from the project page. Its section/row/repeat context is prefilled from the current guide when available and remains editable. Tags and context appear in the journal and travel in JSON/Markdown exports.

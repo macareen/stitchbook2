@@ -72,7 +72,8 @@ data class GuideListEntry(
     val action: GuideEntryAction,
     val progress: GuideProgressSummary? = null,
     val sections: List<OverviewEntry> = emptyList(),
-    val nextInstruction: String? = null
+    val nextInstruction: String? = null,
+    val currentContext: String? = null
 )
 
 sealed interface ProjectDetailUiState {
@@ -126,6 +127,8 @@ class ProjectDetailViewModel(
     private val createGuideState = MutableStateFlow(CreateGuideState())
     private val pdfImportState = MutableStateFlow(PdfImportState())
     private val _exportFeedback = MutableStateFlow<ProjectExportFeedback?>(null)
+    private val _noteSaveState = MutableStateFlow(RowNoteSaveState.IDLE)
+    val noteSaveState = _noteSaveState.asStateFlow()
     private val _coverSaveFailed = MutableStateFlow(false)
     val coverSaveFailed = _coverSaveFailed.asStateFlow()
     private val entryRefresh = MutableStateFlow(0)
@@ -196,7 +199,8 @@ class ProjectDetailViewModel(
             val current = execution?.state?.currentAddress
             GuideListEntry(guide, action, GuideProgressSummary.of(validated, completed),
                 OverviewEntry.overviewOf(validated, completed, current).filter { it.kind == OverviewEntry.Kind.SECTION },
-                (current?.let { validated.node(it.instructionNodeId) } as? Instruction)?.text)
+                (current?.let { validated.node(it.instructionNodeId) } as? Instruction)?.text,
+                current?.let { guideNoteContext(validated, it) })
         } catch (error: CancellationException) { throw error
         } catch (_: Exception) { GuideListEntry(guide, action) }
     }
@@ -398,6 +402,25 @@ class ProjectDetailViewModel(
         val now = clock()
         base.copy(journal = journalCount, workedMillis = sessions.sumOf { it.workedMillis(now) })
     }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), ProjectConnections())
+
+    fun clearNoteFeedback() { if (_noteSaveState.value != RowNoteSaveState.SAVING) _noteSaveState.value = RowNoteSaveState.IDLE }
+
+    fun addRowNote(body: String, tag: JournalNoteTag, context: String) {
+        if (_noteSaveState.value == RowNoteSaveState.SAVING) return
+        if (body.isBlank()) { _noteSaveState.value = RowNoteSaveState.BODY_REQUIRED; return }
+        val journal = journalRepository ?: return
+        _noteSaveState.value = RowNoteSaveState.SAVING
+        scope.launch {
+            try {
+                val now = clock()
+                val date = java.time.Instant.ofEpochMilli(now).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString()
+                journal.saveEntry(JournalEntry(newId(), projectId, date, null, body.trim(), now, now,
+                    tag, context.trim().ifEmpty { null }))
+                _noteSaveState.value = RowNoteSaveState.SAVED
+            } catch (error: CancellationException) { throw error
+            } catch (_: Exception) { _noteSaveState.value = RowNoteSaveState.SAVE_FAILED }
+        }
+    }
 
     fun setCoverPhoto(photo: Photo) {
         if (photo.projectId != projectId) return
