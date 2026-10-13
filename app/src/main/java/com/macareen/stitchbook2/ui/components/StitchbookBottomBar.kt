@@ -2,6 +2,7 @@ package com.macareen.stitchbook2.ui.components
 
 import com.macareen.stitchbook2.domain.preferences.BottomNavigationStyle
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.heightIn
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.animateContentSize
@@ -35,7 +36,8 @@ import androidx.compose.ui.unit.dp
 data class BottomBarItem(
     val key: String,
     val label: String,
-    @param:DrawableRes val icon: Int
+    @param:DrawableRes val icon: Int,
+    val preferIcon: Boolean = false
 )
 
 /** A floating navigation bar with saved words or icons, adaptive text wrapping and labelled tabs. */
@@ -91,16 +93,17 @@ private fun BottomBarEntry(
             .semantics { contentDescription = item.label }
             .animateContentSize()
             .heightIn(min = 48.dp)
+            .widthIn(min = 48.dp)
             .padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (style == BottomNavigationStyle.ICONS) Icon(
+        if (style == BottomNavigationStyle.ICONS || item.preferIcon) Icon(
             painter = painterResource(item.icon),
             contentDescription = null,
             tint = tint,
             modifier = Modifier.size(24.dp)
         )
-        if (style == BottomNavigationStyle.WORDS) {
+        if (style == BottomNavigationStyle.WORDS && !item.preferIcon) {
             Text(
                 text = item.label,
                 style = MaterialTheme.typography.labelLarge,

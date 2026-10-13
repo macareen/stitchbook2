@@ -386,11 +386,12 @@ private fun InProgressContent(
                             state.positions.forEach { position -> PositionLine(position) }
                         }
                     }
-                    Text(
-                        text = state.instructionText,
-                        style = MaterialTheme.typography.instruction,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
+                        FocusInstructionLayout.actionLines(state.instructionText).forEach { action ->
+                            Text(text = action, style = MaterialTheme.typography.instruction,
+                                color = MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
                     state.feedback?.let { feedback ->
                         QuietText(text = focusFeedbackText(feedback))
                     }

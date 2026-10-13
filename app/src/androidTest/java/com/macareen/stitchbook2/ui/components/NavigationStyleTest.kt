@@ -9,6 +9,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -24,6 +25,7 @@ import org.junit.Test
 class NavigationStyleTest {
     @get:Rule val compose = createComposeRule()
     @Test fun wordsWorkInLightMode() = check(false, 1f, BottomNavigationStyle.WORDS)
+    @Test fun settingsCogKeepsWordsOnOneRowAtPhoneScale() = check(false, 1.1f, BottomNavigationStyle.WORDS)
     @Test fun wordsWorkInDarkMode() = check(true, 1f, BottomNavigationStyle.WORDS)
     @Test fun wordsWrapAtLargeTextSize() = check(true, 1.8f, BottomNavigationStyle.WORDS)
     @Test fun iconsKeepAccessibleNames() = check(false, 1f, BottomNavigationStyle.ICONS)
@@ -40,7 +42,7 @@ class NavigationStyleTest {
     }
     private fun check(dark: Boolean, scale: Float, style: BottomNavigationStyle) {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val items = TopLevelDestination.entries.map { BottomBarItem(it.route, context.getString(it.title), it.icon) }
+        val items = TopLevelDestination.entries.map { BottomBarItem(it.route, context.getString(it.title), it.icon, preferIcon = it == TopLevelDestination.Settings) }
         var selected: String? = null
         compose.setContent {
             val density = LocalDensity.current
@@ -53,13 +55,17 @@ class NavigationStyleTest {
             }
         }
         items.forEach {
-            compose.onNodeWithContentDescription(it.label).assertIsDisplayed().performClick()
+            compose.onNodeWithContentDescription(it.label).assertIsDisplayed().assertWidthIsAtLeast(48.dp).performClick()
             compose.runOnIdle { assertEquals(it.key, selected) }
-            if (style == BottomNavigationStyle.WORDS) compose.onNodeWithText(it.label).assertIsDisplayed()
+            if (style == BottomNavigationStyle.WORDS && !it.preferIcon) compose.onNodeWithText(it.label).assertIsDisplayed()
+        }
+        if (scale <= 1.1f) {
+            val tops = items.map { compose.onNodeWithContentDescription(it.label).fetchSemanticsNode().boundsInRoot.top }
+            compose.runOnIdle { assertEquals("Settings must not create a second navigation row", 1, tops.distinct().size) }
         }
         compose.onRoot().captureToImage()
         if (InstrumentationRegistry.getArguments().getString("captureNavigation") == "true") {
-            val mode = if (style == BottomNavigationStyle.ICONS) "icons" else if (scale > 1f) "large" else if (dark) "dark" else "light"
+            val mode = if (style == BottomNavigationStyle.ICONS) "icons" else if (scale > 1.1f) "large" else if (dark) "dark" else if (scale > 1f) "phone" else "light"
             ParcelFileDescriptor.AutoCloseInputStream(InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(
                 "screencap -p /sdcard/Download/stitchbook-navigation-$mode.png")).use { it.readBytes() }
         }
