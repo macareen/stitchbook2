@@ -38,6 +38,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -247,7 +248,7 @@ private fun ProjectDetailContent(
 ) {
     var showDeleteConfirmation by remember { mutableStateOf(false) }
     var openSheet by remember { mutableStateOf<HubSheet?>(null) }
-    var showRowNoteDialog by remember { mutableStateOf(false) }
+    var showRowNoteDialog by rememberSaveable(state.project.id) { mutableStateOf(false) }
     LaunchedEffect(hubState.noteSaveState) {
         if (hubState.noteSaveState == RowNoteSaveState.SAVED) showRowNoteDialog = false
     }

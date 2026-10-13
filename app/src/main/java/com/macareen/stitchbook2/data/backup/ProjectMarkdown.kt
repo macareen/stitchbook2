@@ -3,6 +3,7 @@ package com.macareen.stitchbook2.data.backup
 import com.macareen.stitchbook2.domain.backup.GuideBackupGraph
 import com.macareen.stitchbook2.domain.backup.BackupSnapshot
 import com.macareen.stitchbook2.domain.model.Project
+import com.macareen.stitchbook2.domain.model.CraftingSessionSource
 import com.macareen.stitchbook2.domain.model.ProjectType
 import com.macareen.stitchbook2.domain.model.roundQuantity
 import com.macareen.stitchbook2.domain.model.sortedForDisplay
@@ -70,6 +71,16 @@ fun projectMarkdown(project: Project, snapshot: BackupSnapshot, now: Long): Stri
         line()
         field("Sessions", sessions.size.toString())
         field("Time worked", markdownDuration(sessions.sumOf { it.workedMillis(now) }))
+        val manualSessions = sessions.filter { it.source == CraftingSessionSource.MANUAL }
+        if (manualSessions.isNotEmpty()) {
+            field("Manually added sessions", manualSessions.size.toString())
+            manualSessions.sortedBy { it.startedAt }.forEach { session ->
+                val sessionZone = runCatching { ZoneId.of(session.zoneId) }.getOrDefault(zone)
+                val finish = Instant.ofEpochMilli(session.endedAt ?: session.startedAt).atZone(sessionZone)
+                line("- Added manually: ${markdownDuration(session.workedMillis(now))}; finished $finish")
+                session.notes?.takeIf { it.isNotBlank() }?.let { line("  ${it.trim()}") }
+            }
+        }
         val rowSessions = sessions.filter { (it.rowsCompleted ?: 0) > 0 }
         if (rowSessions.isNotEmpty()) {
             field("Rows/rounds recorded", rowSessions.sumOf { it.rowsCompleted ?: 0 }.toString())

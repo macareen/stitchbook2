@@ -35,7 +35,8 @@ data class CraftingSession(
     val stitchesPerRow: Int?,
     val notes: String?,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val source: CraftingSessionSource = CraftingSessionSource.TIMED
 ) {
     val isRunning: Boolean get() = endedAt == null && pausedAt == null
     val isPaused: Boolean get() = endedAt == null && pausedAt != null
@@ -109,3 +110,5 @@ object SessionTimer {
             updatedAt = now
         )
 }
+
+enum class CraftingSessionSource { TIMED, MANUAL }

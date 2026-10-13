@@ -33,6 +33,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -46,6 +47,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.macareen.stitchbook2.R
+import com.macareen.stitchbook2.domain.model.ManualTimeInput
+import com.macareen.stitchbook2.domain.model.CraftingSessionSource
 import com.macareen.stitchbook2.domain.model.CraftingSession
 import com.macareen.stitchbook2.domain.model.safeZone
 import com.macareen.stitchbook2.ui.components.ContentCard
@@ -67,6 +70,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun ProjectSessionsRoute(viewModel: ProjectSessionsViewModel) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val manualEntry by viewModel.manualEntry.collectAsStateWithLifecycle()
     ProjectSessionsScreen(
         uiState = uiState,
         onStart = viewModel::start,
@@ -75,7 +79,9 @@ fun ProjectSessionsRoute(viewModel: ProjectSessionsViewModel) {
         onStop = viewModel::stop,
         onSaveCorrection = viewModel::saveCorrection,
         onDelete = viewModel::delete,
-        onDismissFeedback = viewModel::dismissFeedback
+        onDismissFeedback = viewModel::dismissFeedback,
+        manualEntry = manualEntry, onOpenManual = viewModel::openManualEntry,
+        onAddManual = viewModel::addManualTime, onClearManualFeedback = viewModel::clearManualFeedback
     )
 }
 
@@ -89,8 +95,14 @@ fun ProjectSessionsScreen(
     onSaveCorrection: (CraftingSession, SessionCorrectionInput) -> Unit,
     onDelete: (CraftingSession) -> Unit,
     onDismissFeedback: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    manualEntry: ManualEntryState? = null,
+    onOpenManual: () -> Unit = {},
+    onAddManual: (ManualTimeInput) -> Unit = {},
+    onClearManualFeedback: () -> Unit = {}
 ) {
+    var addingManual by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(manualEntry?.status) { if (manualEntry?.status == ManualEntryStatus.SAVED) addingManual = false }
     var editing by remember { mutableStateOf<CraftingSession?>(null) }
     var deleting by remember { mutableStateOf<CraftingSession?>(null) }
 
@@ -138,6 +150,7 @@ fun ProjectSessionsScreen(
         item {
             Spacer(modifier = Modifier.height(StitchbookSpacing.small))
             SectionHeader(title = stringResource(R.string.sessions_history), icon = Icons.Outlined.Timer)
+            if (manualEntry != null) TextButton(onClick = { onOpenManual(); addingManual = true }) { Text(stringResource(R.string.manual_time_add)) }
             if (uiState.sessions.isEmpty()) {
                 EmptyState(
                     title = stringResource(R.string.sessions_empty_title),
@@ -156,6 +169,9 @@ fun ProjectSessionsScreen(
             )
         }
     }
+
+    if (addingManual && manualEntry != null) ManualTimeDialog(manualEntry, onAddManual, onClearManualFeedback,
+        { if (manualEntry.status != ManualEntryStatus.SAVING) addingManual = false })
 
     editing?.let { session ->
         CorrectionDialog(
@@ -294,6 +310,7 @@ private fun SessionCard(
             if (session.isActive) stringResource(R.string.sessions_in_progress) else null
         )
         QuietText(text = parts.joinToString(" · "))
+        if (session.source == CraftingSessionSource.MANUAL) QuietText(stringResource(R.string.manual_time_origin))
         session.notes?.let { Text(text = it, style = MaterialTheme.typography.bodyMedium) }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             TextButton(onClick = onDelete) { Text(text = stringResource(R.string.journal_delete)) }

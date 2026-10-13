@@ -111,9 +111,40 @@ The user reported LooseLoop asking what to do with time recovered from a timer l
 | Close timers when a project is completed | Completion transitions atomically finalize all unfinished project-owned sessions through the existing timer engine | Implemented independently from named completion-path evidence. Tests cover pause accounting, other scopes, rollback and later metadata edits; exact reference runtime semantics remain unverified. |
 | Reconcile elapsed projections with canonical sessions | Keep session records as accounting truth; audit restored/multiple-active timers and prevent duplicate contributions | Existing single-timer model partly covers this; recovery/restore edge cases deserve separate fixtures. |
 | Standalone-counter time with clear ownership | Consider counter-scoped sessions and intentional project attribution | Additional capability beyond current project timers; never double-count counter and project time. |
-| Add manual crafting time without briefly starting a timer | Evaluate a direct manual-entry workflow using the existing session record and exports | Helper verified, full reference UI unknown; Stitchbook currently corrects existing sessions. |
+| Add manual crafting time without briefly starting a timer | Add finished manual records with overlap review and portable source | Implemented independently; reference helper verified, full reference UI unknown. Stitchbook validates finish time, duration and repeated daylight-saving hours. |
 | Preserve uncertain timer recovery for review | Prefer explicit user choices and portable correction history over silent truncation | Stitchbook retains the original interval and prior pauses; timing caps are evidence to investigate, not a policy to copy. |
 | Piece-aware target loops and measurement checkpoints | Continue the previously identified execution-format work with scoped cycles, user confirmation and exports | Still a functional gap; do not fabricate fixed repeats for unknown-length work. |
 | Conflicting extraction suggestions and held-together/alternative yarn | Prioritize actionable material suggestions and role-aware yarn planning when those screens are extended | Previously confirmed capabilities remain useful even outside a phase checklist. |
 
 This report is a living capability list. A useful observed behaviour is not excluded merely because it was absent from the old roadmap. Each implementation still needs original code, craft-neutral semantics, offline essential use, portable data and proportionate validation. Completed parser/metadata/UI slices should not be re-investigated just to rerun the audit; focus subsequent passes on the remaining execution, recovery and planning gaps.
+
+## Revisit: pattern, guide and project relationships (2026-10-13)
+
+This targeted static pass follows the user's request to examine relationships and other useful capabilities. It inspected safe function identifiers, field names and branches from the same bundle in memory. The reference application and its services were not executed. No reference implementation or personal data was saved here.
+
+**Confirmed static evidence:**
+
+- Project insertion carries `pattern_id`, `selected_size_id`, a legacy `selected_size_index` and initial progress (30522). Linking writes pattern and size identifiers to the project (30689); an unlink path exists (30690-30693), but its full cleanup semantics were not established.
+- Guide reads select `pattern_guides` by both `pattern_id` and `size_id` (37341). Guide writes carry that pair plus executable pieces, parse/review state and edit statistics (37380, 70349). Migration from older pattern-contained pieces produces size-addressed guide records (37407).
+- Size-reference repair compares the selected ID with available IDs and retains diagnostic fields identifying repair source and prior index (30701, 30708). This is evidence of reference repair, not a policy to silently choose a different size in Stitchbook.
+- Progress and work-tracking updates live on projects, including loop cycles, completed cycles, progress snapshots and last-worked time (30813, 30821, 30832). Shared guide content and individual work progress are separate.
+- Pattern deletion checks projects referencing the pattern and produces dependent-project IDs, names and statuses plus a can-delete result (37035-37036). The safe deletion path inspects that result and server confirmation before storage cleanup (37049). Size removal looks up projects using that size before altering available sizes and deleting its guide (37112, 37133). Exact UI decisions and transactional guarantees remain unverified.
+- Copying a guide between sizes carries source/target size IDs and checks same-size, target guide, target draft and target-processing conditions before writing target pieces (72756). This does not prove automatic recalculation of stitch counts for the new size.
+
+**Inferred relationship model:** a pattern supplies metadata and original documents; each selected size addresses reusable executable guide content; a project references the pattern/size and owns its work history. A separately named guide is not necessarily an additional project-owned copy. Static inspection has not established immutable revision pinning, how active projects react to guide edits, full unlink/reset behavior, or every deletion failure case.
+
+### Comparison and independently implementable follow-ups
+
+Stitchbook already supports reusable pattern-and-size guides, project-owned guides, explicit project-guide links and separate per-project execution. Published definitions are immutable revisions; an execution remains pinned to its revision. Removing a Library index entry clears a guide's pattern reference rather than deleting the guide; original SAF documents remain untouched. Project deletion removes project-owned guides and its links/progress while reusable pattern guides survive. These existing safeguards should be retained.
+
+Useful next slices, including capabilities outside the old roadmap:
+
+1. Show dependency counts and named affected projects before guide, pattern or size operations. Distinguish removing an association from permanently deleting a guide and its revisions/progress.
+2. Make use-of-pattern-guide plus its project-pattern association atomic; audit failure/retry so a project cannot acquire only half of the relationship.
+3. Offer copy-to-another-size as a new editable draft with new node IDs, source provenance and a clear size-review requirement. Never pretend copied stitch counts have been adapted.
+4. Present a newly published revision as an explicit choice for existing projects; preserve each project's pinned progress and do not silently remap it.
+5. Keep missing-reference recovery reviewable: preserve orphaned content and explain missing patterns/sizes instead of silently falling back to a different size.
+
+These are reference-informed follow-ups, not claims that every corresponding reference runtime behavior has been verified. Chart review flags, metadata-conflict suggestions, piece instances and materials alternatives remain additional useful capabilities from the earlier audit.
+
+The user expanded authorization on 2026-10-13 to incorporate every useful capability feasible for Stitchbook, beyond the original checklist. Treat this report as an active backlog while respecting offline use, original implementation, accessible originals, exports, migrations and verification. Static or remote-only evidence still requires independent design; it does not justify claiming undocumented reference behavior.
