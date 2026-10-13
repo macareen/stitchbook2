@@ -13,7 +13,6 @@ package com.macareen.stitchbook2.domain.parsing
 object PatternSizes {
 
     private val SIZES_LINE = Regex("""^(?:finished\s+)?sizes?\s*[:\-–—]?\s*(.+)$""", RegexOption.IGNORE_CASE)
-    private val GROUPED_LABELS = Regex("""^([^()\[\],;]+?)\s*[(\[]([^)\]]+)[)\]]""")
 
     private val MEASUREMENT_LINE = Regex(
         """^(?:finished\s+)?(?:bust(?:\s+circumference)?|chest(?:\s+circumference)?|circumference|length|measurements?|designed to fit)\s*[:\-\u2013\u2014]\s*(.+)$""",
@@ -25,19 +24,47 @@ object PatternSizes {
     private const val VALUE = """(?:\d+/\d+|\d+(?:\.\d+)?(?:\s\d+/\d+)?|[-–—])"""
 
     private val SIZE_HEADING = Regex("""^(?:finished\s+)?sizes?\s*[:\-\u2013\u2014]?\s*$""", RegexOption.IGNORE_CASE)
-    private const val LABEL = """(?:\d*X*[SML]|$VALUE)"""
+    private const val LABEL = """(?:\d+X|\d*X*[SML]|[A-Z]|$VALUE)"""
     private val ALTERNATING_LABELS = Regex("""^($LABEL(?:\s*[(\[]\s*$LABEL\s*[)\]]|\s+$LABEL)+)(?:\s*(?:cm|in(?:ches)?|[\"])?\s*)$""", RegexOption.IGNORE_CASE)
+
+    private val VALUE_TOKEN = Regex(VALUE)
+    private val SINGLE_VALUE = Regex("^$VALUE$")
+    private val LABEL_TOKEN = Regex(LABEL, RegexOption.IGNORE_CASE)
+    private val NUMERIC_RUN: Regex = run {
+        val inside = "$VALUE(?:\\s*[,;]\\s*$VALUE)*"
+        val group = "(?:\\(\\s*$inside\\s*\\)|\\[\\s*$inside\\s*\\])"
+        Regex("(?<![\\d./(\\[])($VALUE(?:\\s*$group|\\s+$VALUE)+)")
+    }
 
     /** Labels in grouped, alternating, comma or slash notation; measurement units are not labels. */
     fun labelsFrom(text: String): List<String> {
         val trimmed = MEASUREMENT_VALUES.find(text.trim())?.groupValues?.get(1)?.trim() ?: text.trim()
-        val alternating = ALTERNATING_LABELS.matchEntire(trimmed)
-        val grouped = GROUPED_LABELS.matchEntire(trimmed)
-        val labels = when {
-            alternating != null -> Regex(LABEL, RegexOption.IGNORE_CASE).findAll(alternating.groupValues[1]).map { it.value }.toList()
-            grouped != null -> listOf(grouped.groupValues[1]) + grouped.groupValues[2].split(',', ';')
-            else -> trimmed.split(',', '/', ';')
-        }.map { it.trim() }.filter { it.isNotEmpty() }
+        val flattened = StringBuilder()
+        var closing: Char? = null
+        for (character in trimmed) {
+            when (character) {
+                '(', '[' -> {
+                    if (closing != null) return emptyList()
+                    closing = if (character == '(') ')' else ']'
+                    flattened.append(',')
+                }
+                ')', ']' -> {
+                    if (closing != character) return emptyList()
+                    closing = null
+                    flattened.append(',')
+                }
+                else -> flattened.append(character)
+            }
+        }
+        if (closing != null) return emptyList()
+        val labels = flattened.toString().split(',', '/', ';').map(String::trim)
+            .filter(String::isNotEmpty).flatMap { segment ->
+                // A mixed fraction is one measurement, not two size labels.
+                val alternating = if (SINGLE_VALUE.matches(segment)) null
+                    else ALTERNATING_LABELS.matchEntire(segment)
+                alternating?.let { LABEL_TOKEN
+                    .findAll(it.groupValues[1]).map { match -> match.value }.toList() } ?: listOf(segment)
+            }
         return if (labels.size >= 2) labels else emptyList()
     }
 
@@ -62,19 +89,11 @@ object PatternSizes {
     /** [text] with every per-size group of [sizeCount] values replaced by the value at [sizeIndex]. */
     fun resolve(text: String, sizeIndex: Int, sizeCount: Int): String {
         if (sizeCount < 2 || sizeIndex !in 0 until sizeCount) return text
-        // Match maximal runs before grouped lists, so a longer run is never partly
-        // resolved as several two-size groups. Plain numbers and prose stay intact.
-        val run = """($VALUE(?:\s*[(\[]\s*$VALUE\s*[)\]]|\s+$VALUE)+)"""
-        val pattern = Regex("""(?<![\d./])$run|${groupPattern(sizeCount).pattern}""")
-        return pattern.replace(text) { match ->
-            val alternating = match.groupValues[1]
-            if (alternating.isNotEmpty()) {
-                val values = Regex(VALUE).findAll(alternating).map { it.value }.toList()
-                if (('(' in alternating || '[' in alternating) && values.size == sizeCount) values[sizeIndex] else match.value
-            } else {
-                val values = listOf(match.groupValues[2]) + match.groupValues[3].split(',')
-                values[sizeIndex].trim()
-            }
+        // Match a complete numeric sequence across any number of adjacent groups.
+        // A longer sequence cannot be resolved as just its first bracketed group.
+        return NUMERIC_RUN.replace(text) { match ->
+            val values = VALUE_TOKEN.findAll(match.value).map { it.value }.toList()
+            if (('(' in match.value || '[' in match.value) && values.size == sizeCount) values[sizeIndex] else match.value
         }
     }
 
@@ -83,12 +102,6 @@ object PatternSizes {
         document.copy(
             lines = document.lines.map { line -> line.copy(text = resolve(line.text, sizeIndex, sizeCount)) }
         )
-
-    private fun groupPattern(sizeCount: Int): Regex {
-        val others = List(sizeCount - 1) { VALUE }.joinToString("""\s*,\s*""")
-        // The lookbehind keeps "k2 (3, 4)" whole but never starts inside a longer number.
-        return Regex("""(?<![\d.])($VALUE)\s*[(\[]\s*($others)\s*[)\]]""")
-    }
 
     private fun String.normalized() = trim().lowercase().replace(Regex("""\s+"""), " ")
 }

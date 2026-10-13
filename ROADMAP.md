@@ -32,7 +32,7 @@ Still open from the first phone test:
 - Matching a pattern's suggested needles to the needles you own.
 
 Fix next, from the second phone test (2026-10-09), most important first:
-1. **Sizes picked from the pattern.** Read the pattern's own size list and offer it as choices. Handle both "XS (S) M (L) XL (2XL)" (alternating parentheses, one value per size) and "a (b, c)" groups. Numbers such as "8 (8) 9 (10) 11 (11) 12 (12) 12" or "100 (110) 115 (120)" then resolve to the chosen size. Implemented 2026-10-12: choices are read from the PDF before guide creation, letter labels take precedence over measurement lists, and complete alternating runs resolve for every chosen size. Incomplete runs stay intact for review.
+1. **Sizes picked from the pattern.** Read the pattern's own size list and offer it as choices. Handle both "XS (S) M (L) XL (2XL)" (alternating parentheses, one value per size) and "a (b, c)" groups. Numbers such as "8 (8) 9 (10) 11 (11) 12 (12) 12" or "100 (110) 115 (120)" then resolve to the chosen size. Implemented 2026-10-12: choices are read from the PDF before guide creation, letter labels take precedence over measurement lists, and complete alternating runs resolve for every chosen size. Incomplete runs stay intact for review. Multiple adjacent grouped arrays and single-letter size labels are also supported, with a native PDFBox check on a user-provided pattern.
 2. **The parser still lets front matter into the steps.**
    - The pattern title ("APRIL CARDIGAN") becomes a section.
    - Underscore rule lines ("______") become steps.
