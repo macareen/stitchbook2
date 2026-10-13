@@ -2,6 +2,8 @@ package com.macareen.stitchbook2.domain.usecase
 
 import com.macareen.stitchbook2.domain.execution.GuideId
 import com.macareen.stitchbook2.domain.guide.Guide
+import com.macareen.stitchbook2.domain.library.PatternFolderPlanner
+import com.macareen.stitchbook2.domain.parsing.PatternDocumentTitle
 import com.macareen.stitchbook2.domain.parsing.ExtractedDocument
 import com.macareen.stitchbook2.domain.parsing.ExtractedLine
 import com.macareen.stitchbook2.domain.parsing.ParsedPatternMapper
@@ -52,11 +54,13 @@ class CreateGuideFromPdfUseCase(
             else emptyList()
     }
 
-    suspend operator fun invoke(projectId: String, guideName: String, pdf: InputStream): Result {
+    suspend operator fun invoke(projectId: String, guideName: String, pdf: InputStream, preferDocumentTitle: Boolean = false): Result {
         val document = extract(pdf) ?: return Result.NoExtractableText
         if (document is Extraction.Failed) return Result.ExtractionFailed(document.cause)
-        return createDraft((document as Extraction.Read).document, emptyList(), patternTitle = guideName) {
-            guideRepository.createGuide(projectId, guideName)
+        val extracted = (document as Extraction.Read).document
+        val title = PatternDocumentTitle.find(extracted)
+        return createDraft(extracted, emptyList(), patternTitle = title ?: guideName) {
+            guideRepository.createGuide(projectId, if (preferDocumentTitle) title ?: guideName else guideName)
         }
     }
 
@@ -78,8 +82,15 @@ class CreateGuideFromPdfUseCase(
         if (extraction is Extraction.Failed) return Result.ExtractionFailed(extraction.cause)
         val document = (extraction as Extraction.Read).document
 
-        val title = libraryRepository?.observeLibraryItem(libraryItemId)?.first()?.title
-            ?: guideName.substringBefore(" \u00b7 ")
+        val item = libraryRepository?.observeLibraryItem(libraryItemId)?.first()
+        val originalTitle = item?.title ?: guideName.substringBefore(" \u00b7 ")
+        val detectedTitle = PatternDocumentTitle.find(document)
+        val automaticTitle = item?.pdfFileName?.let {
+            PatternFolderPlanner.titleFor(it) == originalTitle
+        } == true
+        val title = detectedTitle ?: originalTitle
+        val updatedGuideName = if (automaticTitle && detectedTitle != null &&
+            guideName == "$originalTitle \u00b7 $sizeLabel") "$detectedTitle \u00b7 $sizeLabel" else guideName
         val details = PatternTextParser.parseWithDetails(document, title).second
         val fromPdf = PatternSizes.findInDocument(document)
         val labels = fromPdf?.first ?: knownSizes?.let(PatternSizes::labelsFrom).orEmpty()
@@ -103,9 +114,9 @@ class CreateGuideFromPdfUseCase(
             document = sized,
             extraIssues = issues,
             patternTitle = title,
-            onDetails = { fillPatternDetails(libraryItemId, details, fromPdf?.second?.text) }
+            onDetails = { fillPatternDetails(libraryItemId, details, fromPdf?.second?.text, detectedTitle.takeIf { automaticTitle }) }
         ) {
-            guideRepository.createPatternGuide(libraryItemId, sizeLabel, guideName)
+            guideRepository.createPatternGuide(libraryItemId, sizeLabel, updatedGuideName)
         }
     }
 
@@ -113,9 +124,9 @@ class CreateGuideFromPdfUseCase(
      * Copies what the pattern says about itself into the Library entry's empty
      * fields. Anything the user already wrote is kept as it is.
      */
-    private suspend fun fillPatternDetails(libraryItemId: String, details: PatternDetails, sizesLine: String?) {
+    private suspend fun fillPatternDetails(libraryItemId: String, details: PatternDetails, sizesLine: String?, detectedTitle: String? = null) {
         val repository = libraryRepository ?: return
-        if (details.isEmpty && sizesLine == null) return
+        if (details.isEmpty && sizesLine == null && detectedTitle == null) return
         val item = repository.observeLibraryItem(libraryItemId).first() ?: return
         // The yarn line has no field of its own, so it follows the description.
         val description = listOfNotNull(details.description, details.yarn?.let { "Yarn: $it" },
@@ -123,6 +134,7 @@ class CreateGuideFromPdfUseCase(
             .joinToString("\n\n")
             .ifBlank { null }
         val filled = item.copy(
+            title = detectedTitle ?: item.title,
             author = item.author ?: details.designer,
             notes = item.notes ?: description,
             gauge = item.gauge ?: details.gauge,

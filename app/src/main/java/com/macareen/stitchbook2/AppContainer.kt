@@ -144,7 +144,12 @@ class DefaultAppContainer(context: Context) : AppContainer {
     override val syncPatternFolder: SyncPatternFolder = SyncPatternFolder(
         folder = patternFolder,
         libraryRepository = libraryRepository,
-        newId = { UUID.randomUUID().toString() }
+        newId = { UUID.randomUUID().toString() },
+        readTitle = { uri -> withContext(Dispatchers.IO) {
+            context.contentResolver.openInputStream(uri.toUri())?.use {
+                com.macareen.stitchbook2.data.parsing.PdfBoxPatternTitleReader(context).read(it)
+            }
+        } }
     )
 
     private val ravelryApi = HttpRavelryApi(onHttpResult = { stage, status ->

@@ -74,6 +74,27 @@ class PatternFolderTest {
         SyncPatternFolder(folder, FakeLibrary(emptyList()), newId = { "n" })()
     }
 
+    @Test fun newImportsUseDetectedTitlesWithoutRenamingOrChangingExistingItems() = runBlocking {
+        val existing = entry("a", pdf("Known.pdf").documentUri, "Known.pdf").copy(title = "My custom title")
+        val library = FakeLibrary(listOf(existing))
+        val inspected = mutableListOf<String>()
+        SyncPatternFolder(FakeFolder(tree, listOf(pdf("Known.pdf"), pdf("random-123.pdf"))), library,
+            newId = { "n" }, readTitle = { uri -> inspected += uri; "Autumn Cardigan" })()
+        assertEquals(listOf(pdf("random-123.pdf").documentUri), inspected)
+        assertEquals(existing, library.items.value.first { it.id == "a" })
+        val added = library.items.value.first { it.id == "n" }
+        assertEquals("Autumn Cardigan", added.title)
+        assertEquals("random-123.pdf", added.pdfFileName)
+        assertEquals(pdf("random-123.pdf").documentUri, added.pdfUri)
+    }
+
+    @Test fun titleInspectionFailureKeepsTheFilenameFallback() = runBlocking {
+        val library = FakeLibrary(emptyList())
+        SyncPatternFolder(FakeFolder(tree, listOf(pdf("My_Hat.pdf"))), library,
+            newId = { "n" }, readTitle = { throw IOException("unreadable") })()
+        assertEquals("My Hat", library.items.value.single().title)
+    }
+
     private fun entry(id: String, pdfUri: String, fileName: String) = LibraryItem(
         id = id,
         title = id,

@@ -28,6 +28,11 @@ class LocalPatternDiagnosticsTest {
         val document = PdfBoxTextExtractor(instrumentation.targetContext, noNetworkOcr)
             .extract(ByteArrayInputStream(bytes))
         assertTrue("The diagnostic expects a digital text layer", document.lines.isNotEmpty())
+        val title = PatternDocumentTitle.find(document)
+        args.getString("expectedTitle")?.let {
+            org.junit.Assert.assertEquals(it, title)
+            org.junit.Assert.assertEquals(it, PdfBoxPatternTitleReader(instrumentation.targetContext).read(ByteArrayInputStream(bytes)))
+        }
         val found = PatternSizes.findInDocument(document)
         val labels = found?.first.orEmpty()
         val report = JSONObject().put("pages", document.pageCount).put("lines", document.lines.size)
@@ -35,7 +40,7 @@ class LocalPatternDiagnosticsTest {
         val results = JSONArray()
         labels.indices.forEach { index ->
             val sized = SizeSpecificInstructions.select(document.copy(lines = document.lines.filterNot { it == found?.second }), labels, index)
-            val (parsed, details) = PatternTextParser.parseWithDetails(sized.document, args.getString("patternTitle"))
+            val (parsed, details) = PatternTextParser.parseWithDetails(sized.document, args.getString("patternTitle") ?: title)
             fun count(nodes: List<ParsedNode>): Int = nodes.sumOf { node -> when (node) {
                 is ParsedSection -> count(node.children)
                 is ParsedRange -> count(node.children)

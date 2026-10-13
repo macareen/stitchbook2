@@ -92,7 +92,7 @@ object PatternFolderPlanner {
     }
 
     /** "Top-down_Raglan.pdf" -> "Top-down Raglan"; hyphens inside words stay. */
-    internal fun titleFor(fileName: String): String =
+    fun titleFor(fileName: String): String =
         fileName.substringBeforeLast('.', fileName)
             .replace('_', ' ')
             .replace(Regex("""\s+"""), " ")
@@ -104,7 +104,8 @@ class SyncPatternFolder(
     private val folder: PatternFolder,
     private val libraryRepository: LibraryRepository,
     private val newId: () -> String,
-    private val clock: () -> Long = System::currentTimeMillis
+    private val clock: () -> Long = System::currentTimeMillis,
+    private val readTitle: suspend (String) -> String? = { null }
 ) {
     /** Returns null when no folder is chosen. */
     suspend operator fun invoke(): PatternFolderSyncResult? {
@@ -112,7 +113,12 @@ class SyncPatternFolder(
         val pdfs = folder.listPdfs()
         val existing = libraryRepository.observeLibraryItems().first()
         val added = PatternFolderPlanner.newItems(pdfs, existing, clock(), newId)
-        added.forEach { libraryRepository.saveLibraryItem(it) }
+        added.forEach { item ->
+            val title = try { readTitle(requireNotNull(item.pdfUri)) }
+            catch (error: kotlinx.coroutines.CancellationException) { throw error }
+            catch (_: Exception) { null }
+            libraryRepository.saveLibraryItem(item.copy(title = title?.takeIf(String::isNotBlank) ?: item.title))
+        }
         return PatternFolderSyncResult(added = added.size, missing = PatternFolderPlanner.missingCount(pdfs, existing, folderUri))
     }
 }

@@ -248,7 +248,8 @@ class ProjectDetailViewModel(
                     val result = createGuideFromPdfUseCase(
                         current.project.id,
                         normalizedName,
-                        ByteArrayInputStream(pdfBytes)
+                        ByteArrayInputStream(pdfBytes),
+                        preferDocumentTitle = true
                     )
                 ) {
                     is CreateGuideFromPdfUseCase.Result.Success -> {

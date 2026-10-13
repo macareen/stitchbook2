@@ -27,7 +27,11 @@ data class ExtractedLine(val text: String, val source: SourceReference) {
  * need that distinction to decide whether OCR fallback is required for a
  * given page, per ROADMAP.md's Slice 6 pipeline.
  */
-data class ExtractedDocument(val pageCount: Int, val lines: List<ExtractedLine>) {
+data class ExtractedDocument(
+    val pageCount: Int,
+    val lines: List<ExtractedLine>,
+    val metadataTitle: String? = null
+) {
     init {
         require(pageCount >= 0) { "Page count must not be negative." }
         require(lines.all { it.source.pageNumber <= pageCount }) {

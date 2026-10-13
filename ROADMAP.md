@@ -526,3 +526,5 @@ Single rows keep their number in the step text ("Row 3 (RS): Knit."), and genera
 - Known limitations and privacy behavior are documented.
 
 **Dependencies:** All phases intended for the target release; this work should also occur incrementally rather than being deferred entirely.
+
+2026-10-12: Random PDF filenames are handled by conservative first-page title detection during new folder imports and guide creation. Clear detected titles can replace generated filename names while preserving custom names and original PDFs; uncertain titles keep the filename fallback.
