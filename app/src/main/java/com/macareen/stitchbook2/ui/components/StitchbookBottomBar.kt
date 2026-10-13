@@ -1,18 +1,18 @@
 package com.macareen.stitchbook2.ui.components
 
+import com.macareen.stitchbook2.domain.preferences.BottomNavigationStyle
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.heightIn
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
@@ -38,38 +38,35 @@ data class BottomBarItem(
     @param:DrawableRes val icon: Int
 )
 
-/**
- * A floating white pill with drawn icons. The selected place grows into a rose
- * pill that also shows its name, so the bar stays calm but never icon-only
- * for the place you are in. Every item carries its name as a content
- * description for screen readers.
- */
+/** A floating navigation bar with saved words or icons, adaptive text wrapping and labelled tabs. */
 @Composable
 fun StitchbookBottomBar(
     items: List<BottomBarItem>,
     selectedKey: String?,
     onSelect: (BottomBarItem) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    style: BottomNavigationStyle = BottomNavigationStyle.WORDS
 ) {
     Surface(
         modifier = modifier
             .windowInsetsPadding(WindowInsets.navigationBars)
             .padding(horizontal = 16.dp, vertical = 10.dp)
             .fillMaxWidth()
-            .height(64.dp),
+            .heightIn(min = 64.dp),
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceContainerLowest,
         shadowElevation = 6.dp
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 8.dp),
-            horizontalArrangement = Arrangement.SpaceAround,
-            verticalAlignment = Alignment.CenterVertically
+        FlowRow(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalArrangement = Arrangement.Center
         ) {
             items.forEach { item ->
                 BottomBarEntry(
                     item = item,
                     selected = item.key == selectedKey,
+                    style = style,
                     onClick = { onSelect(item) }
                 )
             }
@@ -81,6 +78,7 @@ fun StitchbookBottomBar(
 private fun BottomBarEntry(
     item: BottomBarItem,
     selected: Boolean,
+    style: BottomNavigationStyle,
     onClick: () -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
@@ -92,22 +90,21 @@ private fun BottomBarEntry(
             .selectable(selected = selected, onClick = onClick, role = Role.Tab)
             .semantics { contentDescription = item.label }
             .animateContentSize()
-            .height(44.dp)
-            .padding(horizontal = 14.dp),
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
+        if (style == BottomNavigationStyle.ICONS) Icon(
             painter = painterResource(item.icon),
             contentDescription = null,
             tint = tint,
             modifier = Modifier.size(24.dp)
         )
-        if (selected) {
-            Spacer(Modifier.width(6.dp))
+        if (style == BottomNavigationStyle.WORDS) {
             Text(
                 text = item.label,
                 style = MaterialTheme.typography.labelLarge,
-                color = colors.onPrimaryContainer,
+                color = if (selected) colors.onPrimaryContainer else tint,
                 maxLines = 1
             )
         }

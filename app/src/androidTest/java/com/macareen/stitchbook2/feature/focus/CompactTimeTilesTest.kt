@@ -8,6 +8,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -27,20 +29,21 @@ class CompactTimeTilesTest {
 
     @Test fun lessThanAMinuteUsesAShortLabel() {
         show(30_000)
-        compose.onAllNodesWithText("<1 min").assertCountEquals(2)
+        compose.onAllNodesWithText("Now").assertCountEquals(2)
         screenshot("short")
     }
-    @Test fun hoursUseZeroPaddedMinutesAtLargeFontScale() {
+    @Test fun longDurationsUseMinutesAtLargeFontScale() {
         show(65 * 60_000L, scale = 1.8f, dark = true)
-        compose.onAllNodesWithText("1h 05m").assertCountEquals(2)
+        compose.onAllNodesWithText("65 min").assertCountEquals(2)
         compose.onNodeWithText("Previous").assertIsDisplayed()
         compose.onNodeWithText("Complete").assertIsDisplayed()
         screenshot("large-dark")
     }
     @Test fun estimatedStepTimeRetainsItsLabelAtLargeFontScale() {
         show(65 * 60_000L, pause = 5 * 60_000L, stepStart = 60 * 60_000L, scale = 1.8f)
-        compose.onNodeWithText("about 4 min").assertIsDisplayed()
-        compose.onNodeWithText("1h 00m").assertIsDisplayed()
+        compose.onNodeWithText("4 min").assertIsDisplayed()
+        compose.onNodeWithText("60 min").assertIsDisplayed()
+        compose.onNodeWithText("Step time estimated").assertIsDisplayed()
         screenshot("estimated-large")
     }
     private fun show(duration: Long, pause: Long = 0, stepStart: Long = 0, scale: Float = 1f, dark: Boolean = false) {
@@ -64,6 +67,7 @@ class CompactTimeTilesTest {
     }
     private fun screenshot(name: String) {
         if (InstrumentationRegistry.getArguments().getString("captureTimeTiles") != "true") return
+        compose.onRoot().captureToImage()
         compose.waitForIdle()
         val pipe = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(
             "screencap -p /sdcard/Download/stitchbook-time-$name.png")

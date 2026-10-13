@@ -1,5 +1,6 @@
 package com.macareen.stitchbook2.data.preferences
 
+import com.macareen.stitchbook2.domain.preferences.BottomNavigationStyle
 import android.content.Context
 import android.content.SharedPreferences
 import com.macareen.stitchbook2.domain.preferences.MeasurementSystem
@@ -16,7 +17,7 @@ private const val KEY_MEASUREMENT_SYSTEM = "measurement_system"
 
 /**
  * Plain platform `SharedPreferences` rather than a new DataStore dependency:
- * two enum values don't justify another library (AGENTS.md: "add a
+ * three enum values don't justify another library (AGENTS.md: "add a
  * framework only when a demonstrated need justifies it").
  */
 class SharedPreferencesUserPreferencesRepository(context: Context) : UserPreferencesRepository {
@@ -26,6 +27,11 @@ class SharedPreferencesUserPreferencesRepository(context: Context) : UserPrefere
 
     private val _preferences = MutableStateFlow(read())
     override val preferences: StateFlow<UserPreferences> = _preferences.asStateFlow()
+
+    override fun setNavigationStyle(style: BottomNavigationStyle) {
+        sharedPreferences.edit().putString("navigation_style", style.storageValue).apply()
+        _preferences.value = _preferences.value.copy(navigationStyle = style)
+    }
 
     override fun setThemeMode(mode: ThemeMode) {
         sharedPreferences.edit().putString(KEY_THEME_MODE, mode.storageValue).apply()
@@ -38,6 +44,7 @@ class SharedPreferencesUserPreferencesRepository(context: Context) : UserPrefere
     }
 
     private fun read(): UserPreferences = UserPreferences(
+        navigationStyle = BottomNavigationStyle.fromStorageValue(sharedPreferences.getString("navigation_style", null)),
         themeMode = ThemeMode.fromStorageValue(sharedPreferences.getString(KEY_THEME_MODE, null)),
         measurementSystem = MeasurementSystem.fromStorageValue(
             sharedPreferences.getString(KEY_MEASUREMENT_SYSTEM, null)
