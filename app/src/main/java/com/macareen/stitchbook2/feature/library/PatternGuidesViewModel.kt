@@ -36,7 +36,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-enum class PatternPdfProblem { UNREADABLE, NO_TEXT }
+enum class PatternPdfProblem { UNREADABLE, NO_TEXT, ATTACH_FAILED }
 
 /** Fetching the pattern's purchased PDF from Ravelry into the pattern folder. */
 data class RavelryPdfState(
@@ -133,6 +133,23 @@ class PatternGuidesViewModel(
         ravelryPdf.value = RavelryPdfState(isDownloading = true)
         scope.launch {
             ravelryPdf.value = RavelryPdfState(result = download(libraryItemId))
+        }
+    }
+
+    /** Link a user-selected original document without copying or changing its contents. */
+    fun attachPdf(document: com.macareen.stitchbook2.domain.model.PickedDocument) {
+        if (creation.value.isCreating || ravelryPdf.value.isDownloading) return
+        creation.value = CreationState(isCreating = true)
+        scope.launch {
+            try {
+                val latest = libraryRepository.observeLibraryItem(libraryItemId).first() ?: return@launch
+                libraryRepository.saveLibraryItem(latest.copy(pdfUri = document.uri, pdfFileName = document.displayName,
+                    pdfLastViewedPage = if (latest.pdfUri == document.uri) latest.pdfLastViewedPage else null, updatedAt = clock()))
+                ravelryPdf.value = RavelryPdfState()
+                creation.value = CreationState()
+            } catch (error: CancellationException) { throw error
+            } catch (_: Exception) { creation.value = CreationState(pdfProblem = PatternPdfProblem.ATTACH_FAILED) }
+            finally { if (creation.value.isCreating) creation.value = CreationState() }
         }
     }
 

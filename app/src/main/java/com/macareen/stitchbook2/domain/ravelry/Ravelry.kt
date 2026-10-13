@@ -71,7 +71,7 @@ data class RavelryVolume(
 )
 
 /** One file attached to a library volume (a pattern PDF, or sometimes a zip or chart). */
-data class RavelryAttachment(val id: Long?, val fileName: String?)
+data class RavelryAttachment(val id: Long?, val fileName: String?, val browserUrl: String? = null)
 
 /**
  * Read-only access to the signed-in person's own Ravelry records.

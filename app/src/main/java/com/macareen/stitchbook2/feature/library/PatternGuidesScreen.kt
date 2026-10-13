@@ -1,5 +1,17 @@
 package com.macareen.stitchbook2.feature.library
 
+import android.content.Intent
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import com.macareen.stitchbook2.domain.model.PickedDocument
+import com.macareen.stitchbook2.domain.ravelry.RavelryBrowserUrls
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -84,7 +96,8 @@ fun PatternGuidesRoute(
         onEditGuide,
         viewModel::createGuide,
         onStartProject = viewModel::startProject,
-        onGetRavelryPdf = viewModel::getRavelryPdf
+        onGetRavelryPdf = viewModel::getRavelryPdf,
+        onAttachPdf = viewModel::attachPdf
     )
 }
 
@@ -97,7 +110,8 @@ fun PatternGuidesScreen(
     onCreateGuide: (String, Boolean) -> Unit,
     modifier: Modifier = Modifier,
     onStartProject: () -> Unit = {},
-    onGetRavelryPdf: () -> Unit = {}
+    onGetRavelryPdf: () -> Unit = {},
+    onAttachPdf: (PickedDocument) -> Unit = {}
 ) {
     when (uiState) {
         PatternGuidesUiState.Loading -> Box(modifier.fillMaxSize()) {
@@ -109,7 +123,7 @@ fun PatternGuidesScreen(
         }
 
         is PatternGuidesUiState.Content ->
-            Content(uiState, onOpenPdf, onEditGuide, onCreateGuide, onStartProject, onGetRavelryPdf, modifier)
+            Content(uiState, onOpenPdf, onEditGuide, onCreateGuide, onStartProject, onGetRavelryPdf, onAttachPdf, modifier)
     }
 }
 
@@ -121,8 +135,29 @@ private fun Content(
     onCreateGuide: (String, Boolean) -> Unit,
     onStartProject: () -> Unit,
     onGetRavelryPdf: () -> Unit,
+    onAttachPdf: (PickedDocument) -> Unit,
     modifier: Modifier
 ) {
+    val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
+    val scope = rememberCoroutineScope()
+    var attachFailed by rememberSaveable { mutableStateOf(false) }
+    val pickPdf = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            try {
+                val document = withContext(Dispatchers.IO) {
+                    context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    val name = context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
+                        if (it.moveToFirst()) it.getColumnIndex(OpenableColumns.DISPLAY_NAME).takeIf { index -> index >= 0 }?.let(it::getString) else null
+                    }
+                    PickedDocument(uri.toString(), name)
+                }
+                attachFailed = false
+                onAttachPdf(document)
+            } catch (error: kotlinx.coroutines.CancellationException) { throw error
+            } catch (_: Exception) { attachFailed = true }
+        }
+    }
     var showNewGuide by rememberSaveable { mutableStateOf(false) }
     var requestedSize by rememberSaveable { mutableStateOf("") }
     Column(
@@ -157,6 +192,18 @@ private fun Content(
             )
         }
         RavelryPdfMessage(state.ravelryPdf.result)
+        if (state.pattern.pdfUri == null) {
+            if (state.pattern.ravelryPatternId != null || state.canGetRavelryPdf) {
+                SecondaryActionButton(text = stringResource(R.string.pattern_pdf_browser), onClick = {
+                    val result = state.ravelryPdf.result as? DownloadRavelryPdf.Result.Failed
+                    uriHandler.openUri(RavelryBrowserUrls.validated(result?.browserUrl) ?: RavelryBrowserUrls.LIBRARY)
+                }, modifier = Modifier.fillMaxWidth())
+            }
+            SecondaryActionButton(text = stringResource(R.string.pattern_pdf_attach),
+                onClick = { pickPdf.launch(arrayOf("application/pdf")) },
+                enabled = !state.isCreating && !state.ravelryPdf.isDownloading, modifier = Modifier.fillMaxWidth())
+        }
+
 
         Text(text = stringResource(R.string.pattern_guides_title), style = MaterialTheme.typography.titleMedium)
         if (state.guides.isEmpty() && state.sizeChoices.isEmpty()) {
@@ -184,6 +231,7 @@ private fun Content(
         }.forEach { entry -> GuideRow(entry, onClick = { onEditGuide(entry.guide.id.value) }) }
         PatternDetailsCard(state.pattern)
         val problem = when {
+            attachFailed || state.pdfProblem == PatternPdfProblem.ATTACH_FAILED -> R.string.pattern_pdf_attach_failed
             state.pdfProblem == PatternPdfProblem.NO_TEXT -> R.string.pattern_guides_pdf_no_text
             state.pdfProblem == PatternPdfProblem.UNREADABLE -> R.string.pattern_guides_pdf_unreadable
             state.createFailed -> R.string.pattern_guides_create_failed
