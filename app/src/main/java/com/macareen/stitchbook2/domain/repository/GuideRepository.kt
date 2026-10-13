@@ -76,7 +76,7 @@ interface GuideRepository {
     /** A pattern's guides, one per size. */
     fun observePatternGuides(libraryItemId: String): Flow<List<Guide>> = flowOf(emptyList())
 
-    /** Every pattern's guides, for choosing one to use in a project. */
+    /** Reusable pattern guides, including kept guides whose Library reference was removed. */
     fun observeAllPatternGuides(): Flow<List<Guide>> = flowOf(emptyList())
 
     /** Creates a pattern's guide for one size, with an empty draft, owned by no project. */

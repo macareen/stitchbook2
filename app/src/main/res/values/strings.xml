@@ -55,8 +55,8 @@
     <string name="library_field_recommended_tools">Recommended Tools</string>
     <string name="library_field_ravelry_pattern_id">Ravelry Pattern ID</string>
     <string name="save_library_item">Save Pattern</string>
-    <string name="delete_library_item_title">Delete pattern reference?</string>
-    <string name="delete_library_item_confirmation">Delete \"%1$s\"? This removes it from your library.</string>
+    <string name="delete_library_item_title">Remove pattern reference?</string>
+    <string name="delete_library_item_confirmation">Remove \"%1$s\"? This removes the Library entry and its project pattern links. Original files, guides and existing guide progress are kept. Reuse a kept guide from a project’s guide picker.</string>
     <string name="library_load_error_title">Library could not be loaded</string>
     <string name="library_load_error_description">Close and reopen this screen to try again.</string>
     <string name="library_attach_pdf_action">Attach PDF</string>

@@ -2,6 +2,8 @@ package com.macareen.stitchbook2.feature.library
 
 import androidx.compose.ui.draw.clipToBounds
 import android.graphics.Bitmap
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -305,7 +307,8 @@ fun LibraryScreen(
             onDismissRequest = { deletingItem = null },
             title = { Text(text = stringResource(R.string.delete_library_item_title)) },
             text = {
-                Text(text = stringResource(R.string.delete_library_item_confirmation, item.title))
+                Text(text = stringResource(R.string.delete_library_item_confirmation, item.title),
+                    modifier = Modifier.verticalScroll(rememberScrollState()))
             },
             confirmButton = {
                 TextButton(
@@ -314,7 +317,7 @@ fun LibraryScreen(
                         deletingItem = null
                     }
                 ) {
-                    Text(text = stringResource(R.string.delete_project))
+                    Text(text = stringResource(R.string.pattern_remove_reference))
                 }
             },
             dismissButton = {

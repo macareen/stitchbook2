@@ -485,6 +485,26 @@ class GuideRepositoryTest {
         assertEquals(listOf(source), repository.observePatternGuides("pattern").first())
     }
 
+    @Test
+    fun keptGuidesRemainDiscoverableAfterPatternRemovalAndOwnedGuidesStayPrivate() = runBlocking {
+        insertPattern("pattern"); insertProject("first"); insertProject("second")
+        enqueueIds("kept", "kept-draft")
+        val kept = repository.createPatternGuide("pattern", "M", "Body")
+        repository.saveDraft(repository.loadDraft(kept.id)!!.withValidTree("Keep original text"))
+        enqueueIds("revision"); repository.publishDraft(kept.id)
+        val draft = repository.loadDraft(kept.id)
+        val revision = repository.getLatestRevision(kept.id)
+        repository.useGuideInProject("first", kept.id)
+        enqueueIds("owned", "owned-draft"); repository.createGuide("first", "Private project guide")
+        database.openHelper.writableDatabase.execSQL("DELETE FROM library_items WHERE id = 'pattern'")
+        val choices = repository.observeAllPatternGuides().first()
+        assertEquals(listOf(kept.copy(libraryItemId = null)), choices)
+        assertEquals(draft, repository.loadDraft(kept.id)); assertEquals(revision, repository.getLatestRevision(kept.id))
+        repository.useGuideInProject("second", choices.single().id)
+        assertEquals(listOf(kept.id), repository.observeGuides("second").first().map { it.id })
+        assertEquals(emptyList<Any>(), database.materialsDao().observeAllPatternLinks().first())
+    }
+
     private fun insertPattern(id: String) {
         database.openHelper.writableDatabase.execSQL(
             "INSERT INTO library_items (id, title, craft, tags, bookmarked, created_at, updated_at) " +
