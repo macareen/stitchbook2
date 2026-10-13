@@ -528,3 +528,5 @@ Single rows keep their number in the step text ("Row 3 (RS): Knit."), and genera
 **Dependencies:** All phases intended for the target release; this work should also occur incrementally rather than being deferred entirely.
 
 2026-10-12: Random PDF filenames are handled by conservative first-page title detection during new folder imports and guide creation. Clear detected titles can replace generated filename names while preserving custom names and original PDFs; uncertain titles keep the filename fallback.
+
+2026-10-12 pattern-page layout slice: approved wavy header, original PDF cover, expandable notes, all detected size rows with draft/ready/build actions, and separate existing gauge/tools/yardage cards. Further slices still cover pattern edit/overflow actions and recorded completed-project counts, followed by the approved project-page redesign.

@@ -1,6 +1,7 @@
 package com.macareen.stitchbook2.feature.library
 
 import android.os.ParcelFileDescriptor
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -33,7 +34,7 @@ class PatternSizePickerTest {
                 )
             }
         }
-        compose.onNodeWithText("New guide for a size").performClick()
+        compose.onNodeWithText("New guide for a size").performScrollTo().performClick()
         sizes.forEach { compose.onNodeWithText(it).assertIsDisplayed() }
         compose.onNodeWithText("5XL").performClick()
         compose.waitForIdle()

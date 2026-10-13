@@ -4,6 +4,7 @@ import android.os.ParcelFileDescriptor
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -38,7 +39,7 @@ class RavelryPdfMessageTest {
                 }
             }
         }
-        compose.onNodeWithText("Ravelry denied this request.", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Ravelry denied this request.", substring = true).performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("HTTP 403 \u00b7 Requesting the PDF link").assertIsDisplayed()
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         if (InstrumentationRegistry.getArguments().getString("captureRavelryMessage") == "true") {
