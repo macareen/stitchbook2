@@ -1,6 +1,5 @@
 package com.macareen.stitchbook2.feature.projects
 
-import com.macareen.stitchbook2.domain.model.ProjectPatternLink
 import com.macareen.stitchbook2.domain.execution.*
 import com.macareen.stitchbook2.domain.model.*
 import com.macareen.stitchbook2.domain.repository.StashRepository
@@ -361,8 +360,6 @@ class ProjectDetailViewModel(
         scope.launch {
             runCatchingWrite {
                 guideRepository.useGuideInProject(projectId, guide.id)
-                // The guide's pattern belongs to the project too, so it shows under Patterns.
-                guide.libraryItemId?.let { materialsRepository?.linkPattern(ProjectPatternLink(projectId, it)) }
             }
         }
     }

@@ -83,7 +83,10 @@ interface GuideRepository {
     suspend fun createPatternGuide(libraryItemId: String, sizeLabel: String, name: String): Guide =
         throw UnsupportedOperationException("Pattern guides are not supported here.")
 
-    /** Lets [projectId] use a pattern guide it doesn't own; using it twice is harmless. */
+    /** Atomically attaches a reusable guide and its current pattern to [projectId].
+     * Repeated use is harmless; a guide owned by another project cannot be shared.
+     * Detached reusable guides remain usable without an invented pattern association.
+     */
     suspend fun useGuideInProject(projectId: String, guideId: GuideId): Unit =
         throw UnsupportedOperationException("Pattern guides are not supported here.")
 

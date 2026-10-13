@@ -7,7 +7,6 @@ import com.macareen.stitchbook2.data.database.DraftNotFoundException
 import com.macareen.stitchbook2.data.database.GuideDao
 import com.macareen.stitchbook2.data.database.GuideDraftEntity
 import com.macareen.stitchbook2.data.database.GuideEntity
-import com.macareen.stitchbook2.data.database.ProjectGuideLinkEntity
 import com.macareen.stitchbook2.data.database.InvalidDraftForPublicationException
 import com.macareen.stitchbook2.data.database.InvalidDraftTreeException
 import com.macareen.stitchbook2.data.database.toDomain
@@ -105,7 +104,7 @@ class LocalGuideRepository(
     }
 
     override suspend fun useGuideInProject(projectId: String, guideId: GuideId) {
-        guideDao.insertProjectGuideLink(ProjectGuideLinkEntity(projectId = projectId, guideId = guideId.value))
+        guideDao.useGuideInProject(projectId, guideId.value)
     }
 
     override suspend fun stopUsingGuideInProject(projectId: String, guideId: GuideId) {

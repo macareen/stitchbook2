@@ -334,6 +334,7 @@ class GuideRepositoryTest {
         repository.useGuideInProject("hat", guide.id)
 
         assertEquals(listOf(guide.id), repository.observeGuides("hat").first().map { it.id })
+        assertEquals(listOf(ProjectPatternLinkEntity("hat", "pattern")), database.materialsDao().observeAllPatternLinks().first())
     }
 
     @Test
@@ -376,6 +377,51 @@ class GuideRepositoryTest {
 
         assertEquals(emptyList<Any>(), repository.observeGuides("hat").first())
         assertNotNull(repository.getGuide(guide.id))
+    }
+
+    @Test
+    fun failedPatternAssociationRollsBackNewGuideLinkAndRetryRepairsBoth() = runBlocking {
+        insertPattern("pattern"); insertProject("hat"); enqueueIds("guide", "draft")
+        val guide = repository.createPatternGuide("pattern", "M", "Body")
+        val draft = repository.loadDraft(guide.id)
+        database.openHelper.writableDatabase.execSQL("CREATE TRIGGER reject_test_pattern BEFORE INSERT ON project_pattern_links BEGIN SELECT RAISE(ABORT, 'test rejection'); END")
+        var failed = false
+        try { repository.useGuideInProject("hat", guide.id) } catch (_: Exception) { failed = true }
+        org.junit.Assert.assertTrue(failed)
+        assertEquals(emptyList<Any>(), repository.observeGuides("hat").first())
+        assertEquals(emptyList<Any>(), database.materialsDao().observeAllPatternLinks().first())
+        assertEquals(draft, repository.loadDraft(guide.id))
+        database.openHelper.writableDatabase.execSQL("DROP TRIGGER reject_test_pattern")
+        repository.useGuideInProject("hat", guide.id)
+        assertEquals(listOf(guide), repository.observeGuides("hat").first())
+        assertEquals(listOf(ProjectPatternLinkEntity("hat", "pattern")), database.materialsDao().observeAllPatternLinks().first())
+    }
+
+    @Test
+    fun stoppingUseKeepsPatternAssociationAndOtherProjectUse() = runBlocking {
+        insertPattern("pattern"); insertProject("hat"); insertProject("other"); enqueueIds("guide", "draft")
+        val guide = repository.createPatternGuide("pattern", "M", "Body")
+        repository.useGuideInProject("hat", guide.id); repository.useGuideInProject("other", guide.id)
+        repository.stopUsingGuideInProject("hat", guide.id)
+        assertEquals(emptyList<Any>(), repository.observeGuides("hat").first())
+        assertEquals(listOf(guide), repository.observeGuides("other").first())
+        assertEquals(setOf("hat", "other"), database.materialsDao().observeAllPatternLinks().first().map { it.projectId }.toSet())
+    }
+
+    @Test
+    fun detachedReusableGuideStillWorksButAnotherProjectsOwnedGuideIsRejected() = runBlocking {
+        insertPattern("pattern"); insertProject("hat"); insertProject("other"); enqueueIds("guide", "draft")
+        val reusable = repository.createPatternGuide("pattern", "M", "Body")
+        database.openHelper.writableDatabase.execSQL("DELETE FROM library_items WHERE id = 'pattern'")
+        repository.useGuideInProject("hat", reusable.id)
+        assertEquals(listOf(reusable.id), repository.observeGuides("hat").first().map { it.id })
+        assertEquals(emptyList<Any>(), database.materialsDao().observeAllPatternLinks().first())
+        enqueueIds("owned", "owned-draft")
+        val owned = repository.createGuide("other", "Owned guide")
+        var rejected = false
+        try { repository.useGuideInProject("hat", owned.id) } catch (_: IllegalArgumentException) { rejected = true }
+        org.junit.Assert.assertTrue(rejected)
+        assertEquals(listOf(reusable.id), repository.observeGuides("hat").first().map { it.id })
     }
 
     private fun insertPattern(id: String) {
