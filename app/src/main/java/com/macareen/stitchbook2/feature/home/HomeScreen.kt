@@ -40,6 +40,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.macareen.stitchbook2.R
+import com.macareen.stitchbook2.domain.model.Photo
+import com.macareen.stitchbook2.ui.components.PhotoThumbnail
 import com.macareen.stitchbook2.domain.model.Craft
 import com.macareen.stitchbook2.domain.model.Project
 import com.macareen.stitchbook2.domain.model.ProjectStatus
@@ -131,6 +133,8 @@ fun HomeScreen(
                 onNewProject = onNewProject,
                 onOpenProject = onOpenProject,
                 onOpenProjects = onOpenProjects,
+                onOpenLibrary = onOpenLibrary,
+                onOpenStash = onOpenStash,
                 onResumeGuide = onResumeGuide,
                 onOpenStatistics = onOpenStatistics,
                 onOpenCounters = onOpenCounters,
@@ -151,6 +155,8 @@ private fun HomeContent(
     onNewProject: () -> Unit,
     onOpenProject: (String) -> Unit,
     onOpenProjects: () -> Unit,
+    onOpenLibrary: () -> Unit,
+    onOpenStash: () -> Unit,
     onResumeGuide: (ResumeGuide) -> Unit,
     onOpenStatistics: () -> Unit,
     onOpenCounters: () -> Unit,
@@ -168,9 +174,28 @@ private fun HomeContent(
     ) {
         item { Greeting(onNewProject = onNewProject, modifier = sidePadding) }
 
-        uiState.resumeGuide?.let { resume ->
+        if (uiState.resumeGuide != null || uiState.currentProject != null) {
             item {
-                ContinueCard(resume = resume, onClick = { onResumeGuide(resume) }, modifier = sidePadding)
+                val resume = uiState.resumeGuide
+                CurrentProjectCard(
+                    resume = resume, project = uiState.currentProject, photo = uiState.currentPhoto,
+                    onClick = { if (resume != null) onResumeGuide(resume) else uiState.currentProject?.let { onOpenProject(it.id) } },
+                    modifier = sidePadding
+                )
+            }
+        }
+        item {
+            Column(modifier = sidePadding, verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
+                Text(stringResource(R.string.home_quick_actions), style = MaterialTheme.typography.titleMedium)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small),
+                    verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
+                    SoftChip(text = stringResource(R.string.home_new_project_action), onClick = onNewProject)
+                    SoftChip(text = stringResource(R.string.destination_library), onClick = onOpenLibrary)
+                    SoftChip(text = stringResource(R.string.destination_stash), onClick = onOpenStash)
+                    SoftChip(text = stringResource(R.string.destination_counters), onClick = onOpenCounters)
+                    SoftChip(text = stringResource(R.string.calculators_title), onClick = onOpenCalculators)
+                    SoftChip(text = stringResource(R.string.home_quick_nav_statistics_title), onClick = onOpenStatistics)
+                }
             }
         }
 
@@ -191,17 +216,7 @@ private fun HomeContent(
             }
         }
 
-        item {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small),
-                verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small),
-                modifier = sidePadding
-            ) {
-                SoftChip(text = stringResource(R.string.destination_counters), onClick = onOpenCounters)
-                SoftChip(text = stringResource(R.string.home_quick_nav_statistics_title), onClick = onOpenStatistics)
-                SoftChip(text = stringResource(R.string.calculators_title), onClick = onOpenCalculators)
-            }
-        }
+
     }
 }
 
@@ -226,8 +241,8 @@ private fun Greeting(onNewProject: () -> Unit, modifier: Modifier = Modifier) {
 
 /** The one thing you were in the middle of, as the screen's centrepiece. */
 @Composable
-private fun ContinueCard(resume: ResumeGuide, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val pastel = CozyPastels.forKey(resume.projectId ?: resume.guideId)
+private fun CurrentProjectCard(resume: ResumeGuide?, project: Project?, photo: Photo?, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val pastel = CozyPastels.forKey(project?.id ?: resume?.projectId ?: resume?.guideId.orEmpty())
     Surface(
         onClick = onClick,
         shape = MaterialTheme.shapes.extraLarge,
@@ -247,19 +262,21 @@ private fun ContinueCard(resume: ResumeGuide, onClick: () -> Unit, modifier: Mod
                     .clip(MaterialTheme.shapes.large)
                     .background(pastel.tile)
             ) {
-                SkeinArt(pastel = pastel, width = 84.dp)
+                if (photo != null) PhotoThumbnail(photo.uri, stringResource(R.string.home_current_photo), Modifier.fillMaxSize(), maxSizePx = 1024)
+                else SkeinArt(pastel = pastel, width = 84.dp)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = stringResource(R.string.home_continue_label).uppercase(),
+                        text = stringResource(if (resume != null) R.string.home_continue_label else R.string.home_current_project).uppercase(),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    Text(text = resume.guideName, style = MaterialTheme.typography.titleLarge)
-                    QuietText(text = resume.projectName)
+                    Text(text = project?.name ?: resume?.projectName.orEmpty(), style = MaterialTheme.typography.titleLarge)
+                    resume?.guideName?.takeIf { it != project?.name }?.let { QuietText(text = it) }
+                    if (photo == null) QuietText(text = stringResource(R.string.home_photo_hint), style = MaterialTheme.typography.bodySmall)
                 }
-                resume.percentDone?.let { percent -> ProgressRing(percent = percent) }
+                resume?.percentDone?.let { percent -> ProgressRing(percent = percent) }
             }
             Box(
                 contentAlignment = Alignment.Center,
@@ -270,7 +287,7 @@ private fun ContinueCard(resume: ResumeGuide, onClick: () -> Unit, modifier: Mod
                     .background(MaterialTheme.colorScheme.primary)
             ) {
                 Text(
-                    text = stringResource(R.string.home_keep_going),
+                    text = stringResource(if (resume != null) R.string.home_continue_action else R.string.home_open_current_project),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onPrimary
                 )

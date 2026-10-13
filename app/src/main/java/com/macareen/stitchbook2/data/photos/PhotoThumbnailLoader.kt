@@ -53,7 +53,9 @@ object PhotoThumbnailLoader {
     private fun decode(context: Context, uri: Uri, maxSizePx: Int): Bitmap? {
         val resolver = context.contentResolver
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) } ?: return null
+        val boundsStream = resolver.openInputStream(uri) ?: return null
+        // A bounds-only decode intentionally returns null; inspect its dimensions instead.
+        boundsStream.use { BitmapFactory.decodeStream(it, null, bounds) }
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
 
         var sampleSize = 1

@@ -42,6 +42,22 @@ class HomeViewModelTest {
     // before the constructor call returns -- no manual idling needed.
     private val scope = CoroutineScope(Dispatchers.Unconfined)
 
+    @Test fun dashboardPrefersTheResumeProjectAndOnlyItsLatestPhoto() {
+        val first = project("first", ProjectStatus.ACTIVE, Craft.KNITTING).copy(updatedAt = 1)
+        val recent = project("recent", ProjectStatus.ACTIVE, Craft.CROCHET).copy(updatedAt = 9)
+        assertEquals(first, dashboardProject(listOf(first, recent), "first"))
+        assertEquals(recent, dashboardProject(listOf(first, recent), null))
+        assertNull(dashboardProject(emptyList(), null))
+        fun photo(id: String, owner: String?, created: Long) = com.macareen.stitchbook2.domain.model.Photo(
+            id, owner, if (owner == null) "stash" else null, "content://$id", null, null, null, null,
+            com.macareen.stitchbook2.domain.model.PhotoRole.NONE, created, created)
+        val latest = photo("latest", "first", 5)
+        val photos = listOf(photo("older", "first", 1), latest, photo("other", "recent", 99), photo("stash", null, 100))
+        assertEquals(latest, latestDashboardPhoto("first", photos))
+        assertNull(latestDashboardPhoto(null, photos))
+        assertNull(latestDashboardPhoto("missing", photos))
+    }
+
     @Test
     fun countsAndCraftTypesReflectAllProjects() {
         val projects = listOf(

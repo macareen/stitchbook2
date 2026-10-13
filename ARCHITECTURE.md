@@ -579,3 +579,7 @@ Size guide/chart/advice headings and ordinary fit prose beginning size S sweater
 ### Browser fallback for Ravelry PDFs
 
 A volume attachment may supply a normal `ravelry_download_url`. Stitchbook accepts only HTTPS Ravelry-domain browser links without embedded credentials. If the API refuses its PDF request, the pattern page can open that account-browser link (or the library) and attach a downloaded PDF with SAF read permission. Attachment saves the original document reference and display name while preserving pattern metadata, existing guides and progress; it does not copy or alter the original. Direct API denial remains separately visible with its safe HTTP status and request stage.
+
+Home combines project records with project-owned journal photos. It prioritizes the most recently updated active guide execution, then the most recently updated active project. The hero shows that project's latest attached photo through the existing offline thumbnail loader; a missing original uses its established placeholder. Continue uses the existing execution and project IDs; a project without an active execution opens its detail page. No durable cover field or new storage format is introduced.
+
+Local photo thumbnails now inspect the dimensions from a bounds-only bitmap decode rather than its intentionally null bitmap result. PNG originals and JPEG orientation have native regression checks; unavailable originals still produce the normal placeholder. Original files remain read-only.

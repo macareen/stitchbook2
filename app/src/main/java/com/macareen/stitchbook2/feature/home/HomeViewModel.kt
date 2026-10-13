@@ -10,6 +10,11 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.macareen.stitchbook2.domain.execution.GuideId
 import com.macareen.stitchbook2.domain.model.Project
+import com.macareen.stitchbook2.domain.model.Photo
+import com.macareen.stitchbook2.domain.repository.JournalRepository
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.distinctUntilChanged
 import com.macareen.stitchbook2.domain.model.ProjectStatus
 import com.macareen.stitchbook2.domain.repository.ExecutionRepository
 import com.macareen.stitchbook2.domain.repository.GuideRepository
@@ -40,7 +45,9 @@ sealed interface HomeUiState {
         val totalProjectCount: Int,
         val craftCount: Int,
         val activeProjects: List<Project>,
-        val resumeGuide: ResumeGuide?
+        val resumeGuide: ResumeGuide?,
+        val currentProject: Project? = null,
+        val currentPhoto: Photo? = null
     ) : HomeUiState
 }
 
@@ -56,13 +63,17 @@ class HomeViewModel(
     private val projectRepository: ProjectRepository,
     private val guideRepository: GuideRepository,
     private val executionRepository: ExecutionRepository,
-    externalScope: CoroutineScope? = null
+    externalScope: CoroutineScope? = null,
+    private val journalRepository: JournalRepository? = null
 ) : ViewModel() {
 
     private val scope: CoroutineScope = externalScope ?: viewModelScope
 
-    val uiState = projectRepository.observeProjects()
-        .map<List<Project>, HomeUiState> { projects -> buildContent(projects) }
+    val uiState = combine<List<Project>, List<Photo>, HomeUiState>(
+        projectRepository.observeProjects(),
+        journalRepository?.observePhotos()?.map { photos -> photos.filter { it.projectId != null } }?.distinctUntilChanged()
+            ?: flowOf(emptyList())
+    ) { projects, photos -> buildContent(projects, photos) }
         .catch { emit(HomeUiState.Error) }
         .stateIn(
             scope = scope,
@@ -80,7 +91,7 @@ class HomeViewModel(
         null
     }
 
-    private suspend fun buildContent(projects: List<Project>): HomeUiState.Content {
+    private suspend fun buildContent(projects: List<Project>, photos: List<Photo>): HomeUiState.Content {
         val activeProjects = projects.filter { it.status == ProjectStatus.ACTIVE }
 
         var resumeGuide: ResumeGuide? = null
@@ -114,12 +125,15 @@ class HomeViewModel(
             }
         }
 
+        val current = dashboardProject(activeProjects, resumeGuide?.projectId)
         return HomeUiState.Content(
             activeProjectCount = activeProjects.size,
             totalProjectCount = projects.size,
             craftCount = projects.map { it.craft }.toSet().size,
             activeProjects = activeProjects,
-            resumeGuide = resumeGuide
+            resumeGuide = resumeGuide,
+            currentProject = current,
+            currentPhoto = latestDashboardPhoto(current?.id, photos)
         )
     }
 
@@ -127,11 +141,21 @@ class HomeViewModel(
         fun factory(
             projectRepository: ProjectRepository,
             guideRepository: GuideRepository,
-            executionRepository: ExecutionRepository
+            executionRepository: ExecutionRepository,
+            journalRepository: JournalRepository? = null
         ): ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                HomeViewModel(projectRepository, guideRepository, executionRepository)
+                HomeViewModel(projectRepository, guideRepository, executionRepository, journalRepository = journalRepository)
             }
         }
     }
 }
+
+/** Resume wins; otherwise show the most recently updated active project. */
+internal fun dashboardProject(activeProjects: List<Project>, resumeProjectId: String?): Project? =
+    activeProjects.firstOrNull { it.id == resumeProjectId }
+        ?: activeProjects.maxWithOrNull(compareBy<Project> { it.updatedAt }.thenBy { it.id })
+
+internal fun latestDashboardPhoto(projectId: String?, photos: List<Photo>): Photo? =
+    if (projectId == null) null else photos.filter { it.projectId == projectId }
+        .maxWithOrNull(compareBy<Photo> { it.createdAt }.thenBy { it.id })

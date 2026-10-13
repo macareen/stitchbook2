@@ -648,4 +648,10 @@
     <string name="settings_navigation_label">Bottom navigation</string>
     <string name="settings_navigation_words">Words</string>
     <string name="settings_navigation_icons">Icons</string>
+    <string name="home_quick_actions">Make room for a little crafting</string>
+    <string name="home_current_project">Your current project</string>
+    <string name="home_current_photo">Current project photo</string>
+    <string name="home_photo_hint">Add a photo in your project journal to make this space yours.</string>
+    <string name="home_continue_action">Continue</string>
+    <string name="home_open_current_project">Open project</string>
 </resources>
