@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.macareen.stitchbook2.domain.model.CraftingSessionSource
 import com.macareen.stitchbook2.domain.model.CraftingSession
 
 /**
@@ -35,15 +36,16 @@ data class CraftingSessionEntity(
     @ColumnInfo(name = "stitches_per_row") val stitchesPerRow: Int?,
     val notes: String?,
     @ColumnInfo(name = "created_at") val createdAt: Long,
-    @ColumnInfo(name = "updated_at") val updatedAt: Long
+    @ColumnInfo(name = "updated_at") val updatedAt: Long,
+    @ColumnInfo(defaultValue = "'TIMED'") val source: String = "TIMED"
 )
 
 fun CraftingSessionEntity.toDomain() = CraftingSession(
     id, projectId, startedAt, endedAt, pausedAt, pausedTotalMillis, zoneId,
-    rowsCompleted, stitchesPerRow, notes, createdAt, updatedAt
+    rowsCompleted, stitchesPerRow, notes, createdAt, updatedAt, CraftingSessionSource.valueOf(source)
 )
 
 fun CraftingSession.toEntity() = CraftingSessionEntity(
     id, projectId, startedAt, endedAt, pausedAt, pausedTotalMillis, zoneId,
-    rowsCompleted, stitchesPerRow, notes, createdAt, updatedAt
+    rowsCompleted, stitchesPerRow, notes, createdAt, updatedAt, source.name
 )

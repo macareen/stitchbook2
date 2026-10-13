@@ -18,7 +18,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Bump alongside `StitchbookDatabase.version`; every migration chain below must reach it. */
-private const val CURRENT_SCHEMA_VERSION = 22
+private const val CURRENT_SCHEMA_VERSION = 23
 
 @RunWith(AndroidJUnit4::class)
 class StitchbookMigrationTest {
@@ -85,6 +85,19 @@ class StitchbookMigrationTest {
         if (::database.isInitialized) database.close()
         context.deleteDatabase(DATABASE_NAME)
         context.deleteDatabase(HELPER_DATABASE_NAME)
+    }
+
+    @Test
+    fun migrationTwentyTwoToTwentyThreePreservesSessionTimesAndAddsTimedOrigin() {
+        migrationHelper.createDatabase(HELPER_DATABASE_NAME, 22).use { db ->
+            db.execSQL("INSERT INTO crafting_sessions (id, project_id, started_at, ended_at, paused_at, paused_total_millis, zone_id, rows_completed, stitches_per_row, notes, created_at, updated_at) VALUES ('s', NULL, 1000, 100000, NULL, 1000, 'UTC', 4, 20, 'Keep', 1, 2)")
+        }
+        migrationHelper.runMigrationsAndValidate(HELPER_DATABASE_NAME, 23, true, MIGRATION_22_23).use { db ->
+            db.query("SELECT started_at, ended_at, paused_total_millis, notes, source FROM crafting_sessions WHERE id = 's'").use {
+                assertTrue(it.moveToFirst()); assertEquals(1000L, it.getLong(0)); assertEquals(100000L, it.getLong(1)); assertEquals(1000L, it.getLong(2))
+                assertEquals("Keep", it.getString(3)); assertEquals("TIMED", it.getString(4))
+            }
+        }
     }
 
     @Test
@@ -746,7 +759,8 @@ class StitchbookMigrationTest {
             MIGRATION_18_19,
             MIGRATION_19_20,
             MIGRATION_20_21,
-            MIGRATION_21_22
+            MIGRATION_21_22,
+            MIGRATION_22_23
         ).use { db ->
             db.query(
                 "SELECT name, notes, description, construction_method, custom_type_label, start_date, target_date, completed_date FROM projects WHERE id = 'existing-project'"

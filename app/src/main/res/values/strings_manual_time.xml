@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+<string name="manual_time_add">Add crafting time</string>
+<string name="manual_time_origin">Added manually</string>
+<string name="manual_time_help">Add time you forgot to record. Enter when you finished and how many minutes you worked. It counts on the date you started.</string>
+<string name="manual_time_date">Finished on</string>
+<string name="manual_time_clock">Time (24h)</string>
+<string name="manual_time_minutes">Minutes</string>
+<string name="manual_time_notes">Notes</string>
+<string name="manual_time_zone">Time zone: %1$s</string>
+<string name="manual_time_earlier">Earlier (%1$s)</string>
+<string name="manual_time_later">Later (%1$s)</string>
+<string name="manual_time_add_anyway">Add anyway</string>
+<string name="manual_time_invalid_date">Choose a valid finish date.</string>
+<string name="manual_time_invalid_time">Use a valid 24-hour finish time, such as 18:30.</string>
+<string name="manual_time_invalid_duration">Enter 1&#8211;1440 whole minutes. Longer work can use separate entries.</string>
+<string name="manual_time_future">The finish time is in the future. Check the date and time.</string>
+<string name="manual_time_gap">That time did not exist during the clock change. Choose a valid finish time.</string>
+<string name="manual_time_offset">That clock time happened twice. Choose the earlier or later occurrence.</string>
+<string name="manual_time_overlap">This may overlap recorded time. Adjust the finish time, or add it anyway if you intend to count both records.</string>
+<string name="manual_time_save_failed">Could not add this time. Your entries are still here; please try again.</string>
+</resources>

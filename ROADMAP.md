@@ -551,4 +551,6 @@ Single rows keep their number in the step text ("Row 3 (RS): Knit."), and genera
 
 2026-10-13 tagged working notes implemented: project Add note, explicit category, real guide-position context snapshot, journal editing and portable exports. Remaining preview/domain work includes typed piece instances, per-section recorded time and simultaneous/chart execution; context currently records a readable place rather than a live jump link.
 
-2026-10-13 reference-backed project-completion finalization implemented with atomic status/session updates and rollback tests. Remaining timer work: multiple-active restore reconciliation, intentional standalone-counter attribution and direct manual time entry.
+2026-10-13 reference-backed project-completion finalization implemented with atomic status/session updates and rollback tests. Remaining timer work: multiple-active restore reconciliation, intentional standalone-counter attribution. Direct manual crafting time now accepts finished records with overlap review, portable origin and DST-safe finish times.
+
+2026-10-13: The user authorized incorporating useful reference capabilities beyond the original roadmap. The relationship audit in `docs/LOOSELOOP_FUNCTIONAL_FINDINGS.md` identifies atomic guide/pattern association, dependency-aware removal, reviewed guide copying between sizes, explicit revision choices and missing-reference recovery. Continue these as small independently implemented slices; piece instances, target loops, charts and material alternatives remain substantial later execution/planning work.

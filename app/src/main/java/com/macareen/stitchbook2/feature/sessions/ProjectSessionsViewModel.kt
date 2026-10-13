@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.macareen.stitchbook2.domain.model.*
 import com.macareen.stitchbook2.domain.model.CraftingSession
 import com.macareen.stitchbook2.domain.model.SessionTimer
 import com.macareen.stitchbook2.domain.model.parseLocalDateOrNull
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -69,6 +71,57 @@ class ProjectSessionsViewModel(
 
     private val scope: CoroutineScope = externalScope ?: viewModelScope
     private val feedback = MutableStateFlow<SessionFeedback?>(null)
+    private val _manualEntry = MutableStateFlow(ManualEntryState(ManualTimeDefaults.at(clock(), zone())))
+    val manualEntry = _manualEntry.asStateFlow()
+    private var pendingOverlap: ManualTimeInput? = null
+    private var confirmedOverlap: ManualTimeInput? = null
+
+    fun openManualEntry() {
+        if (_manualEntry.value.status == ManualEntryStatus.SAVING) return
+        val now = clock()
+        val finish = uiState.value.activeSession?.takeIf { it.isRunning }?.startedAt?.coerceAtMost(now) ?: now
+        _manualEntry.value = ManualEntryState(ManualTimeDefaults.at(finish, zone()))
+        pendingOverlap = null
+        confirmedOverlap = null
+    }
+    fun clearManualFeedback() {
+        if (_manualEntry.value.status == ManualEntryStatus.SAVING) return
+        _manualEntry.value = _manualEntry.value.copy(status = ManualEntryStatus.IDLE, error = null, offsets = emptyList())
+        pendingOverlap = null
+        confirmedOverlap = null
+    }
+    fun addManualTime(input: ManualTimeInput) {
+        if (_manualEntry.value.status == ManualEntryStatus.SAVING) return
+        val now = clock()
+        val result = ManualCraftingTime.create(input, projectId, UUID.randomUUID().toString(), ZoneId.of(_manualEntry.value.defaults.zoneId), now)
+        if (result is ManualTimeResult.Invalid) {
+            _manualEntry.value = _manualEntry.value.copy(status = ManualEntryStatus.ERROR, error = result.error, offsets = result.offsets)
+            return
+        }
+        val ready = (result as ManualTimeResult.Ready).session
+        val originalInput = input.copy(confirmOverlap = false)
+        val confirmed = confirmedOverlap == originalInput || (input.confirmOverlap && pendingOverlap == originalInput)
+        if (confirmed) confirmedOverlap = originalInput
+        _manualEntry.value = _manualEntry.value.copy(status = ManualEntryStatus.SAVING, error = null)
+        scope.launch {
+            try {
+                val overlaps = ManualCraftingTime.possiblyOverlaps(ready, sessionRepository.observeSessions().first(), now)
+                if (overlaps && !confirmed) {
+                    pendingOverlap = input.copy(confirmOverlap = false)
+                    _manualEntry.value = _manualEntry.value.copy(status = ManualEntryStatus.ERROR, error = ManualTimeError.POSSIBLE_OVERLAP)
+                    return@launch
+                }
+                val saved = if (overlaps) ready.copy(notes = listOfNotNull(ready.notes,
+                    "Potential overlap with recorded time was confirmed when adding this manual entry.").joinToString("\n\n")) else ready
+                sessionRepository.saveSession(saved)
+                pendingOverlap = null
+                confirmedOverlap = null
+                _manualEntry.value = _manualEntry.value.copy(status = ManualEntryStatus.SAVED, error = null)
+            } catch (error: CancellationException) { throw error
+            } catch (_: Exception) { _manualEntry.value = _manualEntry.value.copy(status = ManualEntryStatus.ERROR, error = ManualTimeError.SAVE_FAILED) }
+        }
+    }
+
 
     val uiState: StateFlow<ProjectSessionsUiState> = combine(
         projectRepository.observeProjects(),
@@ -187,3 +240,7 @@ class ProjectSessionsViewModel(
         }
     }
 }
+
+enum class ManualEntryStatus { IDLE, SAVING, SAVED, ERROR }
+data class ManualEntryState(val defaults: ManualTimeDefaults, val status: ManualEntryStatus = ManualEntryStatus.IDLE,
+    val error: ManualTimeError? = null, val offsets: List<String> = emptyList())

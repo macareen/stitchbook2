@@ -145,6 +145,19 @@ class LocalBackupServiceTest {
     )
 
     @Test
+    fun manualSessionOriginRoundTripsAndLegacySessionsRemainTimed() {
+        val manual = com.macareen.stitchbook2.domain.model.SessionTimer.start("m", project.id, 1, "UTC").copy(
+            endedAt = 600001, source = com.macareen.stitchbook2.domain.model.CraftingSessionSource.MANUAL)
+        val markdown = projectMarkdown(project, BackupSnapshot(formatVersion = 3, projects = listOf(project), sessions = listOf(manual.copy(notes = "Recorded after crafting"))), 600001)
+        assertTrue(markdown.contains("Added manually: 10 min"))
+        assertTrue(markdown.contains("Recorded after crafting"))
+        val json = manual.toJson()
+        assertEquals(manual, json.toSession())
+        json.remove("source")
+        assertEquals(com.macareen.stitchbook2.domain.model.CraftingSessionSource.TIMED, json.toSession().source)
+    }
+
+    @Test
     fun taggedNotesRoundTripAndOldNotesStayGeneralWithoutContext() {
         val note = JournalEntry("note", project.id, "2026-10-13", "Adjustment", "Keep longer", 1, 2,
             com.macareen.stitchbook2.domain.model.JournalNoteTag.ADJUSTMENT, "Body row 24")

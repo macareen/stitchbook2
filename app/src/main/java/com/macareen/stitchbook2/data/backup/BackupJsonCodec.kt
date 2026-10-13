@@ -17,6 +17,7 @@ import com.macareen.stitchbook2.domain.model.BulkSizeInputMode
 import com.macareen.stitchbook2.domain.model.Counter
 import com.macareen.stitchbook2.domain.model.CounterNote
 import com.macareen.stitchbook2.domain.model.Craft
+import com.macareen.stitchbook2.domain.model.CraftingSessionSource
 import com.macareen.stitchbook2.domain.model.CraftingSession
 import com.macareen.stitchbook2.domain.model.JournalNoteTag
 import com.macareen.stitchbook2.domain.model.JournalEntry
@@ -588,6 +589,7 @@ internal fun CraftingSession.toJson(): JSONObject = JSONObject().apply {
     put("pausedAt", pausedAt ?: JSONObject.NULL)
     put("pausedTotalMillis", pausedTotalMillis)
     put("zoneId", zoneId)
+    put("source", source.name)
     put("rowsCompleted", rowsCompleted ?: JSONObject.NULL)
     put("stitchesPerRow", stitchesPerRow ?: JSONObject.NULL)
     put("notes", notes ?: JSONObject.NULL)
@@ -607,7 +609,8 @@ internal fun JSONObject.toSession(): CraftingSession = CraftingSession(
     stitchesPerRow = if (isNull("stitchesPerRow")) null else getInt("stitchesPerRow"),
     notes = optNullableString("notes"),
     createdAt = getLong("createdAt"),
-    updatedAt = getLong("updatedAt")
+    updatedAt = getLong("updatedAt"),
+    source = CraftingSessionSource.valueOf(optString("source", "TIMED"))
 )
 
 private fun JSONObject.optNullableInt(name: String): Int? = if (isNull(name)) null else getInt(name)
