@@ -1,5 +1,16 @@
 package com.macareen.stitchbook2.feature.library
 
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.GenericShape
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import com.macareen.stitchbook2.feature.projects.labelResource
+import com.macareen.stitchbook2.ui.theme.CozyPastels
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -113,6 +124,7 @@ private fun Content(
     modifier: Modifier
 ) {
     var showNewGuide by rememberSaveable { mutableStateOf(false) }
+    var requestedSize by rememberSaveable { mutableStateOf("") }
     Column(
         verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.medium),
         modifier = modifier
@@ -120,10 +132,8 @@ private fun Content(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = StitchbookSpacing.large, vertical = StitchbookSpacing.medium)
     ) {
-        Text(text = state.pattern.title, style = MaterialTheme.typography.headlineMedium)
-        listOfNotNull(state.pattern.author, state.pattern.sizes?.let { stringResource(R.string.pattern_guides_sizes, it) })
-            .takeIf { it.isNotEmpty() }
-            ?.let { QuietText(text = it.joinToString(" · ")) }
+        PatternPageHeader(state.pattern)
+        PatternOverview(state.pattern)
         PrimaryActionButton(
             text = stringResource(R.string.pattern_guides_start_project),
             onClick = onStartProject,
@@ -147,19 +157,32 @@ private fun Content(
             )
         }
         RavelryPdfMessage(state.ravelryPdf.result)
-        PatternDetailsCard(state.pattern)
 
         Text(text = stringResource(R.string.pattern_guides_title), style = MaterialTheme.typography.titleMedium)
-        if (state.guides.isEmpty()) {
+        if (state.guides.isEmpty() && state.sizeChoices.isEmpty()) {
             QuietText(text = stringResource(R.string.pattern_guides_empty))
         }
-        state.guides.forEach { entry -> GuideRow(entry, onClick = { onEditGuide(entry.guide.id.value) }) }
-        PrimaryActionButton(
+        SecondaryActionButton(
             text = stringResource(R.string.pattern_guides_new),
-            onClick = { showNewGuide = true },
+            onClick = { requestedSize = ""; showNewGuide = true },
             enabled = !state.isCreating,
             modifier = Modifier.fillMaxWidth()
         )
+        state.sizeChoices.forEachIndexed { index, size ->
+            val entries = state.guides.filter {
+                com.macareen.stitchbook2.domain.parsing.PatternSizes.indexOf(it.guide.sizeLabel.orEmpty(), state.sizeChoices) == index
+            }
+            if (entries.isEmpty()) {
+                SizeGuideRow(size, enabled = !state.isCreating, onBuild = {
+                    requestedSize = size
+                    showNewGuide = true
+                })
+            } else entries.forEach { entry -> GuideRow(entry, onClick = { onEditGuide(entry.guide.id.value) }) }
+        }
+        state.guides.filter {
+            com.macareen.stitchbook2.domain.parsing.PatternSizes.indexOf(it.guide.sizeLabel.orEmpty(), state.sizeChoices) == null
+        }.forEach { entry -> GuideRow(entry, onClick = { onEditGuide(entry.guide.id.value) }) }
+        PatternDetailsCard(state.pattern)
         val problem = when {
             state.pdfProblem == PatternPdfProblem.NO_TEXT -> R.string.pattern_guides_pdf_no_text
             state.pdfProblem == PatternPdfProblem.UNREADABLE -> R.string.pattern_guides_pdf_unreadable
@@ -177,6 +200,7 @@ private fun Content(
 
     if (showNewGuide) {
         NewGuideDialog(
+            initialSize = requestedSize,
             patternTitle = PatternNames.title(state.pattern.title, state.pattern.pdfFileName),
             sizeChoices = state.sizeChoices,
             canFillFromPattern = state.pattern.pdfUri != null,
@@ -248,7 +272,7 @@ private fun GuideRow(entry: PatternGuideEntry, onClick: () -> Unit) {
         onClick = onClick,
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLowest,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth().testTag("pattern-guide-${entry.guide.id.value}")
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(StitchbookSpacing.medium)) {
             Column(modifier = Modifier.weight(1f)) {
@@ -269,15 +293,16 @@ private fun NewGuideDialog(
     sizeChoices: List<String>,
     canFillFromPattern: Boolean,
     onCreate: (String, Boolean) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    initialSize: String = ""
 ) {
-    var size by rememberSaveable { mutableStateOf("") }
+    var size by rememberSaveable { mutableStateOf(initialSize) }
     var fromPattern by rememberSaveable { mutableStateOf(canFillFromPattern) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.pattern_guides_new)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
                 if (sizeChoices.isNotEmpty()) {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
                         sizeChoices.forEach { choice ->
@@ -347,26 +372,100 @@ private fun PatternGuidesPreview() {
     }
 }
 
-/** What the pattern says about itself: its description, gauge, tools and yardage, when known. */
+/** Rounded cozy header with a shallow wave; its height grows with the title. */
+private val PatternHeaderShape = GenericShape { size, _ ->
+    moveTo(0f, 0f)
+    lineTo(size.width, 0f)
+    lineTo(size.width, size.height - 18f)
+    cubicTo(size.width * .7f, size.height + 12f, size.width * .3f, size.height - 42f, 0f, size.height - 12f)
+    close()
+}
+
+@Composable
+private fun PatternPageHeader(pattern: LibraryItem) {
+    Surface(shape = PatternHeaderShape, color = MaterialTheme.colorScheme.secondaryContainer,
+        modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(horizontal = 24.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
+            Text(pattern.title, style = MaterialTheme.typography.headlineLarge,
+                color = MaterialTheme.colorScheme.onSecondaryContainer)
+            pattern.author?.let { Text(it, style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSecondaryContainer) }
+            if (pattern.craft != Craft.OTHER) Text(stringResource(pattern.craft.labelResource()),
+                style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSecondaryContainer)
+        }
+    }
+}
+
+@Composable
+private fun PatternOverview(pattern: LibraryItem) {
+    var expanded by rememberSaveable(pattern.id) { mutableStateOf(false) }
+    val notes = pattern.notes?.takeIf(String::isNotBlank)
+    var notesOverflow by rememberSaveable(pattern.id, notes) { mutableStateOf(false) }
+    Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainerLowest,
+        modifier = Modifier.fillMaxWidth()) {
+        BoxWithConstraints(Modifier.padding(StitchbookSpacing.medium)) {
+            val stacked = maxWidth < 300.dp || LocalDensity.current.fontScale > 1.4f
+            val cover: @Composable () -> Unit = {
+                PatternCover(pattern.pdfUri, CozyPastels.forKey(pattern.id),
+                    Modifier.size(if (stacked) 126.dp else 96.dp, if (stacked) 166.dp else 128.dp)
+                        .clip(RoundedCornerShape(16.dp)))
+            }
+            val details: @Composable () -> Unit = {
+                Column(verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
+                    Text(stringResource(R.string.pattern_page_notes), style = MaterialTheme.typography.titleMedium)
+                    if (notes != null) {
+                        Text(notes, style = MaterialTheme.typography.bodyMedium,
+                            maxLines = if (expanded) Int.MAX_VALUE else 5, overflow = TextOverflow.Ellipsis,
+                            onTextLayout = { if (!expanded) notesOverflow = it.hasVisualOverflow })
+                        if (notesOverflow || expanded) TextButton(onClick = { expanded = !expanded }) {
+                            Text(stringResource(if (expanded) R.string.pattern_page_read_less else R.string.pattern_page_read_more))
+                        }
+                    } else QuietText(stringResource(R.string.pattern_page_no_notes))
+                }
+            }
+            if (stacked) Column(verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.medium)) {
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { cover() }
+                details()
+            } else Row(horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.medium)) {
+                cover()
+                Box(Modifier.weight(1f)) { details() }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SizeGuideRow(size: String, enabled: Boolean, onBuild: () -> Unit) {
+    Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLowest,
+        modifier = Modifier.fillMaxWidth()) {
+        FlowRow(Modifier.padding(StitchbookSpacing.medium),
+            horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.medium),
+            verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.pattern_guides_size, size), style = MaterialTheme.typography.titleMedium)
+                QuietText(stringResource(R.string.pattern_page_no_guide))
+            }
+            TextButton(onClick = onBuild, enabled = enabled, modifier = Modifier.testTag("build-guide-$size")) { Text(stringResource(R.string.pattern_page_build_guide)) }
+        }
+    }
+}
+
+/** Keep the pattern's actual wording in separate, readable detail cards. */
 @Composable
 private fun PatternDetailsCard(pattern: LibraryItem) {
-    val lines = listOfNotNull(
-        pattern.gauge?.let { stringResource(R.string.pattern_details_gauge, it) },
-        pattern.recommendedTools?.let { stringResource(R.string.pattern_details_tools, it) },
-        pattern.yardageRequired?.let { stringResource(R.string.pattern_details_yardage, it.toInt()) }
+    val details = listOfNotNull(
+        pattern.gauge?.let { stringResource(R.string.pattern_page_gauge) to it },
+        pattern.recommendedTools?.let { stringResource(R.string.pattern_page_tools) to it },
+        pattern.yardageRequired?.let { stringResource(R.string.pattern_page_yarn) to stringResource(R.string.pattern_details_yardage, it.toInt()) }
     )
-    if (pattern.notes == null && lines.isEmpty()) return
-    Surface(
-        shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surfaceContainerLowest,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(StitchbookSpacing.medium),
-            verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)
-        ) {
-            pattern.notes?.let { Text(text = it, style = MaterialTheme.typography.bodyMedium) }
-            lines.forEach { line -> QuietText(text = line) }
+    details.forEach { (label, value) ->
+        Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainerLowest,
+            modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(StitchbookSpacing.medium), verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
+                Text(label, style = MaterialTheme.typography.titleMedium)
+                Text(value, style = MaterialTheme.typography.bodyMedium)
+            }
         }
     }
 }

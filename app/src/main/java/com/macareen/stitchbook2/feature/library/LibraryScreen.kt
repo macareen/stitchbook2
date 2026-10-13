@@ -749,7 +749,7 @@ private fun LibraryItemCard(
 
 /** The PDF's first page, which is usually the pattern photo; a drawn skein until it loads or if it can't. */
 @Composable
-private fun PatternCover(pdfUri: String?, pastel: Pastel, modifier: Modifier = Modifier) {
+internal fun PatternCover(pdfUri: String?, pastel: Pastel, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val widthPx = with(LocalDensity.current) { 220.dp.roundToPx() }
     val cover by produceState<Bitmap?>(initialValue = null, pdfUri) {

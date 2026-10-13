@@ -218,3 +218,7 @@ Focus totals and step time use `<1 min`, `12 min`, or `1h 05m`. The tiles have a
 
 
 Home project cards keep craft and update date on separate metadata lines. Update dates use the device's compact date format, and card width grows with font scale and accommodates measured localized metadata labels. Quick links wrap into additional rows when space is limited. These layouts preserve full labels in light and dark themes without fixed metadata-height clipping.
+
+### Pattern page layout
+
+The approved pattern-page layout now has a growing serif title in a shallow wavy header, the same reproducible first-page PDF cover as the Library, expandable notes based on actual text overflow, and separate gauge, tools and yarn-needed cards. Large fonts stack the cover above notes. Every detected size has a row: existing guides retain Draft/Ready status and open in the editor; missing guides open the ordinary review dialog with that size preselected. The manual size chooser, original PDF opening, project creation, and explicit Ravelry PDF actions remain available. The size dialog scrolls at larger fonts. No difficulty, piece counts or completed-project totals are inferred.
