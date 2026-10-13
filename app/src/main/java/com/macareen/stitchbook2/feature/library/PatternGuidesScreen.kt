@@ -132,7 +132,7 @@ private fun Content(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = StitchbookSpacing.large, vertical = StitchbookSpacing.medium)
     ) {
-        PatternPageHeader(state.pattern)
+        PatternPageHeader(state.pattern, state.completedProjects)
         PatternOverview(state.pattern)
         PrimaryActionButton(
             text = stringResource(R.string.pattern_guides_start_project),
@@ -382,7 +382,7 @@ private val PatternHeaderShape = GenericShape { size, _ ->
 }
 
 @Composable
-private fun PatternPageHeader(pattern: LibraryItem) {
+private fun PatternPageHeader(pattern: LibraryItem, completedProjects: Int) {
     Surface(shape = PatternHeaderShape, color = MaterialTheme.colorScheme.secondaryContainer,
         modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(horizontal = 24.dp, vertical = 24.dp),
@@ -391,6 +391,9 @@ private fun PatternPageHeader(pattern: LibraryItem) {
                 color = MaterialTheme.colorScheme.onSecondaryContainer)
             pattern.author?.let { Text(it, style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSecondaryContainer) }
+            if (completedProjects > 0) Text(
+                pluralStringResource(R.plurals.pattern_page_completed_projects, completedProjects, completedProjects),
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
             if (pattern.craft != Craft.OTHER) Text(stringResource(pattern.craft.labelResource()),
                 style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSecondaryContainer)
         }

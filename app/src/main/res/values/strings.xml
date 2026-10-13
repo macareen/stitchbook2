@@ -585,8 +585,6 @@
     <string name="focus_tile_step">This step</string>
     <string name="focus_tile_step_estimated">about %1$s</string>
     <string name="pattern_guides_start_project">Start a project with this pattern</string>
-    <string name="pattern_details_gauge">Gauge: %1$s</string>
-    <string name="pattern_details_tools">Needles and tools: %1$s</string>
     <string name="pattern_details_yardage">About %1$d yards</string>
     <string name="ravelry_pdf_get">Get the PDF from Ravelry</string>
     <string name="ravelry_pdf_downloading">Getting the PDF…</string>
