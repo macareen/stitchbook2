@@ -33,6 +33,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -364,6 +368,10 @@ internal fun CopyGuideDialog(sourceSize: String, choices: List<String>, existing
     failed: Boolean, onCopy: (String) -> Unit, onDismiss: () -> Unit) {
     var size by rememberSaveable { mutableStateOf("") }
     var reviewed by rememberSaveable { mutableStateOf(false) }
+    val errorRequester = remember { BringIntoViewRequester() }
+    LaunchedEffect(failed) {
+        if (failed) { withFrameNanos { }; errorRequester.bringIntoView() }
+    }
     val available = size.isNotBlank() && com.macareen.stitchbook2.domain.parsing.PatternSizes.indexOf(size, existing) == null
     AlertDialog(onDismissRequest = { if (!busy) onDismiss() }, title = { Text(stringResource(R.string.guide_copy_action)) },
         text = {
@@ -375,7 +383,7 @@ internal fun CopyGuideDialog(sourceSize: String, choices: List<String>, existing
                     FilterChip(selected = size == label, onClick = { size = label }, enabled = !busy, label = { Text(label) })
                 }
             }
-            OutlinedTextField(size, { size = it }, enabled = !busy, label = { Text(stringResource(R.string.pattern_guides_size_field)) },
+            OutlinedTextField(size, { size = it }, enabled = !busy, label = { Text(stringResource(R.string.guide_copy_size)) },
                 singleLine = true, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { keyboard?.hide() }))
             if (size.isNotBlank() && !available) Text(stringResource(R.string.guide_copy_exists), color = MaterialTheme.colorScheme.error)
@@ -383,7 +391,7 @@ internal fun CopyGuideDialog(sourceSize: String, choices: List<String>, existing
                 Checkbox(reviewed, { reviewed = it }, enabled = !busy)
                 Text(stringResource(R.string.guide_copy_review), style = MaterialTheme.typography.bodySmall)
             }
-            if (failed) Text(stringResource(R.string.guide_copy_failed), color = MaterialTheme.colorScheme.error)
+            if (failed) Text(stringResource(R.string.guide_copy_failed), color = MaterialTheme.colorScheme.error, modifier = Modifier.bringIntoViewRequester(errorRequester))
         } }, confirmButton = { Column {
             TextButton(onClick = { onCopy(size.trim()) }, enabled = available && reviewed && !busy) { Text(stringResource(R.string.guide_copy_create)) }
             TextButton(onClick = onDismiss, enabled = !busy) { Text(stringResource(R.string.cancel)) }

@@ -24,7 +24,7 @@ class ManualTimeDialogTest {
         val changeScale = kotlin.math.abs(original - scale) > .05f
         if (changeScale) {
             assertTrue(android.os.Build.HARDWARE in listOf("ranchu", "goldfish"))
-            setScale(scale); compose.activityRule.scenario.recreate()
+            setScaleAndWait(scale)
         }
         try {
             var state by mutableStateOf(ManualEntryState(ManualTimeDefaults("2026-10-12", "19:30", "UTC")))
@@ -44,11 +44,29 @@ class ManualTimeDialogTest {
             compose.onNodeWithText("Save").assertIsDisplayed().performClick()
             compose.runOnIdle { assertEquals("10", saved!!.minutes); assertEquals("Forgot the timer", saved!!.notes) }
             compose.onNodeWithText("Forgot the timer").assertExists()
+            compose.onNodeWithText("Could not add this time. Your entries are still here; please try again.").assertIsDisplayed()
+            capture(dark, scale)
             compose.onNodeWithText("Save").performClick()
             compose.onNodeWithText("Save").assertIsNotEnabled()
             compose.onNodeWithText("Cancel").assertIsNotEnabled()
             compose.runOnIdle { assertEquals(2, attempts) }
-        } finally { if (changeScale) { setScale(original); compose.activityRule.scenario.recreate() } }
+        } finally { if (changeScale) { setScaleAndWait(original) } }
+    }
+    private fun capture(dark: Boolean, scale: Float) {
+        if (InstrumentationRegistry.getArguments().getString("captureManualTime") != "true") return
+        assertTrue("Screenshots must be emulator-only", android.os.Build.HARDWARE in listOf("ranchu", "goldfish"))
+        val mode = if (scale > 1f) "large" else if (dark) "dark" else "light"
+        ParcelFileDescriptor.AutoCloseInputStream(InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(
+            "screencap -p /sdcard/Download/stitchbook-manual-time-$mode.png")).use { it.readBytes() }
+    }
+    private fun setScaleAndWait(scale: Float) {
+        setScale(scale)
+        compose.waitUntil(10_000) {
+            runCatching {
+                compose.activity.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED) &&
+                    kotlin.math.abs(compose.activity.resources.configuration.fontScale - scale) < .05f
+            }.getOrDefault(false)
+        }
     }
     private fun setScale(scale: Float) {
         ParcelFileDescriptor.AutoCloseInputStream(InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(

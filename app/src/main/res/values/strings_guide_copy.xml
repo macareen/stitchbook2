@@ -8,4 +8,5 @@
     <string name="guide_copy_failed">Could not copy this guide. Check the source and target size, then try again. Existing guides are kept.</string>
     <string name="guide_pattern_removed">Pattern reference removed</string>
     <string name="pattern_remove_reference">Remove reference</string>
+    <string name="guide_copy_size">New size</string>
 </resources>

@@ -24,7 +24,7 @@ class CopyGuideDialogTest {
         val changeScale = kotlin.math.abs(original - scale) > .05f
         if (changeScale) {
             assertTrue(android.os.Build.HARDWARE in listOf("ranchu", "goldfish"))
-            setScale(scale); compose.activityRule.scenario.recreate()
+            setScaleAndWait(scale)
         }
         try {
             var busy by mutableStateOf(false)
@@ -38,19 +38,37 @@ class CopyGuideDialogTest {
                 }, {})
             } }
             compose.onNodeWithText("Copy into a draft").assertIsNotEnabled()
-            compose.onNodeWithText("Size (as the pattern names it)").performScrollTo().performTextReplacement("m")
+            compose.onNodeWithText("New size").performScrollTo().performTextReplacement("m")
             compose.onNode(isToggleable()).performScrollTo().performClick()
             compose.onNodeWithText("Copy into a draft").assertIsNotEnabled()
-            compose.onNodeWithText("Size (as the pattern names it)").performScrollTo().performTextReplacement("L")
-            compose.onNodeWithText("Size (as the pattern names it)").performImeAction()
+            compose.onNodeWithText("New size").performScrollTo().performTextReplacement("L")
+            compose.onNodeWithText("New size").performImeAction()
             compose.onNodeWithText("Copy into a draft").assertIsDisplayed().performClick()
             compose.runOnIdle { assertEquals("L", target) }
             compose.onNodeWithText("L").assertExists()
+            compose.onNodeWithText("Could not copy this guide. Check the source and target size, then try again. Existing guides are kept.").assertIsDisplayed()
+            capture(dark, scale)
             compose.onNodeWithText("Copy into a draft").performClick()
             compose.onNodeWithText("Copy into a draft").assertIsNotEnabled()
             compose.onNodeWithText("Cancel").assertIsNotEnabled()
             compose.runOnIdle { assertEquals(2, attempts) }
-        } finally { if (changeScale) { setScale(original); compose.activityRule.scenario.recreate() } }
+        } finally { if (changeScale) { setScaleAndWait(original) } }
+    }
+    private fun capture(dark: Boolean, scale: Float) {
+        if (InstrumentationRegistry.getArguments().getString("captureGuideCopy") != "true") return
+        assertTrue("Screenshots must be emulator-only", android.os.Build.HARDWARE in listOf("ranchu", "goldfish"))
+        val mode = if (scale > 1f) "large" else if (dark) "dark" else "light"
+        ParcelFileDescriptor.AutoCloseInputStream(InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(
+            "screencap -p /sdcard/Download/stitchbook-guide-copy-$mode.png")).use { it.readBytes() }
+    }
+    private fun setScaleAndWait(scale: Float) {
+        setScale(scale)
+        compose.waitUntil(10_000) {
+            runCatching {
+                compose.activity.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED) &&
+                    kotlin.math.abs(compose.activity.resources.configuration.fontScale - scale) < .05f
+            }.getOrDefault(false)
+        }
     }
     private fun setScale(scale: Float) {
         ParcelFileDescriptor.AutoCloseInputStream(InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(
