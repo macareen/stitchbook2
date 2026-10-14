@@ -369,13 +369,31 @@ private fun DraftOutlineRowItem(
         modifier = Modifier
             .fillMaxWidth()
             .padding(
-                start = StitchbookSpacing.medium * row.depth,
+                start = StitchbookSpacing.medium * row.depth.coerceAtMost(3),
                 bottom = StitchbookSpacing.small
             ),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+        colors = CardDefaults.cardColors(
+            containerColor = when (row.node.type) {
+                DraftNodeType.SECTION -> MaterialTheme.colorScheme.primaryContainer
+                DraftNodeType.REPEAT -> MaterialTheme.colorScheme.tertiaryContainer
+                DraftNodeType.RANGE -> MaterialTheme.colorScheme.secondaryContainer
+                DraftNodeType.INSTRUCTION -> MaterialTheme.colorScheme.surfaceContainerLow
+            },
+            contentColor = when (row.node.type) {
+                DraftNodeType.SECTION -> MaterialTheme.colorScheme.onPrimaryContainer
+                DraftNodeType.REPEAT -> MaterialTheme.colorScheme.onTertiaryContainer
+                DraftNodeType.RANGE -> MaterialTheme.colorScheme.onSecondaryContainer
+                DraftNodeType.INSTRUCTION -> MaterialTheme.colorScheme.onSurface
+            }
+        )
     ) {
-        Column(modifier = Modifier.padding(StitchbookSpacing.medium)) {
-            Text(text = row.node.summary(), style = MaterialTheme.typography.bodyLarge)
+        Column(modifier = Modifier.padding(StitchbookSpacing.medium), verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.extraSmall)) {
+            if (row.node.type != DraftNodeType.INSTRUCTION) {
+                Text(text = row.node.type.label(), style = MaterialTheme.typography.labelMedium)
+            }
+            com.macareen.stitchbook2.feature.focus.FocusInstructionLayout.actionLines(row.node.summary()).forEach { line ->
+                Text(text = line, style = MaterialTheme.typography.bodyLarge)
+            }
             Spacer(modifier = Modifier.height(StitchbookSpacing.extraSmall))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onMoveUp, enabled = !isSaving && row.canMoveUp) {

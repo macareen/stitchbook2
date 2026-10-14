@@ -1,5 +1,8 @@
 package com.macareen.stitchbook2.feature.draft
 
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -17,6 +20,28 @@ import org.junit.Test
  * plain-language copy and the Publish/Start-Continue action hierarchy.
  */
 class DraftEditorScreenTest {
+    @Test fun nestedDraftKeepsActionsOnSeparateLinesAndShowsContainerTypes() {
+        val id = com.macareen.stitchbook2.domain.execution.NodeId("step")
+        setContent(DraftEditorUiState.Content(guideName = "Sample cardigan", rows = listOf(
+            DraftOutlineRow(com.macareen.stitchbook2.domain.guide.DraftNode(
+                id = com.macareen.stitchbook2.domain.execution.NodeId("repeat"),
+                type = com.macareen.stitchbook2.domain.guide.DraftNodeType.REPEAT,
+                repeatCount = 9, children = listOf(id)), 0, false, false),
+            DraftOutlineRow(com.macareen.stitchbook2.domain.guide.DraftNode(
+                id = id, type = com.macareen.stitchbook2.domain.guide.DraftNodeType.INSTRUCTION,
+                instructionText = "Knit to marker 1, m1r, slip marker 1, knit to end."), 1, false, false)
+        )))
+        composeTestRule.onNodeWithText("Repeat").assertIsDisplayed()
+        val first = composeTestRule.onNodeWithText("Knit to marker 1").fetchSemanticsNode().boundsInRoot
+        val second = composeTestRule.onNodeWithText("m1r").fetchSemanticsNode().boundsInRoot
+        org.junit.Assert.assertTrue(second.top > first.bottom)
+        composeTestRule.onNodeWithText("Publish").assertIsDisplayed()
+        if (androidx.test.platform.app.InstrumentationRegistry.getArguments().getString("captureActionLines") == "true") {
+            android.os.ParcelFileDescriptor.AutoCloseInputStream(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().uiAutomation
+                .executeShellCommand("screencap -p /sdcard/Download/stitchbook-draft-hierarchy.png")).use { it.readBytes() }
+        }
+    }
+
 
     @get:Rule
     val composeTestRule = createComposeRule()
@@ -24,6 +49,7 @@ class DraftEditorScreenTest {
     private fun setContent(state: DraftEditorUiState) {
         composeTestRule.setContent {
             StitchbookTheme {
+                Surface(Modifier.systemBarsPadding()) {
                 DraftEditorScreen(
                     uiState = state,
                     onAddNode = { _, _, _, _, _, _, _, _, _ -> },
@@ -36,6 +62,7 @@ class DraftEditorScreenTest {
                     onDone = {},
                     onStartOrContinue = {}
                 )
+                }
             }
         }
     }

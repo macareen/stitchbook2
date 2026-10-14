@@ -92,8 +92,12 @@ object PatternSizes {
         // Match a complete numeric sequence across any number of adjacent groups.
         // A longer sequence cannot be resolved as just its first bracketed group.
         return NUMERIC_RUN.replace(text) { match ->
-            val values = VALUE_TOKEN.findAll(match.value).map { it.value }.toList()
-            if (('(' in match.value || '[' in match.value) && values.size == sizeCount) values[sizeIndex] else match.value
+            // A numbered marker immediately before the values is context, not a size.
+            val marker = Regex("""(?i)\bmarker\s*$""").containsMatchIn(text.substring(0, match.range.first))
+            val leading = if (marker) Regex("""^\d+\s+""").find(match.value)?.value.orEmpty() else ""
+            val sequence = match.value.removePrefix(leading)
+            val values = VALUE_TOKEN.findAll(sequence).map { it.value }.toList()
+            if (('(' in match.value || '[' in match.value) && values.size == sizeCount) leading + values[sizeIndex] else match.value
         }
     }
 

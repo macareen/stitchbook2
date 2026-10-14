@@ -4,6 +4,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class FocusInstructionLayoutTest {
+    @Test fun stitchDistributionSeparatesMarkersAndCountsWithoutSplittingAnnotations() {
+        assertEquals(listOf("Distribution: 12 sts (left front)", "Marker 1", "18 sts (sleeve)", "Marker 2."),
+            FocusInstructionLayout.actionLines("Distribution: 12 sts (left front), Marker 1, 18 sts (sleeve), Marker 2."))
+    }
+
     @Test fun clearKnittingActionsHaveTheirOwnLines() {
         assertEquals(listOf("Row 1 (RS): Knit to marker 1", "m1r", "slip marker 1", "knit 2", "m1l."),
             FocusInstructionLayout.actionLines("Row 1 (RS): Knit to marker 1, m1r, slip marker 1, knit 2, m1l."))
