@@ -71,6 +71,42 @@ class ExecutionRepositoryTest {
         database.close()
     }
 
+    @Test fun piecesDashboardRefreshesAfterProgressRevisionAndSavedPlaceChanges() = runBlocking<Unit> {
+        val guide = createGuideWithSimpleRevision("g", "d", "r1")
+        enqueueIds("left", "right")
+        val left = executionRepository.createPiece("project-g", guide, "Left sleeve")
+        val right = executionRepository.createPiece("project-g", guide, "Right sleeve")
+        val observerScope = kotlinx.coroutines.CoroutineScope(coroutineContext + kotlinx.coroutines.SupervisorJob())
+        try {
+            val vm = com.macareen.stitchbook2.feature.projects.ProjectPiecesViewModel("project-g", guideRepository, executionRepository, observerScope)
+            suspend fun awaitLeft(predicate: (com.macareen.stitchbook2.feature.projects.PieceEntry) -> Boolean) =
+                kotlinx.coroutines.withTimeout(5_000) { vm.state.first { value -> value.entries.any { it.piece.id == left.id && predicate(it) } } }
+            awaitLeft { !it.isStarted }
+            enqueueIds("left-work")
+            var old = executionRepository.createPieceExecution(left.id, DefinitionRevisionId("r1"))
+            awaitLeft { it.isStarted && it.completedSteps == 0 }
+            old = executionRepository.applyComplete(old.state.executionId, old.version).execution
+            awaitLeft { it.completedSteps == 1 && it.revisionNumber == 1 }
+            old = executionRepository.applyComplete(old.state.executionId, old.version).execution
+            awaitLeft { it.completedSteps == 2 }
+            old = executionRepository.applyPrevious(old.state.executionId, old.version).execution
+            awaitLeft { it.completedSteps == 1 }
+            val source = requireNotNull(guideRepository.loadRevision(old.state.definitionRevisionId))
+            val target = publishExpandedRevision(guide)
+            enqueueIds("left-updated")
+            val upgraded = executionRepository.applyReviewedRevision(com.macareen.stitchbook2.domain.execution.ReviewedRevisionChange(
+                "project-g", old, source.definition, source.revisionNumber, target.definition, target.revisionNumber), emptySet())
+            awaitLeft { it.revisionNumber == 2 && it.completedSteps == 0 }
+            val saved = requireNotNull(executionRepository.loadExecution(old.state.executionId))
+            executionRepository.resumeReviewedPlace(com.macareen.stitchbook2.domain.execution.ReviewedSavedPlace(
+                "project-g", upgraded, target.definition, saved, source.definition))
+            val restored = awaitLeft { it.revisionNumber == 1 && it.completedSteps == 1 }
+            val untouched = restored.entries.single { it.piece.id == right.id }
+            assertTrue(!untouched.isStarted)
+            assertEquals(0, untouched.completedSteps)
+        } finally { observerScope.coroutineContext[kotlinx.coroutines.Job]?.cancel() }
+    }
+
     @Test fun completedUpgradeCanResumeThePreviousUnfinishedGuideInFocus() = runBlocking<Unit> {
         insertProject("project-g")
         enqueueIds("g", "d")
