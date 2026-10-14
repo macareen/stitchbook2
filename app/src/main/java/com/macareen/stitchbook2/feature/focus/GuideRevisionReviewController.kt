@@ -15,7 +15,7 @@ data class SavedGuidePlace(val work: PersistedExecution, val revision: Definitio
     val context: String, val currentInstruction: String?)
 data class GuideRevisionPanel(val current: PersistedExecution, val revision: DefinitionRevision,
     val change: ReviewedRevisionChange?, val matches: List<ReviewMatch>, val unmatched: List<ReviewUnmatched>,
-    val saved: List<SavedGuidePlace>)
+    val saved: List<SavedGuidePlace>, val publications: List<DefinitionRevision> = emptyList())
 data class GuideRevisionReviewState(val loading: Boolean = true, val panel: GuideRevisionPanel? = null,
     val selected: Set<ExecutionAddress> = emptySet(), val busy: Boolean = false,
     val failed: Boolean = false, val stale: Boolean = false)
@@ -48,17 +48,8 @@ class GuideRevisionReviewController(private val guideId: GuideId, private val ex
                         SavedGuidePlace(past, definition, address?.let { ReviewLabels(definition.definition).at(it) }.orEmpty(),
                             address?.let { a -> definition.definition.nodes.filterIsInstance<Instruction>().firstOrNull { it.id == a.instructionNodeId }?.text })
                     }
-                val change = latest?.let { ReviewedRevisionChange(context.projectId.ifEmpty { null }, work,
-                    revision.definition, revision.revisionNumber, it.definition, it.revisionNumber) }
-                val panel = withContext(Dispatchers.Default) {
-                    val comparison = latest?.let { RevisionProgressComparison.preview(revision.definition, it.definition, work.state.completedAddresses) }
-                    val targetLabels = latest?.let { ReviewLabels(it.definition) }
-                    val sourceLabels = ReviewLabels(revision.definition)
-                    GuideRevisionPanel(work, revision, change,
-                        comparison?.candidates.orEmpty().map { ReviewMatch(it, requireNotNull(targetLabels).at(it.target)) },
-                        comparison?.unmatched.orEmpty().map { ReviewUnmatched(it, sourceLabels.at(it.source),
-                            latest?.definition?.nodes?.filterIsInstance<Instruction>()?.firstOrNull { n -> n.id == it.source.instructionNodeId }?.text) }, saved)
-                }
+                val panel = comparisonPanel(work, revision, latest, saved,
+                    guides.listRevisions(guideId).filter { it.id != revision.id }.sortedByDescending { it.revisionNumber })
                 mutable.value = GuideRevisionReviewState(loading = false, panel = panel,
                     selected = panel.matches.map { it.candidate.target }.toSet())
                 setBusy(false)
@@ -66,6 +57,38 @@ class GuideRevisionReviewController(private val guideId: GuideId, private val ex
             catch (_: Exception) { mutable.value = GuideRevisionReviewState(loading = false, failed = true); setBusy(false) }
         }
     }
+    private suspend fun comparisonPanel(work: PersistedExecution, revision: DefinitionRevision,
+        target: DefinitionRevision?, saved: List<SavedGuidePlace>, publications: List<DefinitionRevision>): GuideRevisionPanel =
+        withContext(Dispatchers.Default) {
+            val change = target?.let { ReviewedRevisionChange(current()?.projectId?.ifEmpty { null }, work,
+                revision.definition, revision.revisionNumber, it.definition, it.revisionNumber) }
+            val comparison = target?.let { RevisionProgressComparison.preview(revision.definition, it.definition, work.state.completedAddresses) }
+            val targetLabels = target?.let { ReviewLabels(it.definition) }
+            val sourceLabels = ReviewLabels(revision.definition)
+            GuideRevisionPanel(work, revision, change,
+                comparison?.candidates.orEmpty().map { ReviewMatch(it, requireNotNull(targetLabels).at(it.target)) },
+                comparison?.unmatched.orEmpty().map { ReviewUnmatched(it, sourceLabels.at(it.source),
+                    target?.definition?.nodes?.filterIsInstance<Instruction>()?.firstOrNull { n -> n.id == it.source.instructionNodeId }?.text) }, saved, publications)
+        }
+
+    fun choosePublication(id: DefinitionRevisionId) {
+        val value = state.value?.takeUnless { it.busy || it.stale } ?: return
+        val panel = value.panel ?: return
+        val target = panel.publications.firstOrNull { it.id == id } ?: return
+        if (panel.change?.targetDefinition?.revisionId == id) return
+        mutable.value = value.copy(busy = true, failed = false)
+        setBusy(true)
+        operation = scope.launch {
+            try {
+                val changed = comparisonPanel(panel.current, panel.revision, target, panel.saved, panel.publications)
+                mutable.value = GuideRevisionReviewState(loading = false, panel = changed,
+                    selected = changed.matches.map { it.candidate.target }.toSet())
+            } catch (error: CancellationException) { throw error }
+            catch (_: Exception) { mutable.value = value.copy(failed = true) }
+            finally { setBusy(false) }
+        }
+    }
+
     fun select(address: ExecutionAddress) {
         mutable.update { value -> value?.takeUnless { it.busy }?.let {
             if (it.panel?.matches?.any { match -> match.candidate.target == address } != true) it

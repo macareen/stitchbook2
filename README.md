@@ -146,3 +146,5 @@ Marking a project Completed ends its open crafting sessions as part of the same 
 Project → **Manage pieces** keeps named components such as Left sleeve and Right sleeve separate. Each follows its chosen whole guide with its own revision and progress; renaming or archiving keeps the work, and archived pieces can be restored. Home Continue opens the correct active piece. Full-library and project JSON (format 4) preserve pieces and work history; project Markdown includes readable piece summaries. Older backups remain readable, with reviewed Replace protecting work they do not carry. Subsection-only pieces, quantities and mirroring remain roadmap work.
 
 Guide updates: in Focus, open Overview > Guide versions to review matching completed steps before using the latest publication. Previous unfinished progress remains a resumable saved place for that project or piece; finished records remain readable.
+
+Guide versions defaults to the latest publication; Compare a publication also offers earlier revisions. Selecting a different revision builds a fresh carryover proposal before you apply it.

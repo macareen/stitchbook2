@@ -71,6 +71,40 @@ class ExecutionRepositoryTest {
         database.close()
     }
 
+    @Test fun publicationChoiceReviewsAndAppliesAnOlderRevisionWithoutChangingCurrentWorkEarly() = runBlocking<Unit> {
+        val guide = createGuideWithSimpleRevision("g", "d", "r1")
+        enqueueIds("w1")
+        var work = executionRepository.createExecution(guide, DefinitionRevisionId("r1"), "project-g")
+        work = executionRepository.applyComplete(work.state.executionId, work.version).execution
+        val older = publishExpandedRevision(guide)
+        enqueueIds("d3")
+        guideRepository.createDraftFromLatestRevision(guide)
+        enqueueIds("r3")
+        val latest = guideRepository.publishDraft(guide)
+        var context = com.macareen.stitchbook2.feature.focus.GuideRevisionContext("Guide", "project-g", work.state.executionId, work.version)
+        val controller = com.macareen.stitchbook2.feature.focus.GuideRevisionReviewController(guide, null,
+            guideRepository, executionRepository, this, { context }, { context = context.copy(isBusy = it) }, {})
+        controller.open()
+        val loaded = kotlinx.coroutines.withTimeout(5_000) { controller.state.first { it?.panel != null } }!!
+        assertEquals(latest.id, loaded.panel!!.change!!.targetDefinition.revisionId)
+        assertEquals(setOf(older.id, latest.id), loaded.panel!!.publications.map { it.id }.toSet())
+        controller.selectAll(false)
+        controller.choosePublication(older.id)
+        val reviewed = kotlinx.coroutines.withTimeout(5_000) { controller.state.first { ! (it?.busy ?: true) && it?.panel?.change?.targetDefinition?.revisionId == older.id } }!!
+        assertEquals(1, reviewed.selected.size)
+        assertTrue(reviewed.selected.all { it.definitionRevisionId == older.id })
+        assertEquals(work, executionRepository.getActiveExecution(guide, "project-g"))
+        controller.choosePublication(DefinitionRevisionId("not-reviewed"))
+        assertEquals(reviewed, controller.state.value)
+        enqueueIds("older-work")
+        controller.apply()
+        kotlinx.coroutines.withTimeout(5_000) { controller.state.first { it == null } }
+        val applied = requireNotNull(executionRepository.getActiveExecution(guide, "project-g"))
+        assertEquals(older.id, applied.state.definitionRevisionId)
+        assertEquals(1, applied.state.completedAddresses.size)
+        assertEquals(work.state, executionRepository.loadExecution(work.state.executionId)!!.state)
+    }
+
     @Test fun piecesDashboardRefreshesAfterProgressRevisionAndSavedPlaceChanges() = runBlocking<Unit> {
         val guide = createGuideWithSimpleRevision("g", "d", "r1")
         enqueueIds("left", "right")

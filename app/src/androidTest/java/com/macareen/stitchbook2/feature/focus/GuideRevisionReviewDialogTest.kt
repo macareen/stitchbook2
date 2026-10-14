@@ -44,17 +44,25 @@ class GuideRevisionReviewDialogTest {
             val saved = SavedGuidePlace(work.copy(state = work.state.copy(executionId = ExecutionId("saved"))), revision, "Body · round 2", "Purl.")
             val panel = GuideRevisionPanel(work, revision, ReviewedRevisionChange("p", work, source, 1, target, 2),
                 comparison.candidates.map { ReviewMatch(it, "Body · round 1") },
-                comparison.unmatched.map { ReviewUnmatched(it, "Body · round 2", "Turn.") }, listOf(saved))
+                comparison.unmatched.map { ReviewUnmatched(it, "Body · round 2", "Turn.") }, listOf(saved), listOf(
+                    DefinitionRevision(target.revisionId, source.guideId, 2, 2, target),
+                    DefinitionRevision(DefinitionRevisionId("r3"), source.guideId, 3, 3, GuideDefinition(target.guideId, DefinitionRevisionId("r3"), target.rootNodeIds, target.nodes))))
             var state by mutableStateOf(GuideRevisionReviewState(loading = false, panel = panel, selected = comparison.candidates.map { it.target }.toSet()))
             var resumed: String? = null
             var attempts = 0
+            var chosen: DefinitionRevisionId? = null
             compose.setContent { StitchbookTheme(darkTheme = dark) { Surface(Modifier.fillMaxSize()) { Box(Modifier.systemBarsPadding()) {
                 GuideRevisionReviewDialog(state,
                     onSelect = { address -> state = state.copy(selected = if (address in state.selected) state.selected - address else state.selected + address) },
                     onSelectAll = { all -> state = state.copy(selected = if (all) comparison.candidates.map { it.target }.toSet() else emptySet()) },
                     onApply = { attempts++; state = state.copy(failed = true, busy = attempts > 1) },
-                    onResume = { resumed = it.work.state.executionId.value }, onClose = {})
+                    onResume = { resumed = it.work.state.executionId.value }, onClose = {}, onChoosePublication = { chosen = it })
             } } } }
+            compose.onNodeWithTag("revision_review_list").performScrollToNode(hasText("Compare a publication"))
+            compose.onNodeWithText("Compare a publication").performClick()
+            compose.onNodeWithText("Revision 3").assertIsDisplayed().performClick()
+            compose.runOnIdle { assertEquals(DefinitionRevisionId("r3"), chosen) }
+            compose.onNodeWithText("Revision 3").assertDoesNotExist()
             compose.onNodeWithTag("revision_review_list").performScrollToNode(hasText("Resume saved place"))
             compose.onNodeWithText("Resume saved place").performClick()
             compose.runOnIdle { assertEquals("saved", resumed) }

@@ -7,7 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
@@ -18,8 +18,10 @@ import com.macareen.stitchbook2.domain.execution.*
 
 @Composable
 fun GuideRevisionReviewDialog(state: GuideRevisionReviewState, onSelect: (ExecutionAddress) -> Unit,
-    onSelectAll: (Boolean) -> Unit, onApply: () -> Unit, onResume: (SavedGuidePlace) -> Unit, onClose: () -> Unit) {
+    onSelectAll: (Boolean) -> Unit, onApply: () -> Unit, onResume: (SavedGuidePlace) -> Unit, onClose: () -> Unit,
+    onChoosePublication: (DefinitionRevisionId) -> Unit = {}) {
     val scroll = rememberLazyListState()
+    var choosing by remember { mutableStateOf(false) }
     LaunchedEffect(state.failed) { if (state.failed) scroll.animateScrollToItem(0) }
     AlertDialog(onDismissRequest = { if (!state.busy) onClose() },
         title = { Text(stringResource(R.string.revision_review_title)) },
@@ -30,6 +32,19 @@ fun GuideRevisionReviewDialog(state: GuideRevisionReviewState, onSelect: (Execut
                 state.panel?.let { panel ->
                     item { Text(stringResource(R.string.revision_review_current, panel.revision.revisionNumber)) }
                     item { Text(stringResource(R.string.revision_review_kept)) }
+                    if (panel.publications.isNotEmpty()) item {
+                        Box {
+                            TextButton(onClick = { choosing = true }, enabled = !state.busy && !state.stale) {
+                                Text(stringResource(R.string.revision_review_choose))
+                            }
+                            DropdownMenu(expanded = choosing && !state.busy, onDismissRequest = { choosing = false }) {
+                                panel.publications.forEach { publication ->
+                                    DropdownMenuItem(text = { Text(stringResource(R.string.revision_review_publication, publication.revisionNumber)) },
+                                        onClick = { choosing = false; onChoosePublication(publication.id) })
+                                }
+                            }
+                        }
+                    }
                     val change = panel.change
                     if (change == null) item { Text(stringResource(R.string.revision_review_latest)) }
                     else {

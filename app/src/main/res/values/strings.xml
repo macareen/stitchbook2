@@ -715,4 +715,6 @@
     <string name="revision_review_close">Keep current</string>
     <string name="revision_review_stale">Saved work changed. Close and review again.</string>
     <string name="revision_review_failed">Could not change versions. Your work is kept.</string>
+    <string name="revision_review_choose">Compare a publication</string>
+    <string name="revision_review_publication">Revision %1$d</string>
 </resources>
