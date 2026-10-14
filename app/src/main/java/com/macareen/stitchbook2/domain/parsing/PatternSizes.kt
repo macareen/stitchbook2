@@ -6,7 +6,8 @@ package com.macareen.stitchbook2.domain.parsing
  * in the order of the size list: "Sizes: S (M, L)" with "Cast on 60 (66, 72)
  * sts" means 66 stitches for M.
  *
- * Only a group with exactly one value per size is resolved, so a stitch count
+ * Groups resolve when they have one value per size, or an oversized list whose
+ * values all agree. This preserves ordinary annotations, so a stitch count
  * such as "(24 sts)" or a side such as "(RS)" is never mistaken for one. Any
  * other text is kept word for word.
  */
@@ -97,7 +98,12 @@ object PatternSizes {
             val leading = if (marker) Regex("""^\d+\s+""").find(match.value)?.value.orEmpty() else ""
             val sequence = match.value.removePrefix(leading)
             val values = VALUE_TOKEN.findAll(sequence).map { it.value }.toList()
-            if (('(' in match.value || '[' in match.value) && values.size == sizeCount) leading + values[sizeIndex] else match.value
+            // Some PDFs contain an extra repeated alternative. If every value agrees,
+            // the selected result is invariant; differing oversized runs stay untouched.
+            val invariant = values.size > sizeCount && values.distinct().size == 1
+            if (('(' in match.value || '[' in match.value) && (values.size == sizeCount || invariant)) {
+                leading + values[sizeIndex]
+            } else match.value
         }
     }
 

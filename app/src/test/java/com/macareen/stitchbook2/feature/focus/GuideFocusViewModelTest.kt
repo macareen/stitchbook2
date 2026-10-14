@@ -313,6 +313,24 @@ class GuideFocusViewModelTest {
     }
 
     @Test
+    fun importedNumberedRowsShowTheirPositionInsideEachRepeat() {
+        val repeat = com.macareen.stitchbook2.domain.execution.Repeat(NodeId("repeat"), 9,
+            children = listOf(NodeId("first"), NodeId("second")))
+        val definition = com.macareen.stitchbook2.domain.execution.GuideDefinition(guideId, revisionId, listOf(repeat.id), listOf(
+            repeat, Instruction(NodeId("first"), "Row 1 (RS): Knit."), Instruction(NodeId("second"), "Row 2 (WS): Purl.")))
+        val guides = FakeGuideRepository().withGuide().withRevision(definition)
+        val executions = FakeExecutionRepository(guides)
+        create(executions)
+        val model = viewModel(guides, executions)
+        fun positions() = (model.uiState.value as GuideFocusUiState.InProgress).positions
+        assertEquals(listOf(StructuralPosition.RepeatPosition(null, 1, 9), StructuralPosition.RangePosition("row", 1, 1, 2)), positions())
+        model.onComplete()
+        assertEquals(listOf(StructuralPosition.RepeatPosition(null, 1, 9), StructuralPosition.RangePosition("row", 2, 1, 2)), positions())
+        model.onComplete()
+        assertEquals(listOf(StructuralPosition.RepeatPosition(null, 2, 9), StructuralPosition.RangePosition("row", 1, 1, 2)), positions())
+    }
+
+    @Test
     fun nestedRepeatAndRangeContextRendersBreadcrumbsAndBothPositions() {
         val guides = FakeGuideRepository().withGuide()
             .withRevision(ExecutionEngineFixtures.repeatContainingRangeGuide().definition)

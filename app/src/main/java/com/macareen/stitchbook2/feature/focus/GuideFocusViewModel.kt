@@ -530,6 +530,11 @@ class GuideFocusViewModel(
             structuralPositionFor(validated, frame)
         }
 
+        val repeatedRow = com.macareen.stitchbook2.domain.execution.RepeatedRowContext.of(validated, currentAddress)
+        val displayPositions = positions + listOfNotNull(repeatedRow?.let {
+            StructuralPosition.RangePosition(it.unitLabel, it.current, it.first, it.last)
+        })
+
         val firstIncompleteAddress = traversal.occurrences()
             .map { it.address }
             .firstOrNull { it !in execution.state.completedAddresses }
@@ -543,7 +548,7 @@ class GuideFocusViewModel(
             // The page shows on the Pattern button, so steps read without their "(p.N)".
             instructionText = withoutSourcePage(instruction.text),
             breadcrumbs = breadcrumbs,
-            positions = positions,
+            positions = displayPositions,
             projectCounters = projectCounters,
             jumpToFirstIncompleteTarget = jumpTarget,
             feedback = feedback,

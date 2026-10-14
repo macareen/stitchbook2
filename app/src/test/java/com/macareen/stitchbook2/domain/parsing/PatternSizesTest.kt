@@ -146,6 +146,13 @@ class PatternSizesTest {
         assertEquals("Marker 3 20 (24) 28 (32) sts.", PatternSizes.resolve("Marker 3 20 (24) 28 (32) sts.", 1, 3))
     }
 
+    @Test fun extraIdenticalAlternativesHaveAnInvariantSelectedValue() {
+        val same = "Slip 1 (1) 1 (1) 1 (1) 1 (1) 1 (1) stitch."
+        (0 until 9).forEach { index -> assertEquals("Slip 1 stitch.", PatternSizes.resolve(same, index, 9)) }
+        val differing = "Slip 1 (1) 1 (1) 1 (1) 1 (1) 1 (2) stitches."
+        assertEquals(differing, PatternSizes.resolve(differing, 3, 9))
+    }
+
     private fun document(vararg lines: String) = ExtractedDocument(
         pageCount = 1,
         lines = lines.mapIndexed { index, text -> ExtractedLine(text, SourceReference(1, index + 1)) }
