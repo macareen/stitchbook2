@@ -34,7 +34,7 @@ class ProjectPiecesViewModel(private val projectId: String, private val guides: 
         observer?.cancel()
         observer = scope.launch {
             try {
-                combine(guides.observeGuides(projectId), executions.observePieces(projectId)) { choices, pieces -> choices to pieces }
+                combine(guides.observeGuides(projectId), executions.observePieces(projectId), executions.observeWorkChanges()) { choices, pieces, _ -> choices to pieces }
                     .collectLatest { (guidesInProject, pieces) ->
                         val choices = guidesInProject.filter { !it.isArchived && guides.getLatestRevision(it.id) != null }
                             .map { PieceGuideChoice(it.id.value, it.name) }
