@@ -391,9 +391,7 @@ private fun DraftOutlineRowItem(
             if (row.node.type != DraftNodeType.INSTRUCTION) {
                 Text(text = row.node.type.label(), style = MaterialTheme.typography.labelMedium)
             }
-            com.macareen.stitchbook2.feature.focus.FocusInstructionLayout.actionLines(row.node.summary()).forEach { line ->
-                Text(text = line, style = MaterialTheme.typography.bodyLarge)
-            }
+            com.macareen.stitchbook2.feature.focus.InstructionBlocks(row.node.summary(), MaterialTheme.typography.bodyLarge)
             Spacer(modifier = Modifier.height(StitchbookSpacing.extraSmall))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onMoveUp, enabled = !isSaving && row.canMoveUp) {
