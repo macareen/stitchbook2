@@ -75,8 +75,8 @@ abstract class ExecutionDao {
         guideId: String
     ): List<ExecutionEntity>
 
-    @Query("SELECT execution_id FROM active_executions WHERE guide_id = :guideId AND project_key = :projectKey LIMIT 1")
-    protected abstract suspend fun getActiveExecutionId(guideId: String, projectKey: String): String?
+    @Query("SELECT execution_id FROM active_executions WHERE guide_id = :guideId AND project_key = :projectKey AND piece_key = :pieceKey LIMIT 1")
+    protected abstract suspend fun getActiveExecutionId(guideId: String, projectKey: String, pieceKey: String = ""): String?
 
     /** Whether anyone (any project, or none) is part-way through [guideId]. */
     @Query("SELECT EXISTS(SELECT 1 FROM active_executions WHERE guide_id = :guideId)")
@@ -119,8 +119,8 @@ abstract class ExecutionDao {
         entity: ActiveExecutionEntity
     )
 
-    @Query("DELETE FROM active_executions WHERE guide_id = :guideId AND project_key = :projectKey")
-    protected abstract suspend fun deleteActiveExecutionPointer(guideId: String, projectKey: String)
+    @Query("DELETE FROM active_executions WHERE guide_id = :guideId AND project_key = :projectKey AND piece_key = :pieceKey")
+    protected abstract suspend fun deleteActiveExecutionPointer(guideId: String, projectKey: String, pieceKey: String = "")
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     protected abstract suspend fun insertCurrentFrameEntities(
@@ -178,7 +178,7 @@ abstract class ExecutionDao {
         return getExecutionAggregate(executionId)
     }
 
-    @Query("SELECT * FROM executions WHERE guide_id = :guideId AND project_id = :projectId ORDER BY created_at DESC, id DESC LIMIT 1")
+    @Query("SELECT * FROM executions WHERE guide_id = :guideId AND project_id = :projectId AND piece_id IS NULL ORDER BY created_at DESC, id DESC LIMIT 1")
     protected abstract suspend fun getLatestProjectExecutionEntity(guideId: String, projectId: String): ExecutionEntity?
 
     @Transaction
@@ -208,6 +208,60 @@ abstract class ExecutionDao {
         )
     }
 
+    @Query("SELECT (SELECT COUNT(*) FROM executions) + (SELECT COUNT(*) FROM project_pieces)")
+    abstract fun observeWorkChangeCount(): kotlinx.coroutines.flow.Flow<Long>
+
+    @Query("SELECT p.* FROM project_pieces p LEFT JOIN executions e ON e.piece_id = p.id WHERE p.project_id = :projectId GROUP BY p.id ORDER BY p.is_archived, p.created_at, p.id")
+    abstract fun observePieces(projectId: String): kotlinx.coroutines.flow.Flow<List<ProjectPieceEntity>>
+
+    @Query("SELECT * FROM project_pieces WHERE id = :id LIMIT 1")
+    abstract suspend fun getPiece(id: String): ProjectPieceEntity?
+
+    @Query("SELECT COUNT(*) FROM project_guides WHERE project_id = :projectId AND guide_id = :guideId")
+    protected abstract suspend fun projectUsesGuide(projectId: String, guideId: String): Int
+
+    @androidx.room.Insert
+    protected abstract suspend fun insertPiece(piece: ProjectPieceEntity)
+
+    @Transaction
+    open suspend fun createPiece(piece: ProjectPieceEntity) {
+        require(com.macareen.stitchbook2.domain.model.normalizedPieceName(piece.name) == piece.name) { "Enter a piece name of 1 to 100 characters." }
+        val guide = getGuideEntity(piece.guideId) ?: throw GuideNotFoundException(piece.guideId)
+        require(!guide.isArchived && (guide.projectId == piece.projectId ||
+            (guide.projectId == null && projectUsesGuide(piece.projectId, piece.guideId) > 0))) { "Choose a guide used by this project." }
+        insertPiece(piece)
+    }
+
+    @Query("""UPDATE project_pieces SET name = :name, is_archived = :archived, updated_at = :now
+        WHERE id = :id AND project_id = :projectId AND guide_id = :guideId
+        AND name = :oldName AND is_archived = :oldArchived AND updated_at = :oldUpdatedAt""")
+    abstract suspend fun updatePiece(id: String, projectId: String, guideId: String, name: String,
+        archived: Boolean, now: Long, oldName: String, oldArchived: Boolean, oldUpdatedAt: Long): Int
+
+    @Transaction
+    open suspend fun getActivePieceExecution(pieceId: String): ExecutionAggregate? {
+        val piece = getPiece(pieceId) ?: return null
+        val id = getActiveExecutionId(piece.guideId, piece.projectId, piece.id) ?: return null
+        return getExecutionAggregate(id)
+    }
+
+    @Query("SELECT * FROM executions WHERE piece_id = :pieceId ORDER BY created_at DESC, id DESC LIMIT 1")
+    protected abstract suspend fun getLatestPieceRow(pieceId: String): ExecutionEntity?
+
+    @Transaction
+    open suspend fun getLatestPieceExecution(pieceId: String): ExecutionAggregate? =
+        getLatestPieceRow(pieceId)?.let { loadAggregate(it) }
+
+    @Query("""SELECT e.* FROM executions e JOIN active_executions a ON a.execution_id = e.id
+        LEFT JOIN project_pieces p ON p.id = e.piece_id
+        WHERE e.guide_id = :guideId AND e.project_id = :projectId AND (p.id IS NULL OR p.is_archived = 0)
+        ORDER BY e.updated_at DESC, e.id DESC LIMIT 1""")
+    protected abstract suspend fun getActiveProjectWorkRow(guideId: String, projectId: String): ExecutionEntity?
+
+    @Transaction
+    open suspend fun getActiveProjectWork(guideId: String, projectId: String): ExecutionAggregate? =
+        getActiveProjectWorkRow(guideId, projectId)?.let { loadAggregate(it) }
+
     // ---- Create ----
 
     @Transaction
@@ -216,15 +270,20 @@ abstract class ExecutionDao {
         revisionId: String,
         executionId: String,
         createdAt: Long,
-        projectId: String? = null
+        projectId: String? = null,
+        pieceId: String? = null
     ): ExecutionAggregate {
         getGuideEntity(guideId) ?: throw GuideNotFoundException(guideId)
+        if (pieceId != null) {
+            val piece = requireNotNull(getPiece(pieceId)) { "This piece no longer exists." }
+            require(piece.projectId == projectId && piece.guideId == guideId && !piece.isArchived) { "This piece is unavailable for this guide or project." }
+        }
         val revision = getRevisionEntity(revisionId)
             ?: throw RevisionNotFoundException(revisionId)
         if (revision.guideId != guideId) {
             throw RevisionGuideMismatchException(revisionId, guideId)
         }
-        if (getActiveExecutionId(guideId, projectKey(projectId)) != null) {
+        if (getActiveExecutionId(guideId, projectKey(projectId), pieceId.orEmpty()) != null) {
             throw ActiveExecutionAlreadyExistsException(guideId)
         }
 
@@ -239,12 +298,12 @@ abstract class ExecutionDao {
                 updatedAt = createdAt,
                 completedAt = null,
                 version = 0
-            ).copy(projectId = projectId)
+            ).copy(projectId = projectId, pieceId = pieceId)
         )
         val currentFrames = state.toCurrentFrameEntities()
         if (currentFrames.isNotEmpty()) insertCurrentFrameEntities(currentFrames)
         insertActiveExecutionPointer(
-            ActiveExecutionEntity(guideId = guideId, projectKey = projectKey(projectId), executionId = executionId)
+            ActiveExecutionEntity(guideId = guideId, projectKey = projectKey(projectId), executionId = executionId, pieceKey = pieceId.orEmpty())
         )
 
         return ExecutionAggregate(
@@ -326,7 +385,7 @@ abstract class ExecutionDao {
         val reopening = previousStatus == ExecutionStatus.COMPLETED &&
             newState.status == ExecutionStatus.ACTIVE
         if (reopening) {
-            val activeExecutionId = getActiveExecutionId(guideId, key)
+            val activeExecutionId = getActiveExecutionId(guideId, key, execution.pieceId.orEmpty())
             if (activeExecutionId != null && activeExecutionId != executionId) {
                 throw ActiveExecutionAlreadyExistsException(guideId)
             }
@@ -365,9 +424,9 @@ abstract class ExecutionDao {
         }
 
         if (newState.status == ExecutionStatus.COMPLETED) {
-            deleteActiveExecutionPointer(guideId, key)
+            deleteActiveExecutionPointer(guideId, key, execution.pieceId.orEmpty())
         } else if (reopening) {
-            insertActiveExecutionPointer(ActiveExecutionEntity(guideId, key, executionId))
+            insertActiveExecutionPointer(ActiveExecutionEntity(guideId, key, executionId, execution.pieceId.orEmpty()))
         }
 
         val updatedAggregate = ExecutionAggregate(

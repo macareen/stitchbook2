@@ -20,6 +20,7 @@ enum class ProjectSection(
     @get:StringRes val description: Int,
     val icon: ImageVector
 ) {
+    PIECES(R.string.pieces_title, R.string.pieces_intro, Icons.Outlined.AutoStories),
     MATERIALS(
         title = R.string.materials_title,
         description = R.string.project_section_materials_description,
@@ -48,6 +49,7 @@ enum class ProjectSection(
 }
 
 fun ProjectSection.route(projectId: String): String = when (this) {
+    ProjectSection.PIECES -> ProjectDestination.piecesRoute(projectId)
     ProjectSection.MATERIALS -> ProjectDestination.materialsRoute(projectId)
     ProjectSection.JOURNAL -> ProjectDestination.journalRoute(projectId)
     ProjectSection.SESSIONS -> ProjectDestination.sessionsRoute(projectId)

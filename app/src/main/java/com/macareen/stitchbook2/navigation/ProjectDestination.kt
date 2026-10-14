@@ -7,6 +7,8 @@ object ProjectDestination {
     const val CREATE_ROUTE = "projects/create"
     const val DETAIL_ROUTE = "projects/{$PROJECT_ID_ARGUMENT}"
     const val EDIT_ROUTE = "projects/{$PROJECT_ID_ARGUMENT}/edit"
+    const val PIECES_ROUTE = "projects/{$PROJECT_ID_ARGUMENT}/pieces"
+    fun piecesRoute(projectId: String) = "projects/${Uri.encode(projectId)}/pieces"
     const val MATERIALS_ROUTE = "projects/{$PROJECT_ID_ARGUMENT}/materials"
     const val JOURNAL_ROUTE = "projects/{$PROJECT_ID_ARGUMENT}/journal"
     const val SESSIONS_ROUTE = "projects/{$PROJECT_ID_ARGUMENT}/sessions"

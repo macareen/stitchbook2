@@ -84,6 +84,7 @@ private const val KEY_GUIDE_REVISIONS = "guideRevisions"
 private const val KEY_EXECUTIONS = "executions"
 private const val KEY_ACTIVE_EXECUTIONS = "activeExecutions"
 private const val KEY_PROJECT_GUIDES = "projectGuides"
+private const val KEY_PROJECT_PIECES = "projectPieces"
 
 internal fun encodeBackup(snapshot: BackupSnapshot, exportedAt: Long): String {
     val root = JSONObject()
@@ -118,7 +119,11 @@ internal fun encodeBackup(snapshot: BackupSnapshot, exportedAt: Long): String {
     put(KEY_GUIDE_REVISIONS, snapshot.guideRevisions) { it.toJson() }
     put(KEY_EXECUTIONS, snapshot.executions) { it.toJson() }
     put(KEY_ACTIVE_EXECUTIONS, snapshot.activeExecutions) {
-        JSONObject().put("guideId", it.guideId).put("projectKey", it.projectKey).put("executionId", it.executionId)
+        JSONObject().put("guideId", it.guideId).put("projectKey", it.projectKey).put("executionId", it.executionId).put("pieceKey", it.pieceKey)
+    }
+    put(KEY_PROJECT_PIECES, snapshot.projectPieces) { piece ->
+        JSONObject().put("id", piece.id).put("projectId", piece.projectId).put("guideId", piece.guideId)
+            .put("name", piece.name).put("isArchived", piece.isArchived).put("createdAt", piece.createdAt).put("updatedAt", piece.updatedAt)
     }
     put(KEY_PROJECT_GUIDES, snapshot.projectGuides) {
         JSONObject().put("projectId", it.projectId).put("guideId", it.guideId)
@@ -156,8 +161,11 @@ internal fun decodeBackup(json: String): BackupSnapshot {
         guideRevisions = list(KEY_GUIDE_REVISIONS) { it.toGuideRevisionRecord() },
         executions = list(KEY_EXECUTIONS) { it.toExecutionRecord() },
         activeExecutions = list(KEY_ACTIVE_EXECUTIONS) {
-            ActiveExecutionRecord(it.getString("guideId"), it.getString("projectKey"), it.getString("executionId"))
+            ActiveExecutionRecord(it.getString("guideId"), it.getString("projectKey"), it.getString("executionId"), it.optString("pieceKey", ""))
         },
+        projectPieces = list(KEY_PROJECT_PIECES) { piece ->
+            com.macareen.stitchbook2.domain.model.ProjectPiece(piece.getString("id"), piece.getString("projectId"), piece.getString("guideId"), piece.getString("name"), piece.getBoolean("isArchived"), piece.getLong("createdAt"), piece.getLong("updatedAt"))
+        } ?: if (root.optInt(KEY_VERSION, 1) < 4 && root.has(KEY_GUIDES)) emptyList() else null,
         projectGuides = list(KEY_PROJECT_GUIDES) { ProjectGuideLink(it.getString("projectId"), it.getString("guideId")) }
     )
 }
@@ -724,6 +732,7 @@ internal fun ExecutionRecord.toJson(): JSONObject = JSONObject().apply {
     put("guideId", guideId)
     put("definitionRevisionId", definitionRevisionId)
     put("projectId", projectId ?: JSONObject.NULL)
+    put("pieceId", pieceId ?: JSONObject.NULL)
     put("status", status)
     put("currentInstructionNodeId", currentInstructionNodeId ?: JSONObject.NULL)
     put("createdAt", createdAt)
@@ -749,6 +758,7 @@ internal fun JSONObject.toExecutionRecord(): ExecutionRecord = ExecutionRecord(
     guideId = getString("guideId"),
     definitionRevisionId = getString("definitionRevisionId"),
     projectId = optNullableString("projectId"),
+    pieceId = optNullableString("pieceId"),
     status = getString("status"),
     currentInstructionNodeId = optNullableString("currentInstructionNodeId"),
     createdAt = getLong("createdAt"),

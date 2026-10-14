@@ -665,4 +665,33 @@
     <string name="guide_archived_hide">Hide archived guides</string>
     <string name="guide_archive_failed">Could not archive or restore this guide. Its content and progress are unchanged.</string>
     <string name="guide_archived_reuse">Archived · restore and use</string>
+    <string name="backup_type_project_pieces">Project pieces</string>
+    <string name="pieces_title">Pieces</string>
+    <string name="pieces_intro">Keep a separate place for each sleeve, panel, motif or other piece.</string>
+    <string name="pieces_back">Back to project</string>
+    <string name="pieces_retry">Try again</string>
+    <string name="pieces_add">Add piece</string>
+    <string name="pieces_need_guide">Create and publish a guide for this project before adding a piece.</string>
+    <string name="pieces_show_archived">Show archived pieces</string>
+    <string name="pieces_empty">Add your first piece when you are ready.</string>
+    <string name="pieces_archived">Archived · progress kept</string>
+    <string name="pieces_finished">Finished</string>
+    <plurals name="pieces_completed_steps">
+        <item quantity="one">%1$d step completed</item>
+        <item quantity="other">%1$d steps completed</item>
+    </plurals>
+    <string name="pieces_not_started">Not started</string>
+    <string name="pieces_revision">Revision %1$d</string>
+    <string name="pieces_open">Open piece</string>
+    <string name="pieces_start">Start piece</string>
+    <string name="pieces_rename">Rename</string>
+    <string name="pieces_restore">Restore</string>
+    <string name="pieces_archive">Archive</string>
+    <string name="pieces_name">Piece name</string>
+    <string name="pieces_choose_guide">Choose a guide</string>
+    <string name="pieces_save_error">Could not save. Your work is kept. Close and reopen this form to review any changes.</string>
+    <string name="pieces_load_error">Could not update pieces. Your saved work is kept.</string>
+    <string name="pieces_save">Save</string>
+    <string name="pieces_cancel">Cancel</string>
+    <string name="pieces_manage">Manage pieces</string>
 </resources>

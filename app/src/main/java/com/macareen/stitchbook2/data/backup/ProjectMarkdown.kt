@@ -174,9 +174,25 @@ fun projectMarkdown(project: Project, snapshot: BackupSnapshot, now: Long): Stri
  * how many steps this project has done.
  */
 private fun StringBuilder.guidesSection(projectId: String, graph: GuideBackupGraph) {
-    val usedIds = graph.projectGuides.filter { it.projectId == projectId }.map { it.guideId }.toSet()
+    val usedIds = graph.projectGuides.filter { it.projectId == projectId }.map { it.guideId }.toSet() + graph.pieces.filter { it.projectId == projectId }.map { it.guideId }
     val guides = graph.guides.filter { it.projectId == projectId || it.id in usedIds }.sortedBy { it.name.lowercase() }
     if (guides.isEmpty()) return
+    val pieces = graph.pieces.filter { it.projectId == projectId }
+    if (pieces.isNotEmpty()) {
+        line("## Pieces")
+        pieces.forEach { piece ->
+            line("### ${piece.name}")
+            line("Guide: ${graph.guides.firstOrNull { it.id == piece.guideId }?.name ?: piece.guideId}")
+            if (piece.isArchived) line("Archived; progress is kept.")
+            val progress = graph.executions.filter { it.pieceId == piece.id }.sortedBy { it.createdAt }
+            if (progress.isEmpty()) line("Not started.")
+            progress.forEach { execution ->
+                val revision = graph.revisions.firstOrNull { it.id == execution.definitionRevisionId }
+                line("Revision ${revision?.revisionNumber ?: execution.definitionRevisionId}: ${execution.status}, ${execution.completedOccurrences.size} completed steps (progress ${execution.id}).")
+            }
+            line()
+        }
+    }
     line("## Guides")
     line()
     guides.forEach { guide ->
@@ -191,7 +207,7 @@ private fun StringBuilder.guidesSection(projectId: String, graph: GuideBackupGra
             line()
         }
         graph.executions
-            .filter { it.guideId == guide.id && it.projectId == projectId }
+            .filter { it.guideId == guide.id && it.projectId == projectId && it.pieceId == null }
             .maxByOrNull { it.updatedAt }
             ?.let { progress ->
                 val state = if (progress.completedAt != null) "finished" else "in progress"

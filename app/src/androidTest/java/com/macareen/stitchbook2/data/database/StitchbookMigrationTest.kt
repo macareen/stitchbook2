@@ -18,7 +18,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Bump alongside `StitchbookDatabase.version`; every migration chain below must reach it. */
-private const val CURRENT_SCHEMA_VERSION = 24
+private const val CURRENT_SCHEMA_VERSION = 25
 
 @RunWith(AndroidJUnit4::class)
 class StitchbookMigrationTest {
@@ -85,6 +85,24 @@ class StitchbookMigrationTest {
         if (::database.isInitialized) database.close()
         context.deleteDatabase(DATABASE_NAME)
         context.deleteDatabase(HELPER_DATABASE_NAME)
+    }
+
+    @Test fun migrationTwentyFourToTwentyFivePreservesExistingExecutionScope() {
+        migrationHelper.createDatabase(HELPER_DATABASE_NAME, 24).use { db ->
+            db.execSQL("INSERT INTO guides (id, project_id, library_item_id, size_label, name, notes, created_at, updated_at) VALUES ('g', NULL, NULL, 'L', 'Keep guide', NULL, 1, 2)")
+            db.execSQL("INSERT INTO definition_revisions(id, guide_id, revision_number, created_at) VALUES ('r', 'g', 1, 2)")
+            db.execSQL("INSERT INTO executions(id, guide_id, definition_revision_id, status, current_instruction_node_id, created_at, updated_at, completed_at, version, project_id) VALUES ('e', 'g', 'r', 'ACTIVE', 'step', 3, 4, NULL, 7, NULL)")
+            db.execSQL("INSERT INTO active_executions(guide_id, project_key, execution_id) VALUES ('g', '', 'e')")
+        }
+        migrationHelper.runMigrationsAndValidate(HELPER_DATABASE_NAME, 25, true, MIGRATION_24_25).use { db ->
+            db.query("SELECT version, piece_id, current_instruction_node_id FROM executions WHERE id = 'e'").use {
+                assertTrue(it.moveToFirst()); assertEquals(7, it.getInt(0)); assertTrue(it.isNull(1)); assertEquals("step", it.getString(2))
+            }
+            db.query("SELECT execution_id, piece_key FROM active_executions WHERE guide_id = 'g'").use {
+                assertTrue(it.moveToFirst()); assertEquals("e", it.getString(0)); assertEquals("", it.getString(1))
+            }
+            db.query("SELECT COUNT(*) FROM project_pieces").use { assertTrue(it.moveToFirst()); assertEquals(0, it.getInt(0)) }
+        }
     }
 
     @Test
@@ -243,12 +261,12 @@ class StitchbookMigrationTest {
                 "library_items", "stash_items", "tool_sets", "tool_items", "tool_templates",
                 "project_tool_assignments", "counters", "counter_notes",
                 "yarn_allocations", "project_pattern_links", "milestones", "photos",
-                "journal_entries", "crafting_sessions", "project_guides"
+                "journal_entries", "crafting_sessions", "project_guides", "project_pieces"
             )
             assertEquals(expectedTables, readTableNames())
 
             assertEquals(
-                setOf("guides", "definition_revisions"),
+                setOf("guides", "definition_revisions", "project_pieces"),
                 readForeignKeyParents("executions")
             )
             assertEquals(
@@ -774,7 +792,8 @@ class StitchbookMigrationTest {
             MIGRATION_20_21,
             MIGRATION_21_22,
             MIGRATION_22_23,
-            MIGRATION_23_24
+            MIGRATION_23_24,
+            MIGRATION_24_25
         ).use { db ->
             db.query(
                 "SELECT name, notes, description, construction_method, custom_type_label, start_date, target_date, completed_date FROM projects WHERE id = 'existing-project'"

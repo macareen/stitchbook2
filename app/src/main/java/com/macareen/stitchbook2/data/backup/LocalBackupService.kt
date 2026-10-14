@@ -103,7 +103,7 @@ class LocalBackupService(
     private fun projectGuides(graph: GuideBackupGraph?, projectId: String): GuideBackupGraph? {
         graph ?: return null
         val used = graph.projectGuides.filter { it.projectId == projectId }
-        val guideIds = graph.guides.filter { it.projectId == projectId }.map { it.id }.toSet() + used.map { it.guideId }
+        val guideIds = graph.guides.filter { it.projectId == projectId }.map { it.id }.toSet() + used.map { it.guideId } + graph.pieces.filter { it.projectId == projectId }.map { it.guideId }
         val executions = graph.executions.filter { it.guideId in guideIds && it.projectId == projectId }
         val executionIds = executions.map { it.id }.toSet()
         return GuideBackupGraph(
@@ -112,7 +112,8 @@ class LocalBackupService(
             revisions = graph.revisions.filter { it.guideId in guideIds },
             executions = executions,
             activeExecutions = graph.activeExecutions.filter { it.executionId in executionIds },
-            projectGuides = used
+            projectGuides = used,
+            pieces = graph.pieces.filter { it.projectId == projectId }
         )
     }
 

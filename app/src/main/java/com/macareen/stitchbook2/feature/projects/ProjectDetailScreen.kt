@@ -328,6 +328,9 @@ private fun ProjectDetailContent(
         }
         ProjectDashboardBeforeGuides(hubState.dashboard, state.guideEntries, onOpenSection, project.coverPhotoId, hubActions.onSetCover, onOpenPattern, onOpenPdf, hubState.coverSaveFailed)
         ProjectDashboardTools(state.assignedTools) { openSheet = HubSheet.TOOLS }
+        TextButton(onClick = { onOpenSection(ProjectSection.PIECES) }) {
+            Text(stringResource(R.string.pieces_manage))
+        }
         GuidesSection(
             guideEntries = state.guideEntries, isCreatingGuide = state.isCreatingGuide,
             createGuideFailed = state.createGuideFailed, isImportingPdf = state.isImportingPdf,

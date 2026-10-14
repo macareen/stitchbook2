@@ -78,6 +78,7 @@ internal fun GuideGraphRows.toGraph(): GuideBackupGraph {
                 updatedAt = execution.updatedAt,
                 completedAt = execution.completedAt,
                 version = execution.version,
+                pieceId = execution.pieceId,
                 currentFrames = framesByExecution[execution.id].orEmpty().map {
                     AddressFrameRecord(it.frameOrder, it.containerNodeId, it.frameType, it.frameValue)
                 },
@@ -92,8 +93,9 @@ internal fun GuideGraphRows.toGraph(): GuideBackupGraph {
                 }
             ).canonical()
         },
-        activeExecutions = activeExecutions.map { ActiveExecutionRecord(it.guideId, it.projectKey, it.executionId) },
-        projectGuides = projectGuides.map { ProjectGuideLink(it.projectId, it.guideId) }
+        activeExecutions = activeExecutions.map { ActiveExecutionRecord(it.guideId, it.projectKey, it.executionId, it.pieceKey) },
+        projectGuides = projectGuides.map { ProjectGuideLink(it.projectId, it.guideId) },
+        pieces = pieces.map { com.macareen.stitchbook2.domain.model.ProjectPiece(it.id, it.projectId, it.guideId, it.name, it.isArchived, it.createdAt, it.updatedAt) }
     )
 }
 
@@ -160,7 +162,8 @@ internal fun GuideBackupGraph.toRows(): GuideGraphRows = GuideGraphRows(
             updatedAt = it.updatedAt,
             completedAt = it.completedAt,
             version = it.version,
-            projectId = it.projectId
+            projectId = it.projectId,
+            pieceId = it.pieceId
         )
     },
     currentFrames = executions.flatMap { execution ->
@@ -187,8 +190,9 @@ internal fun GuideBackupGraph.toRows(): GuideGraphRows = GuideGraphRows(
             }
         }
     },
-    activeExecutions = activeExecutions.map { ActiveExecutionEntity(it.guideId, it.projectKey, it.executionId) },
-    projectGuides = projectGuides.map { ProjectGuideLinkEntity(it.projectId, it.guideId) }
+    activeExecutions = activeExecutions.map { ActiveExecutionEntity(it.guideId, it.projectKey, it.executionId, it.pieceKey) },
+    projectGuides = projectGuides.map { ProjectGuideLinkEntity(it.projectId, it.guideId) },
+    pieces = pieces.map { com.macareen.stitchbook2.data.database.ProjectPieceEntity(it.id, it.projectId, it.guideId, it.name, it.isArchived, it.createdAt, it.updatedAt) }
 )
 
 private fun DraftNodeEntity.toRecord() = GuideNodeRecord(

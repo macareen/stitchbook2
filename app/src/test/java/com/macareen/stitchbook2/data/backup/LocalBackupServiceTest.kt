@@ -144,6 +144,18 @@ class LocalBackupServiceTest {
         createdAt = 150
     )
 
+    @Test fun projectExportIncludesOnlyItsNamedPiecesAndTheirProgress() = runBlocking {
+        val left = com.macareen.stitchbook2.domain.model.ProjectPiece("left", "project-1", "guide-1", "Left sleeve", false, 1, 2)
+        val elsewhere = left.copy(id = "other", projectId = "project-2", guideId = "guide-2")
+        val work = GuideBackupFixtures.execution.copy(pieceId = left.id)
+        val graph = GuideBackupFixtures.graph.copy(pieces = listOf(left, elsewhere), executions = listOf(work),
+            activeExecutions = listOf(com.macareen.stitchbook2.domain.backup.ActiveExecutionRecord(work.guideId, "project-1", work.id, left.id)))
+        val exported = decodeBackup(requireNotNull(guideService(FakeGuideBackupStore(graph)).exportProjectJson("project-1")))
+        assertEquals(listOf(left), exported.projectPieces)
+        assertEquals(left.id, exported.executions?.single()?.pieceId)
+        assertEquals(left.id, exported.activeExecutions?.single()?.pieceKey)
+    }
+
     @Test
     fun manualSessionOriginRoundTripsAndLegacySessionsRemainTimed() {
         val manual = com.macareen.stitchbook2.domain.model.SessionTimer.start("m", project.id, 1, "UTC").copy(
@@ -720,7 +732,7 @@ class LocalBackupServiceTest {
         assertEquals(listOf(GuideBackupFixtures.link), store.graph.projectGuides)
         assertEquals(1, result.conflictsKept)
         assertEquals(
-            setOf("draft-1", "revision-1", "execution-1", "guide-1/project-1"),
+            setOf("draft-1", "revision-1", "execution-1", com.macareen.stitchbook2.domain.backup.activeExecutionKey("guide-1", "project-1")),
             result.notices.map { it.recordKey }.toSet()
         )
     }

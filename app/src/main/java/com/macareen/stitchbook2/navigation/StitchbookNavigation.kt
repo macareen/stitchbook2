@@ -116,7 +116,7 @@ fun StitchbookNavHost(
                     navController.navigateToTopLevelDestination(TopLevelDestination.Stash)
                 },
                 onResumeGuide = { resume ->
-                    navController.navigate(GuideFocusDestination.route(resume.guideId, resume.projectId))
+                    navController.navigate(GuideFocusDestination.route(resume.guideId, resume.projectId, resume.pieceId))
                 },
                 onOpenStatistics = {
                     navController.navigate(ProjectDestination.STATISTICS_ROUTE)
@@ -424,6 +424,15 @@ fun StitchbookNavHost(
                 }
             )
         }
+        composable(ProjectDestination.PIECES_ROUTE,
+            arguments = listOf(navArgument(ProjectDestination.PROJECT_ID_ARGUMENT) { type = NavType.StringType })) { entry ->
+            val projectId = entry.arguments?.getString(ProjectDestination.PROJECT_ID_ARGUMENT).orEmpty()
+            val model: com.macareen.stitchbook2.feature.projects.ProjectPiecesViewModel = viewModel(
+                factory = com.macareen.stitchbook2.feature.projects.ProjectPiecesViewModel.factory(projectId, guideRepository, executionRepository))
+            com.macareen.stitchbook2.feature.projects.ProjectPiecesRoute(model,
+                onOpen = { piece -> navController.navigate(GuideFocusDestination.route(piece.guideId, piece.projectId, piece.id)) },
+                onBack = { navController.popBackStack() })
+        }
         composable(
             route = ProjectDestination.MATERIALS_ROUTE,
             arguments = listOf(
@@ -533,6 +542,11 @@ fun StitchbookNavHost(
                     type = NavType.StringType
                     nullable = true
                     defaultValue = null
+                },
+                navArgument(GuideFocusDestination.PIECE_ID_ARGUMENT) {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
                 }
             )
         ) { backStackEntry ->
@@ -548,6 +562,7 @@ fun StitchbookNavHost(
                     executionRepository = executionRepository,
                     counterRepository = counterRepository,
                     projectId = projectId,
+                    pieceId = backStackEntry.arguments?.getString(GuideFocusDestination.PIECE_ID_ARGUMENT),
                     materialsRepository = materialsRepository,
                     sessionRepository = sessionRepository,
                     projectRepository = projectRepository

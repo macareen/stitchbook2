@@ -7,14 +7,15 @@ package com.macareen.stitchbook2.domain.execution
  * The [state] itself is exactly the pure domain model produced and consumed
  * by [ExecutionEngine]; persistence adds no fields to it beyond [version]
  * (for optimistic concurrency, mirroring `GuideDraft.version`) and the
- * timestamps below.
+ * timestamps and optional piece ownership below.
  */
 data class PersistedExecution(
     val state: ExecutionState,
     val version: Long,
     val createdAt: Long,
     val updatedAt: Long,
-    val completedAt: Long?
+    val completedAt: Long?,
+    val pieceId: String? = null
 )
 
 /**

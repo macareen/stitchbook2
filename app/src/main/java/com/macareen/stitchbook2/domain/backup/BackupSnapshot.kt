@@ -38,6 +38,7 @@ enum class BackupRecordType {
     GUIDES,
     GUIDE_DRAFTS,
     GUIDE_REVISIONS,
+    PROJECT_PIECES,
     EXECUTIONS,
     ACTIVE_EXECUTIONS,
     PROJECT_GUIDES
@@ -48,6 +49,7 @@ val GUIDE_GRAPH_TYPES: Set<BackupRecordType> = setOf(
     BackupRecordType.GUIDES,
     BackupRecordType.GUIDE_DRAFTS,
     BackupRecordType.GUIDE_REVISIONS,
+    BackupRecordType.PROJECT_PIECES,
     BackupRecordType.EXECUTIONS,
     BackupRecordType.ACTIVE_EXECUTIONS,
     BackupRecordType.PROJECT_GUIDES
@@ -85,7 +87,8 @@ data class BackupSnapshot(
     val guideRevisions: List<GuideRevisionRecord>? = null,
     val executions: List<ExecutionRecord>? = null,
     val activeExecutions: List<ActiveExecutionRecord>? = null,
-    val projectGuides: List<ProjectGuideLink>? = null
+    val projectGuides: List<ProjectGuideLink>? = null,
+    val projectPieces: List<com.macareen.stitchbook2.domain.model.ProjectPiece>? = null
 ) {
     /** The guide graph this snapshot carries, or null when it carries no guides. */
     fun guideGraph(): GuideBackupGraph? {
@@ -96,7 +99,8 @@ data class BackupSnapshot(
             revisions = guideRevisions.orEmpty(),
             executions = executions.orEmpty(),
             activeExecutions = activeExecutions.orEmpty(),
-            projectGuides = projectGuides.orEmpty()
+            projectGuides = projectGuides.orEmpty(),
+            pieces = projectPieces.orEmpty()
         )
     }
 
@@ -107,7 +111,8 @@ data class BackupSnapshot(
         guideRevisions = graph?.revisions,
         executions = graph?.executions,
         activeExecutions = graph?.activeExecutions,
-        projectGuides = graph?.projectGuides
+        projectGuides = graph?.projectGuides,
+        projectPieces = graph?.pieces
     )
 
     /** Record count per type present in this snapshot. */
@@ -135,8 +140,9 @@ data class BackupSnapshot(
         BackupRecordType.GUIDES -> guides?.map { it.id }
         BackupRecordType.GUIDE_DRAFTS -> guideDrafts?.map { it.id }
         BackupRecordType.GUIDE_REVISIONS -> guideRevisions?.map { it.id }
+        BackupRecordType.PROJECT_PIECES -> projectPieces?.map { it.id } ?: if (formatVersion < 4 && guides != null) emptyList() else null
         BackupRecordType.EXECUTIONS -> executions?.map { it.id }
-        BackupRecordType.ACTIVE_EXECUTIONS -> activeExecutions?.map { activeExecutionKey(it.guideId, it.projectKey) }
+        BackupRecordType.ACTIVE_EXECUTIONS -> activeExecutions?.map { activeExecutionKey(it.guideId, it.projectKey, it.pieceKey) }
         BackupRecordType.PROJECT_GUIDES -> projectGuides?.map { "${it.projectId}/${it.guideId}" }
     }
 
@@ -162,6 +168,7 @@ data class BackupSnapshot(
             BackupRecordType.GUIDES -> guides!!
             BackupRecordType.GUIDE_DRAFTS -> guideDrafts!!
             BackupRecordType.GUIDE_REVISIONS -> guideRevisions!!
+            BackupRecordType.PROJECT_PIECES -> projectPieces.orEmpty()
             BackupRecordType.EXECUTIONS -> executions!!
             BackupRecordType.ACTIVE_EXECUTIONS -> activeExecutions!!
             BackupRecordType.PROJECT_GUIDES -> projectGuides!!
@@ -206,8 +213,8 @@ data class TypeComparison(
 data class BackupConflict(val type: BackupRecordType, val recordKey: String)
 
 /** The identity of an active-progress pointer; the "" key (a guide on its own) reads as "(no project)". */
-fun activeExecutionKey(guideId: String, projectKey: String): String =
-    "$guideId/${projectKey.ifEmpty { "(no project)" }}"
+fun activeExecutionKey(guideId: String, projectKey: String, pieceKey: String = ""): String =
+    listOf(guideId, projectKey, pieceKey).joinToString("") { "${it.length}:$it" }
 
 /**
  * Something a restore changes or leaves out on purpose instead of failing:
