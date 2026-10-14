@@ -36,6 +36,11 @@ class ExecutionVersionConflictException(
  */
 interface ExecutionRepository {
 
+    suspend fun listExecutionsForScope(guideId: GuideId, projectId: String?, pieceId: String?): List<PersistedExecution> = emptyList()
+    suspend fun applyReviewedRevision(review: com.macareen.stitchbook2.domain.execution.ReviewedRevisionChange,
+        selected: Set<ExecutionAddress>): PersistedExecution = throw UnsupportedOperationException()
+    suspend fun resumeReviewedPlace(review: com.macareen.stitchbook2.domain.execution.ReviewedSavedPlace): PersistedExecution = throw UnsupportedOperationException()
+
     fun observeWorkChanges(): kotlinx.coroutines.flow.Flow<Unit> = kotlinx.coroutines.flow.flowOf(Unit)
     fun observePieces(projectId: String): kotlinx.coroutines.flow.Flow<List<com.macareen.stitchbook2.domain.model.ProjectPiece>> = kotlinx.coroutines.flow.flowOf(emptyList())
     suspend fun loadPiece(pieceId: String): com.macareen.stitchbook2.domain.model.ProjectPiece? = null
@@ -75,7 +80,7 @@ interface ExecutionRepository {
     /** Loads the ACTIVE Execution for [guideId] in [projectId] (null: opened on its own), or null if none. */
     suspend fun getActiveExecution(guideId: GuideId, projectId: String? = null): PersistedExecution?
 
-    /** Most recent progress for this project only, including completed executions. */
+    /** Current selected work for this project, otherwise its most recent history, including completed executions. */
     suspend fun getLatestExecutionForProject(guideId: GuideId, projectId: String): PersistedExecution? =
         getActiveExecution(guideId, projectId)
 

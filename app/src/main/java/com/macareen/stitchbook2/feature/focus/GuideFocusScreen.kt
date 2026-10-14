@@ -94,6 +94,7 @@ import com.macareen.stitchbook2.ui.theme.sectionLabel
 @Composable
 fun GuideFocusRoute(viewModel: GuideFocusViewModel, onOpenPattern: (PatternPage) -> Unit = {}) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val revisionReview by viewModel.revisionReview.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -138,8 +139,11 @@ fun GuideFocusRoute(viewModel: GuideFocusViewModel, onOpenPattern: (PatternPage)
         onDecrementCounter = viewModel::onDecrementCounter,
         onJumpTo = viewModel::onJumpTo,
         onOpenPattern = onOpenPattern,
-        onToggleTimer = viewModel::onToggleTimer
+        onToggleTimer = viewModel::onToggleTimer,
+        onReviewVersions = viewModel.revisionReview::open
     )
+    revisionReview?.let { GuideRevisionReviewDialog(it, viewModel.revisionReview::select,
+        viewModel.revisionReview::selectAll, viewModel.revisionReview::apply, viewModel.revisionReview::resume, viewModel.revisionReview::close) }
 }
 
 @Composable
@@ -155,7 +159,8 @@ fun GuideFocusScreen(
     modifier: Modifier = Modifier,
     onJumpTo: (ExecutionAddress) -> Unit = {},
     onOpenPattern: (PatternPage) -> Unit = {},
-    onToggleTimer: () -> Unit = {}
+    onToggleTimer: () -> Unit = {},
+    onReviewVersions: () -> Unit = {}
 ) {
     when (uiState) {
         GuideFocusUiState.Loading -> LoadingState(modifier)
@@ -194,12 +199,14 @@ fun GuideFocusScreen(
             onJumpTo = onJumpTo,
             onOpenPattern = onOpenPattern,
             onToggleTimer = onToggleTimer,
+            onReviewVersions = onReviewVersions,
             modifier = modifier
         )
 
         is GuideFocusUiState.Completed -> CompletedContent(
             state = uiState,
             onStartNext = onStartNext,
+            onReviewVersions = onReviewVersions,
             modifier = modifier
         )
     }
@@ -304,6 +311,7 @@ private fun InProgressContent(
     onJumpTo: (ExecutionAddress) -> Unit,
     onOpenPattern: (PatternPage) -> Unit,
     onToggleTimer: () -> Unit,
+    onReviewVersions: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showOverview by rememberSaveable { mutableStateOf(false) }
@@ -470,7 +478,8 @@ private fun InProgressContent(
                 showOverview = false
                 onJumpTo(target)
             },
-            onDismiss = { showOverview = false }
+            onDismiss = { showOverview = false },
+            onReviewVersions = { showOverview = false; onReviewVersions() }
         )
     }
 }
@@ -615,13 +624,16 @@ private fun progressText(progress: GuideProgressSummary): String = when (progres
 /** The whole guide at a glance; tapping a line moves there. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun OverviewSheet(entries: List<OverviewEntry>, onJumpTo: (ExecutionAddress) -> Unit, onDismiss: () -> Unit) {
+private fun OverviewSheet(entries: List<OverviewEntry>, onJumpTo: (ExecutionAddress) -> Unit, onDismiss: () -> Unit, onReviewVersions: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Text(
             text = stringResource(R.string.focus_overview_title),
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(horizontal = StitchbookSpacing.large, vertical = StitchbookSpacing.small)
         )
+        TextButton(onClick = onReviewVersions, modifier = Modifier.padding(horizontal = StitchbookSpacing.large)) {
+            Text(stringResource(R.string.revision_review_title))
+        }
         LazyColumn(contentPadding = PaddingValues(bottom = StitchbookSpacing.large)) {
             items(entries, key = { it.nodeId.value }) { entry -> OverviewLine(entry, onClick = { onJumpTo(entry.jumpTarget) }) }
         }
@@ -801,6 +813,7 @@ private fun focusFeedbackText(feedback: FocusFeedback): String = when (feedback)
 private fun CompletedContent(
     state: GuideFocusUiState.Completed,
     onStartNext: () -> Unit,
+    onReviewVersions: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -834,8 +847,13 @@ private fun CompletedContent(
                 stringResource(R.string.focus_start_next_action)
             },
             onClick = onStartNext,
-            enabled = !state.isStartingNext
+            enabled = !state.isStartingNext && !state.isBusy
         )
+        if (state.executionId != null) {
+            TextButton(onClick = onReviewVersions, enabled = !state.isStartingNext && !state.isBusy) {
+                Text(stringResource(R.string.revision_review_title))
+            }
+        }
         if (state.startNextFailed) {
             Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
             Text(

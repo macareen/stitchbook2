@@ -132,7 +132,10 @@ sealed interface GuideFocusUiState {
         val guideName: String,
         val projectId: String,
         val isStartingNext: Boolean = false,
-        val startNextFailed: Boolean = false
+        val startNextFailed: Boolean = false,
+        val executionId: ExecutionId? = null,
+        val version: Long = 0,
+        val isBusy: Boolean = false
     ) : GuideFocusUiState
 }
 
@@ -180,6 +183,28 @@ class GuideFocusViewModel(
     private val _uiState = MutableStateFlow<GuideFocusUiState>(GuideFocusUiState.Loading)
     val uiState: StateFlow<GuideFocusUiState> = _uiState.asStateFlow()
 
+    private fun reviewContext(): GuideRevisionContext? = when (val value = _uiState.value) {
+        is GuideFocusUiState.InProgress -> GuideRevisionContext(value.guideName, value.projectId, value.executionId, value.version, value.isBusy)
+        is GuideFocusUiState.Completed -> value.executionId?.let { GuideRevisionContext(value.guideName, value.projectId, it, value.version, value.isBusy || value.isStartingNext) }
+        else -> null
+    }
+
+    val revisionReview = GuideRevisionReviewController(guideId, pieceId, guideRepository, executionRepository, scope,
+        current = { reviewContext() },
+        setBusy = { busy -> when (val value = _uiState.value) {
+            is GuideFocusUiState.InProgress -> _uiState.value = value.copy(isBusy = busy)
+            is GuideFocusUiState.Completed -> _uiState.value = value.copy(isBusy = busy)
+            else -> Unit
+        } },
+        refresh = { refresh() },
+        applied = { execution -> reviewContext()?.let { context -> scope.launch {
+            try {
+                applyExecutionResult(context.guideName, context.projectId, execution,
+                    counterRepository.observeCountersByProject(context.projectId).first())
+            } catch (error: CancellationException) { throw error }
+            catch (_: Exception) { loadFromRepositories() }
+        } } ?: refresh() })
+
     init {
         refresh()
         sessionRepository?.let { repository ->
@@ -217,17 +242,13 @@ class GuideFocusViewModel(
 
     fun onStartNext() {
         val current = _uiState.value as? GuideFocusUiState.Completed ?: return
-        if (current.isStartingNext) return
+        if (current.isStartingNext || current.isBusy) return
         _uiState.value = current.copy(isStartingNext = true, startNextFailed = false)
         startNewExecution(
             guideName = current.guideName,
             projectId = current.projectId,
             onFailure = {
-                _uiState.value = GuideFocusUiState.Completed(
-                    guideName = current.guideName,
-                    projectId = current.projectId,
-                    startNextFailed = true
-                )
+                _uiState.value = current.copy(isStartingNext = false, startNextFailed = true)
             }
         )
     }
@@ -461,6 +482,9 @@ class GuideFocusViewModel(
                 materialsRepository?.observePatternsForProject(id)?.first()?.filter { it.pdfUri != null }?.singleOrNull()?.id
             }
             val active = if (pieceId == null) executionRepository.getActiveExecution(guideId, contextProjectId)
+                ?: (contextProjectId?.let { executionRepository.getLatestExecutionForProject(guideId, it) }
+                    ?: executionRepository.listExecutionsForScope(guideId, contextProjectId, null).firstOrNull())
+                    ?.takeIf { it.state.status == ExecutionStatus.COMPLETED }
                 else executionRepository.getActivePieceExecution(pieceId) ?: executionRepository.getLatestPieceExecution(pieceId)
             if (active != null) {
                 val projectCounters = contextProjectId?.let { counterRepository.observeCountersByProject(it).first() }.orEmpty()
@@ -489,7 +513,8 @@ class GuideFocusViewModel(
         feedback: FocusFeedback? = null
     ) {
         if (execution.state.status == ExecutionStatus.COMPLETED) {
-            _uiState.value = GuideFocusUiState.Completed(guideName = guideName, projectId = projectId)
+            _uiState.value = GuideFocusUiState.Completed(guideName = guideName, projectId = projectId,
+                executionId = execution.state.executionId, version = execution.version)
             return
         }
 

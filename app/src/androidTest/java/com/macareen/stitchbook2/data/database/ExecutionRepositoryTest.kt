@@ -71,6 +71,164 @@ class ExecutionRepositoryTest {
         database.close()
     }
 
+    @Test fun completedUpgradeCanResumeThePreviousUnfinishedGuideInFocus() = runBlocking<Unit> {
+        insertProject("project-g")
+        enqueueIds("g", "d")
+        val guide = guideRepository.createGuide("project-g", "Guide").id
+        val draft = requireNotNull(guideRepository.loadDraft(guide))
+        guideRepository.saveDraft(draft.copy(rootNodeIds = listOf(nodeId("a"), nodeId("b")), nodes = listOf(
+            DraftNode(id = nodeId("a"), type = DraftNodeType.INSTRUCTION, instructionText = "Work first instruction"),
+            DraftNode(id = nodeId("b"), type = DraftNodeType.INSTRUCTION, instructionText = "Work second instruction"))))
+        enqueueIds("r1")
+        guideRepository.publishDraft(guide)
+        enqueueIds("old-work")
+        var old = executionRepository.createExecution(guide, DefinitionRevisionId("r1"), "project-g")
+        old = executionRepository.applyComplete(old.state.executionId, old.version).execution
+        enqueueIds("d2")
+        val next = guideRepository.createDraftFromLatestRevision(guide)
+        guideRepository.saveDraft(next.copy(rootNodeIds = listOf(nodeId("a")), nodes = next.nodes.filter { it.id == nodeId("a") }))
+        enqueueIds("r2")
+        guideRepository.publishDraft(guide)
+        val vm = com.macareen.stitchbook2.feature.focus.GuideFocusViewModel(guide, guideRepository,
+            executionRepository, com.macareen.stitchbook2.data.repository.LocalCounterRepository(database.counterDao()),
+            externalScope = this, projectId = "project-g")
+        kotlinx.coroutines.withTimeout(5_000) { vm.uiState.first { it is com.macareen.stitchbook2.feature.focus.GuideFocusUiState.InProgress } }
+        vm.revisionReview.open()
+        val review = kotlinx.coroutines.withTimeout(5_000) { vm.revisionReview.state.first { it?.panel != null } }!!
+        assertEquals(1, review.selected.size)
+        enqueueIds("finished-upgrade")
+        vm.revisionReview.apply()
+        val finished = kotlinx.coroutines.withTimeout(5_000) { vm.uiState.first { it is com.macareen.stitchbook2.feature.focus.GuideFocusUiState.Completed } }
+            as com.macareen.stitchbook2.feature.focus.GuideFocusUiState.Completed
+        assertEquals(ExecutionId("finished-upgrade"), finished.executionId)
+        vm.refresh()
+        kotlinx.coroutines.yield()
+        assertTrue(vm.uiState.value is com.macareen.stitchbook2.feature.focus.GuideFocusUiState.Completed)
+        database.openHelper.writableDatabase.execSQL("CREATE TRIGGER reject_next BEFORE INSERT ON executions WHEN NEW.id = 'rejected-next' BEGIN SELECT RAISE(ABORT, 'test failure'); END")
+        enqueueIds("rejected-next")
+        vm.onStartNext()
+        val failedStart = kotlinx.coroutines.withTimeout(5_000) { vm.uiState.first {
+            it is com.macareen.stitchbook2.feature.focus.GuideFocusUiState.Completed && it.startNextFailed
+        } } as com.macareen.stitchbook2.feature.focus.GuideFocusUiState.Completed
+        assertEquals(finished.executionId, failedStart.executionId)
+        database.openHelper.writableDatabase.execSQL("DROP TRIGGER reject_next")
+        vm.revisionReview.open()
+        val saved = kotlinx.coroutines.withTimeout(5_000) { vm.revisionReview.state.first { it?.panel != null } }!!.panel!!.saved.single()
+        assertEquals(old.state, saved.work.state)
+        vm.revisionReview.resume(saved)
+        val resumed = kotlinx.coroutines.withTimeout(5_000) { vm.uiState.first { it is com.macareen.stitchbook2.feature.focus.GuideFocusUiState.InProgress } }
+            as com.macareen.stitchbook2.feature.focus.GuideFocusUiState.InProgress
+        assertEquals(old.state.executionId, resumed.executionId)
+        assertEquals("Work second instruction", resumed.instructionText)
+        assertEquals(DefinitionRevisionId("r1"), executionRepository.getActiveExecution(guide, "project-g")!!.state.definitionRevisionId)
+        assertEquals(ExecutionStatus.COMPLETED, executionRepository.loadExecution(finished.executionId!!)!!.state.status)
+    }
+
+    @Test fun revisionControllerPreservesChoicesAfterFailedApplyAndRetriesSafely() = runBlocking<Unit> {
+        val guide = createGuideWithSimpleRevision("g", "d", "r1")
+        enqueueIds("w1")
+        var work = executionRepository.createExecution(guide, DefinitionRevisionId("r1"), "project-g")
+        work = executionRepository.applyComplete(work.state.executionId, work.version).execution
+        val target = publishExpandedRevision(guide)
+        var context = com.macareen.stitchbook2.feature.focus.GuideRevisionContext("Guide", "project-g",
+            work.state.executionId, work.version)
+        var refreshes = 0
+        val controller = com.macareen.stitchbook2.feature.focus.GuideRevisionReviewController(guide, null,
+            guideRepository, executionRepository, this, { context }, { context = context.copy(isBusy = it) }, { refreshes++ })
+        controller.open()
+        val loaded = kotlinx.coroutines.withTimeout(5_000) { controller.state.first { it?.panel != null } }!!
+        assertEquals(1, loaded.selected.size)
+        assertTrue(loaded.panel!!.matches.single().context.contains("round 1"))
+        controller.selectAll(false)
+        database.openHelper.writableDatabase.execSQL("CREATE TRIGGER reject_controller BEFORE INSERT ON executions WHEN NEW.id = 'rejected-controller' BEGIN SELECT RAISE(ABORT, 'test failure'); END")
+        enqueueIds("rejected-controller")
+        controller.apply()
+        val failed = kotlinx.coroutines.withTimeout(5_000) { controller.state.first { it?.failed == true } }!!
+        assertTrue(failed.selected.isEmpty())
+        assertEquals(work, executionRepository.getActiveExecution(guide, "project-g"))
+        database.openHelper.writableDatabase.execSQL("DROP TRIGGER reject_controller")
+        enqueueIds("upgraded-controller")
+        controller.apply()
+        kotlinx.coroutines.withTimeout(5_000) { controller.state.first { it == null } }
+        assertEquals(1, refreshes)
+        assertEquals(target.id, executionRepository.getActiveExecution(guide, "project-g")?.state?.definitionRevisionId)
+    }
+
+    @Test fun reviewedUpgradeKeepsOldWorkAndCanResumeItsSavedPlace() = runBlocking {
+        val guide = createGuideWithSimpleRevision("g", "d", "r1")
+        enqueueIds("w1")
+        var old = executionRepository.createExecution(guide, DefinitionRevisionId("r1"), "project-g")
+        repeat(2) { old = executionRepository.applyComplete(old.state.executionId, old.version).execution }
+        val target = publishExpandedRevision(guide)
+        val source = requireNotNull(guideRepository.loadRevision(old.state.definitionRevisionId))
+        val review = com.macareen.stitchbook2.domain.execution.ReviewedRevisionChange("project-g", old,
+            source.definition, source.revisionNumber, target.definition, target.revisionNumber)
+        val candidates = com.macareen.stitchbook2.domain.execution.RevisionProgressComparison.preview(source.definition, target.definition, old.state.completedAddresses).candidates
+        enqueueIds("w2")
+        val upgraded = executionRepository.applyReviewedRevision(review, setOf(candidates.first().target))
+        assertEquals(1, upgraded.state.completedAddresses.size)
+        assertEquals(NodeId("added"), upgraded.state.currentAddress?.instructionNodeId)
+        val saved = requireNotNull(executionRepository.loadExecution(old.state.executionId))
+        assertEquals(old.state, saved.state)
+        assertSuspendThrows<ExecutionVersionConflictException> { executionRepository.applyComplete(saved.state.executionId, saved.version) }
+        val resumed = executionRepository.resumeReviewedPlace(com.macareen.stitchbook2.domain.execution.ReviewedSavedPlace(
+            "project-g", upgraded, target.definition, saved, source.definition))
+        assertEquals(old.state, resumed.state)
+        assertEquals(resumed, executionRepository.getActiveExecution(guide, "project-g"))
+        assertEquals(resumed, executionRepository.getLatestExecutionForProject(guide, "project-g"))
+        val store = com.macareen.stitchbook2.data.backup.RoomGuideBackupStore(database.guideBackupDao())
+        val graph = store.load(); store.replace(graph)
+        assertEquals(graph, store.load())
+        assertEquals(2, executionRepository.listExecutionsForScope(guide, "project-g", null).size)
+    }
+
+    @Test fun reviewedUpgradeRejectsStaleScopeContentAndUnreviewedAddresses() = runBlocking {
+        val guide = createGuideWithSimpleRevision("g", "d", "r1")
+        enqueueIds("w1")
+        val old = executionRepository.createExecution(guide, DefinitionRevisionId("r1"), "project-g")
+        val source = requireNotNull(guideRepository.loadRevision(old.state.definitionRevisionId))
+        val target = publishExpandedRevision(guide)
+        val review = com.macareen.stitchbook2.domain.execution.ReviewedRevisionChange("project-g", old,
+            source.definition, source.revisionNumber, target.definition, target.revisionNumber)
+        val current = executionRepository.applyComplete(old.state.executionId, old.version).execution
+        enqueueIds("rejected1", "rejected2", "rejected3", "rejected4")
+        assertSuspendThrows<ExecutionVersionConflictException> { executionRepository.applyReviewedRevision(review, emptySet()) }
+        val fresh = review.copy(source = current)
+        assertSuspendThrows<ExecutionVersionConflictException> { executionRepository.applyReviewedRevision(fresh.copy(projectId = "another"), emptySet()) }
+        val changed = com.macareen.stitchbook2.domain.execution.GuideDefinition(target.definition.guideId, target.definition.revisionId,
+            target.definition.rootNodeIds, target.definition.nodes.map { if (it.id == NodeId("added")) com.macareen.stitchbook2.domain.execution.Instruction(it.id, "Different") else it })
+        assertSuspendThrows<ExecutionVersionConflictException> { executionRepository.applyReviewedRevision(fresh.copy(targetDefinition = changed), emptySet()) }
+        assertSuspendThrows<IllegalArgumentException> { executionRepository.applyReviewedRevision(fresh, current.state.completedAddresses) }
+        assertEquals(current, executionRepository.getActiveExecution(guide, "project-g"))
+        assertEquals(1, countRows("executions", "guide_id = 'g'").toInt())
+    }
+
+    @Test fun pieceUpgradeIsAtomicAndCannotResumeAnotherPiecesWork() = runBlocking {
+        val guide = createGuideWithSimpleRevision("g", "d", "r1")
+        enqueueIds("left", "right", "wl", "wr")
+        val left = executionRepository.createPiece("project-g", guide, "Left sleeve")
+        val right = executionRepository.createPiece("project-g", guide, "Right sleeve")
+        val old = executionRepository.createPieceExecution(left.id, DefinitionRevisionId("r1"))
+        val other = executionRepository.createPieceExecution(right.id, DefinitionRevisionId("r1"))
+        val source = requireNotNull(guideRepository.loadRevision(old.state.definitionRevisionId))
+        val target = publishExpandedRevision(guide)
+        val review = com.macareen.stitchbook2.domain.execution.ReviewedRevisionChange("project-g", old,
+            source.definition, source.revisionNumber, target.definition, target.revisionNumber)
+        database.openHelper.writableDatabase.execSQL("CREATE TRIGGER reject_upgrade BEFORE INSERT ON executions WHEN NEW.id = 'rejected' BEGIN SELECT RAISE(ABORT, 'test failure'); END")
+        enqueueIds("rejected")
+        assertSuspendThrows<Exception> { executionRepository.applyReviewedRevision(review, emptySet()) }
+        assertEquals(old, executionRepository.getActivePieceExecution(left.id))
+        assertEquals(other, executionRepository.getActivePieceExecution(right.id))
+        database.openHelper.writableDatabase.execSQL("DROP TRIGGER reject_upgrade")
+        enqueueIds("upgraded")
+        val upgraded = executionRepository.applyReviewedRevision(review, emptySet())
+        assertEquals(left.id, upgraded.pieceId)
+        assertEquals(other, executionRepository.getActivePieceExecution(right.id))
+        assertSuspendThrows<ExecutionVersionConflictException> { executionRepository.resumeReviewedPlace(
+            com.macareen.stitchbook2.domain.execution.ReviewedSavedPlace("project-g", upgraded, target.definition, other, source.definition)) }
+        assertEquals(upgraded, executionRepository.getActivePieceExecution(left.id))
+    }
+
     @Test fun homeResumeRefreshesWhenOnlyPieceWorkOrArchiveChanges() = runBlocking<Unit> {
         val guide = createGuideWithSimpleRevision("g", "d", "r")
         database.projectDao().upsert(projectEntity("project-g").copy(status = "ACTIVE"))
@@ -645,6 +803,15 @@ class ExecutionRepositoryTest {
     }
 
     // ---- Fixtures ----
+
+    private suspend fun publishExpandedRevision(guide: GuideId): com.macareen.stitchbook2.domain.guide.DefinitionRevision {
+        enqueueIds("d2", "r2")
+        val draft = guideRepository.createDraftFromLatestRevision(guide)
+        guideRepository.saveDraft(draft.copy(nodes = draft.nodes.map {
+            if (it.type == DraftNodeType.RANGE) it.copy(children = it.children + NodeId("added")) else it
+        } + DraftNode(id = NodeId("added"), type = DraftNodeType.INSTRUCTION, instructionText = "Purl")))
+        return guideRepository.publishDraft(guide)
+    }
 
     private suspend fun createGuideWithSimpleRevision(
         guideId: String,

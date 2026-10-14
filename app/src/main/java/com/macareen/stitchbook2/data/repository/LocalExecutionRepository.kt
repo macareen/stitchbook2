@@ -25,6 +25,17 @@ class LocalExecutionRepository(
     private val currentTimeMillis: () -> Long = System::currentTimeMillis
 ) : ExecutionRepository {
 
+    override suspend fun listExecutionsForScope(guideId: GuideId, projectId: String?, pieceId: String?) =
+        executionDao.getScopeExecutions(guideId.value, projectId, pieceId).map { it.toDomain() }
+
+    override suspend fun applyReviewedRevision(review: com.macareen.stitchbook2.domain.execution.ReviewedRevisionChange,
+        selected: Set<ExecutionAddress>): PersistedExecution = translatingVersionConflict(review.source.state.executionId) {
+        executionDao.applyReviewedRevision(review, selected, newId(), currentTimeMillis()).toDomain()
+    }
+
+    override suspend fun resumeReviewedPlace(review: com.macareen.stitchbook2.domain.execution.ReviewedSavedPlace): PersistedExecution =
+        translatingVersionConflict(review.current.state.executionId) { executionDao.resumeReviewedPlace(review, currentTimeMillis()).toDomain() }
+
     override fun observeWorkChanges() = executionDao.observeWorkChangeCount().map { Unit }
     override fun observePieces(projectId: String) = executionDao.observePieces(projectId).map { rows -> rows.map { it.toDomain() } }
     override suspend fun loadPiece(pieceId: String) = executionDao.getPiece(pieceId)?.toDomain()
@@ -72,7 +83,7 @@ class LocalExecutionRepository(
     }
 
     override suspend fun getLatestExecutionForProject(guideId: GuideId, projectId: String): PersistedExecution? =
-        executionDao.getLatestProjectExecutionAggregate(guideId.value, projectId)?.toDomain()
+        (executionDao.getActiveExecutionAggregate(guideId.value, projectId) ?: executionDao.getLatestProjectExecutionAggregate(guideId.value, projectId))?.toDomain()
 
     override suspend fun hasActiveExecutionAnywhere(guideId: GuideId): Boolean =
         executionDao.hasAnyActiveExecution(guideId.value)

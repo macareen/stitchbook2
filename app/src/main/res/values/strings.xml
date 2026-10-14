@@ -694,4 +694,25 @@
     <string name="pieces_save">Save</string>
     <string name="pieces_cancel">Cancel</string>
     <string name="pieces_manage">Manage pieces</string>
+    <string name="revision_review_title">Guide versions</string>
+    <string name="revision_review_current">Current: revision %1$d</string>
+    <string name="revision_review_kept">Your old saved place is kept. Only the matching work you choose moves to the new version.</string>
+    <string name="revision_review_latest">You are using the newest published version.</string>
+    <string name="revision_review_target">Review revision %1$d</string>
+    <string name="revision_review_summary">Selected matching steps: %1$d / %2$d. Changed or removed: %3$d.</string>
+    <string name="revision_review_all">Select all</string>
+    <string name="revision_review_none">Clear all</string>
+    <string name="revision_review_not_carried">Changed or removed work</string>
+    <string name="revision_review_removed">This step is no longer in this position.</string>
+    <string name="revision_review_text_changed">The instruction changed.</string>
+    <string name="revision_review_scope_changed">The section, row or repeat context changed.</string>
+    <string name="revision_review_new_text">New instruction:</string>
+    <string name="revision_review_saved_title">Other saved places</string>
+    <string name="revision_review_saved_summary">Revision %1$d · completed: %2$d</string>
+    <string name="revision_review_resume">Resume saved place</string>
+    <string name="revision_review_finished">Finished record</string>
+    <string name="revision_review_apply">Use revision %1$d</string>
+    <string name="revision_review_close">Keep current</string>
+    <string name="revision_review_stale">Saved work changed. Close and review again.</string>
+    <string name="revision_review_failed">Could not change versions. Your work is kept.</string>
 </resources>

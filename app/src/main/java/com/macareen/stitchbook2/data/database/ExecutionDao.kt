@@ -1,5 +1,9 @@
 package com.macareen.stitchbook2.data.database
 
+import com.macareen.stitchbook2.domain.execution.ReviewedRevisionChange
+import com.macareen.stitchbook2.domain.execution.ReviewedSavedPlace
+import com.macareen.stitchbook2.domain.execution.revisionChangeSeed
+import com.macareen.stitchbook2.domain.execution.hasSameContentAs
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
@@ -316,6 +320,76 @@ abstract class ExecutionDao {
         )
     }
 
+    @Query("SELECT * FROM executions WHERE guide_id = :guideId AND project_id IS :projectId AND piece_id IS :pieceId ORDER BY created_at DESC, id DESC")
+    protected abstract suspend fun getScopeRows(guideId: String, projectId: String?, pieceId: String?): List<ExecutionEntity>
+
+    @Transaction
+    open suspend fun getScopeExecutions(guideId: String, projectId: String?, pieceId: String?): List<ExecutionAggregate> =
+        getScopeRows(guideId, projectId, pieceId).map { loadAggregate(it) }
+
+    @Query("SELECT COUNT(*) FROM projects WHERE id = :id")
+    protected abstract suspend fun scopeProjectExists(id: String): Int
+
+    private suspend fun checkedCurrent(expected: com.macareen.stitchbook2.domain.execution.PersistedExecution,
+        definition: com.macareen.stitchbook2.domain.execution.GuideDefinition, projectId: String?): ExecutionAggregate {
+        val id = expected.state.executionId.value
+        val entity = getExecutionEntity(id) ?: throw ExecutionConflictException(id)
+        val aggregate = loadAggregate(entity)
+        val actualDefinition = RevisionAggregate(aggregate.revision, aggregate.revisionNodes).toDomain().definition
+        val pointer = getActiveExecutionId(entity.guideId, projectKey(projectId), entity.pieceId.orEmpty())
+        val isCurrent = when (entity.status) {
+            ExecutionStatus.ACTIVE.name -> pointer == id
+            ExecutionStatus.COMPLETED.name -> pointer == null &&
+                getScopeRows(entity.guideId, projectId, entity.pieceId).firstOrNull()?.id == id
+            else -> false
+        }
+        if (entity.projectId != projectId || aggregate.toDomain() != expected ||
+            !actualDefinition.hasSameContentAs(definition) || !isCurrent ||
+            (projectId != null && scopeProjectExists(projectId) == 0) ||
+            (entity.pieceId != null && getPiece(entity.pieceId)?.isArchived != false)) throw ExecutionConflictException(id)
+        return aggregate
+    }
+
+    private suspend fun bumpVersion(entity: ExecutionEntity, now: Long) {
+        if (updateExecutionEntity(entity.id, entity.status, entity.currentInstructionNodeId, now,
+            entity.completedAt, entity.version, Math.addExact(entity.version, 1L)) != 1) throw ExecutionConflictException(entity.id)
+    }
+
+    @Transaction
+    open suspend fun applyReviewedRevision(review: ReviewedRevisionChange,
+        selected: Set<ExecutionAddress>, newId: String, now: Long): ExecutionAggregate {
+        val current = checkedCurrent(review.source, review.sourceDefinition, review.projectId)
+        val targetRevision = getRevisionEntity(review.targetDefinition.revisionId.value)
+            ?: throw ExecutionConflictException(current.execution.id)
+        val target = RevisionAggregate(targetRevision, getRevisionNodeEntities(targetRevision.id)).toDomain()
+        if (targetRevision.guideId != current.execution.guideId ||
+            targetRevision.revisionNumber != review.targetRevisionNumber ||
+            current.revision.revisionNumber != review.sourceRevisionNumber ||
+            !target.definition.hasSameContentAs(review.targetDefinition)) throw ExecutionConflictException(current.execution.id)
+        val seed = revisionChangeSeed(review, selected, ExecutionId(newId))
+        bumpVersion(current.execution, now)
+        deleteActiveExecutionPointer(current.execution.guideId, projectKey(review.projectId), current.execution.pieceId.orEmpty())
+        createExecution(current.execution.guideId, targetRevision.id, newId, now, review.projectId, current.execution.pieceId)
+        return applyTransition(newId, 0, now) { _, _ -> ExecutionTransitionResult.Changed(seed) }.aggregate
+    }
+
+    @Transaction
+    open suspend fun resumeReviewedPlace(review: ReviewedSavedPlace, now: Long): ExecutionAggregate {
+        val current = checkedCurrent(review.current, review.currentDefinition, review.projectId)
+        val saved = getExecutionEntity(review.saved.state.executionId.value)?.let { loadAggregate(it) }
+            ?: throw ExecutionConflictException(current.execution.id)
+        val savedDefinition = RevisionAggregate(saved.revision, saved.revisionNodes).toDomain().definition
+        if (saved.execution.id == current.execution.id || saved.execution.guideId != current.execution.guideId ||
+            saved.execution.projectId != current.execution.projectId || saved.execution.pieceId != current.execution.pieceId ||
+            saved.execution.status != ExecutionStatus.ACTIVE.name || saved.toDomain() != review.saved ||
+            !savedDefinition.hasSameContentAs(review.savedDefinition)) throw ExecutionConflictException(current.execution.id)
+        bumpVersion(current.execution, now)
+        bumpVersion(saved.execution, now)
+        deleteActiveExecutionPointer(current.execution.guideId, projectKey(review.projectId), current.execution.pieceId.orEmpty())
+        insertActiveExecutionPointer(ActiveExecutionEntity(current.execution.guideId, projectKey(review.projectId), saved.execution.id, current.execution.pieceId.orEmpty()))
+        return requireNotNull(getExecutionAggregate(saved.execution.id))
+    }
+
     // ---- Transitions ----
 
     @Transaction
@@ -360,7 +434,9 @@ abstract class ExecutionDao {
     ): ExecutionTransitionRow {
         val execution = getExecutionEntity(executionId)
             ?: throw ExecutionNotFoundException(executionId)
-        if (execution.version != expectedVersion) {
+        if (execution.version != expectedVersion ||
+            (execution.status == ExecutionStatus.ACTIVE.name &&
+                getActiveExecutionId(execution.guideId, projectKey(execution.projectId), execution.pieceId.orEmpty()) != executionId)) {
             throw ExecutionConflictException(executionId)
         }
 
