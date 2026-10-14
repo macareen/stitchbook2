@@ -21,6 +21,43 @@ class ActionLinesFocusTest {
     @Test fun actionsAreSpacedInLightMode() = check(false, 1f)
     @Test fun actionsAreSpacedInDarkMode() = check(true, 1f)
     @Test fun longRowsScrollAndCompleteStaysReachableAtLargeTextSize() = check(true, 1.8f)
+    @Test fun nestedInlineGroupsAreReadableInLightMode() = checkGroups(false, 1f)
+    @Test fun nestedInlineGroupsAreReadableInDarkMode() = checkGroups(true, 1f)
+    @Test fun nestedInlineGroupsRemainReachableAtLargeText() = checkGroups(true, 1.8f)
+    private fun checkGroups(dark: Boolean, scale: Float) {
+        var completed = 0
+        val state = GuideFocusUiState.InProgress("Sample stitches", "project", ExecutionId("e"), 0,
+            "Work [k2, repeat *p2, sl1* twice] to end, turn.", emptyList(), emptyList())
+        compose.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, scale)) {
+                StitchbookTheme(darkTheme = dark) { Surface(Modifier.systemBarsPadding()) {
+                    GuideFocusScreen(state, {}, { completed++ }, {}, {}, {}, {}, {})
+                } }
+            }
+        }
+        compose.onNodeWithText("Work [").assertIsDisplayed()
+        compose.onNodeWithText("k2").assertIsDisplayed()
+        compose.onNodeWithText("repeat *").assertIsDisplayed()
+        compose.onNodeWithText("p2").assertIsDisplayed()
+        compose.onNodeWithText("sl1").assertIsDisplayed()
+        val first = compose.onNodeWithText("p2").fetchSemanticsNode().boundsInRoot
+        val second = compose.onNodeWithText("sl1").fetchSemanticsNode().boundsInRoot
+        assertTrue("Grouped actions must occupy distinct lines", second.top > first.bottom)
+        compose.onNodeWithText("* twice").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("] to end").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("turn.").performScrollTo().assertIsDisplayed()
+        if (InstrumentationRegistry.getArguments().getString("captureInstructionGroups") == "true") {
+            assertTrue(android.os.Build.HARDWARE in listOf("ranchu", "goldfish"))
+            val mode = if (scale > 1f) "large" else if (dark) "dark" else "light"
+            compose.waitForIdle()
+            ParcelFileDescriptor.AutoCloseInputStream(InstrumentationRegistry.getInstrumentation().uiAutomation
+                .executeShellCommand("screencap -p /sdcard/Download/stitchbook-instruction-groups-$mode.png")).use { it.readBytes() }
+        }
+        compose.onNodeWithText("Complete").assertIsDisplayed().performClick()
+        compose.runOnIdle { assertEquals(1, completed) }
+    }
+
     private fun check(dark: Boolean, scale: Float) {
         var completed = 0
         val state = GuideFocusUiState.InProgress("Sample cardigan", "project", ExecutionId("e"), 0,

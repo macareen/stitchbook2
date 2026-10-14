@@ -387,12 +387,7 @@ private fun InProgressContent(
                             state.positions.forEach { position -> PositionLine(position) }
                         }
                     }
-                    Column(verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
-                        FocusInstructionLayout.actionLines(state.instructionText).forEach { action ->
-                            Text(text = action, style = MaterialTheme.typography.instruction,
-                                color = MaterialTheme.colorScheme.onSurface)
-                        }
-                    }
+                    InstructionBlocks(state.instructionText, MaterialTheme.typography.instruction)
                     state.feedback?.let { feedback ->
                         QuietText(text = focusFeedbackText(feedback))
                     }
@@ -680,9 +675,7 @@ private fun OverviewLine(entry: OverviewEntry, onClick: () -> Unit) {
                 OverviewEntry.Kind.ROWS -> R.string.draft_node_type_range
                 OverviewEntry.Kind.STEP -> R.string.draft_node_type_instruction
             }), style = MaterialTheme.typography.labelMedium)
-            FocusInstructionLayout.actionLines(entry.text).forEach { line ->
-                Text(text = line, style = MaterialTheme.typography.bodyLarge)
-            }
+            InstructionBlocks(entry.text, MaterialTheme.typography.bodyLarge)
         }
         if (entry.totalSteps > 1) {
             QuietText(text = stringResource(R.string.focus_overview_count, entry.completedSteps, entry.totalSteps))

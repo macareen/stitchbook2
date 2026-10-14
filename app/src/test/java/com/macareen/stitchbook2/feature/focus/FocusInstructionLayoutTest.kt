@@ -4,6 +4,45 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class FocusInstructionLayoutTest {
+    @Test fun compactActionsAlsoUseSeparateLines() {
+        assertEquals(listOf("k2", "p2", "sl1."), FocusInstructionLayout.actionLines("k2,p2,sl1."))
+    }
+    @Test fun bracketGroupsKeepTheirBoundariesAndEndingOutsideTheActions() {
+        assertEquals(listOf(
+            FocusInstructionLayout.Block("Work [", listOf(FocusInstructionLayout.Block("k2"), FocusInstructionLayout.Block("p2")), "] to end"),
+            FocusInstructionLayout.Block("turn.")), FocusInstructionLayout.blocks("Work [k2, p2] to end, turn."))
+    }
+    @Test fun nestedStarredRepeatKeepsItsOwnEnding() {
+        val group = FocusInstructionLayout.blocks("Work [k2, repeat *p2, sl1* twice] to end").single()
+        assertEquals("Work [", group.text)
+        assertEquals("] to end", group.suffix)
+        val inner = group.children[1]
+        assertEquals("repeat *", inner.text)
+        assertEquals(listOf(FocusInstructionLayout.Block("p2"), FocusInstructionLayout.Block("sl1")), inner.children)
+        assertEquals("* twice", inner.suffix)
+    }
+    @Test fun numericAnnotationsAndQuotedGroupsAreNotReinterpreted() {
+        val text = "Cast on 40 (44, 48) stitches"
+        assertEquals(listOf(FocusInstructionLayout.Block(text)), FocusInstructionLayout.blocks(text))
+        val quoted = "Work \"[knit 2, purl 2]\" to end"
+        assertEquals(listOf(FocusInstructionLayout.Block(quoted)), FocusInstructionLayout.blocks(quoted))
+    }
+    @Test fun malformedWholeGroupsStayIntactForReview() {
+        listOf("Work [k2, p2", "Repeat *k2, p2, turn.", "Work [(k2, p2])").forEach { text ->
+            assertEquals(listOf(FocusInstructionLayout.Block(text)), FocusInstructionLayout.blocks(text))
+        }
+    }
+    @Test fun multilineGroupsAndIndependentGroupsKeepTheirOrder() {
+        val blocks = FocusInstructionLayout.blocks("Work [k2\np2] to end\nturn.")
+        assertEquals(listOf(FocusInstructionLayout.Block("k2"), FocusInstructionLayout.Block("p2")), blocks.first().children)
+        assertEquals(FocusInstructionLayout.Block("turn."), blocks.last())
+        val separate = FocusInstructionLayout.blocks("Work [k2, p2] then [sl1, k1] to end")
+        assertEquals(2, separate.size)
+        assertEquals("]", separate.first().suffix)
+        assertEquals("then [", separate.last().text)
+        assertEquals("] to end", separate.last().suffix)
+    }
+
     @Test fun stitchDistributionSeparatesMarkersAndCountsWithoutSplittingAnnotations() {
         assertEquals(listOf("Distribution: 12 sts (left front)", "Marker 1", "18 sts (sleeve)", "Marker 2."),
             FocusInstructionLayout.actionLines("Distribution: 12 sts (left front), Marker 1, 18 sts (sleeve), Marker 2."))
