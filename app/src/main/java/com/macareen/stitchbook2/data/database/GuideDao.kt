@@ -91,6 +91,13 @@ abstract class GuideDao {
         updatedAt: Long
     ): Int
 
+    @Query("""
+        DELETE FROM guides WHERE id = :guideId AND library_item_id = :libraryItemId AND project_id IS NULL
+        AND NOT EXISTS (SELECT 1 FROM project_guides WHERE guide_id = :guideId)
+        AND NOT EXISTS (SELECT 1 FROM executions WHERE guide_id = :guideId)
+    """)
+    abstract suspend fun deleteUnusedPatternGuide(guideId: String, libraryItemId: String): Int
+
     @Query("DELETE FROM guides WHERE id = :guideId")
     abstract suspend fun deleteGuide(guideId: String): Int
 

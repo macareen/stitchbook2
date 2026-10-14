@@ -40,6 +40,27 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PatternGuidesViewModelTest {
+    @Test fun removesAnUnusedGuideFromTheCurrentPattern() {
+        val guides = FakePatternGuides()
+        guides.add(guide("m", "M"), false)
+        val model = viewModel(guides)
+        model.removeUnusedGuide("m")
+        val state = model.uiState.value as PatternGuidesUiState.Content
+        assertTrue(state.guides.isEmpty())
+        assertTrue(!state.isCreating && !state.guideRemovalFailed)
+    }
+
+    @Test fun refusedRemovalKeepsTheGuideAndReportsFailure() {
+        val guides = FakePatternGuides()
+        guides.add(guide("m", "M"), true)
+        guides.allowRemoval = false
+        val model = viewModel(guides)
+        model.removeUnusedGuide("m")
+        val state = model.uiState.value as PatternGuidesUiState.Content
+        assertEquals(1, state.guides.size)
+        assertTrue(state.guideRemovalFailed && !state.isCreating)
+    }
+
 
     private val scope = CoroutineScope(Dispatchers.Unconfined)
     private val pattern = LibraryItem(
@@ -293,6 +314,15 @@ private class FakePatternGuides : GuideRepository {
         return createPatternGuide("pattern", targetSize.trim(), name)
     }
     private val guides = MutableStateFlow<List<Guide>>(emptyList())
+    var allowRemoval = true
+    override suspend fun deleteUnusedPatternGuide(guideId: GuideId, libraryItemId: String): Boolean {
+        val target = guides.value.firstOrNull { it.id == guideId && it.libraryItemId == libraryItemId && it.projectId == null }
+        if (!allowRemoval || target == null) return false
+        guides.value = guides.value - target
+        drafts.remove(guideId.value)
+        published.remove(guideId.value)
+        return true
+    }
     private val published = mutableSetOf<String>()
     val created = mutableListOf<Guide>()
     private val drafts = mutableMapOf<String, GuideDraft>()

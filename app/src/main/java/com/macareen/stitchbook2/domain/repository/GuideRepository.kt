@@ -100,6 +100,10 @@ interface GuideRepository {
     suspend fun stopUsingGuideInProject(projectId: String, guideId: GuideId): Unit =
         throw UnsupportedOperationException("Pattern guides are not supported here.")
 
+    /** Deletes only this pattern's unused reusable guide; links and any execution protect it atomically. */
+    suspend fun deleteUnusedPatternGuide(guideId: GuideId, libraryItemId: String): Boolean =
+        throw UnsupportedOperationException("Unused guide removal is not supported here.")
+
     suspend fun deleteGuide(guideId: GuideId)
 
     suspend fun loadDraft(guideId: GuideId): GuideDraft?

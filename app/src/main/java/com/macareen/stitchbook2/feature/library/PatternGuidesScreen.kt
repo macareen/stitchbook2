@@ -106,7 +106,8 @@ fun PatternGuidesRoute(
         onStartProject = viewModel::startProject,
         onGetRavelryPdf = viewModel::getRavelryPdf,
         onAttachPdf = viewModel::attachPdf,
-        onCopyGuide = viewModel::copyGuideToSize
+        onCopyGuide = viewModel::copyGuideToSize,
+        onRemoveGuide = viewModel::removeUnusedGuide
     )
 }
 
@@ -121,7 +122,8 @@ fun PatternGuidesScreen(
     onStartProject: () -> Unit = {},
     onGetRavelryPdf: () -> Unit = {},
     onAttachPdf: (PickedDocument) -> Unit = {},
-    onCopyGuide: (String, String) -> Unit = { _, _ -> }
+    onCopyGuide: (String, String) -> Unit = { _, _ -> },
+    onRemoveGuide: (String) -> Unit = {}
 ) {
     when (uiState) {
         PatternGuidesUiState.Loading -> Box(modifier.fillMaxSize()) {
@@ -133,7 +135,7 @@ fun PatternGuidesScreen(
         }
 
         is PatternGuidesUiState.Content ->
-            Content(uiState, onOpenPdf, onEditGuide, onCreateGuide, onStartProject, onGetRavelryPdf, onAttachPdf, onCopyGuide, modifier)
+            Content(uiState, onOpenPdf, onEditGuide, onCreateGuide, onStartProject, onGetRavelryPdf, onAttachPdf, onCopyGuide, onRemoveGuide, modifier)
     }
 }
 
@@ -147,11 +149,13 @@ private fun Content(
     onGetRavelryPdf: () -> Unit,
     onAttachPdf: (PickedDocument) -> Unit,
     onCopyGuide: (String, String) -> Unit,
+    onRemoveGuide: (String) -> Unit,
     modifier: Modifier
 ) {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     val scope = rememberCoroutineScope()
+    var removingGuideId by rememberSaveable { mutableStateOf<String?>(null) }
     var copyingGuideId by rememberSaveable { mutableStateOf<String?>(null) }
     var attachFailed by rememberSaveable { mutableStateOf(false) }
     val pickPdf = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -236,11 +240,13 @@ private fun Content(
                     requestedSize = size
                     showNewGuide = true
                 })
-            } else entries.forEach { entry -> GuideWithCopy(entry, !state.isCreating, { onEditGuide(entry.guide.id.value) }, { copyingGuideId = entry.guide.id.value }) }
+            } else entries.forEach { entry -> GuideWithCopy(entry, !state.isCreating, { onEditGuide(entry.guide.id.value) }, { copyingGuideId = entry.guide.id.value }, { removingGuideId = entry.guide.id.value }) }
         }
         state.guides.filter {
             com.macareen.stitchbook2.domain.parsing.PatternSizes.indexOf(it.guide.sizeLabel.orEmpty(), state.sizeChoices) == null
-        }.forEach { entry -> GuideWithCopy(entry, !state.isCreating, { onEditGuide(entry.guide.id.value) }, { copyingGuideId = entry.guide.id.value }) }
+        }.forEach { entry -> GuideWithCopy(entry, !state.isCreating, { onEditGuide(entry.guide.id.value) }, { copyingGuideId = entry.guide.id.value }, { removingGuideId = entry.guide.id.value }) }
+        if (state.guideRemovalFailed) Text(stringResource(R.string.guide_remove_failed),
+            color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
         PatternDetailsCard(state.pattern)
         val problem = when {
             attachFailed || state.pdfProblem == PatternPdfProblem.ATTACH_FAILED -> R.string.pattern_pdf_attach_failed
@@ -256,6 +262,16 @@ private fun Content(
                 style = MaterialTheme.typography.bodyMedium
             )
         }
+    }
+
+    state.guides.firstOrNull { it.guide.id.value == removingGuideId }?.let { entry ->
+        AlertDialog(onDismissRequest = { removingGuideId = null },
+            title = { Text(stringResource(R.string.guide_remove_action)) },
+            text = { Text(stringResource(R.string.guide_remove_confirmation, entry.guide.name)) },
+            confirmButton = { TextButton(enabled = !state.isCreating, onClick = {
+                onRemoveGuide(entry.guide.id.value); removingGuideId = null
+            }) { Text(stringResource(R.string.guide_remove_action)) } },
+            dismissButton = { TextButton(onClick = { removingGuideId = null }) { Text(stringResource(R.string.cancel)) } })
     }
 
     state.guides.firstOrNull { it.guide.id.value == copyingGuideId }?.let { source ->
@@ -354,9 +370,12 @@ private fun GuideRow(entry: PatternGuideEntry, onClick: () -> Unit) {
 }
 
 @Composable
-private fun GuideWithCopy(entry: PatternGuideEntry, enabled: Boolean, onEdit: () -> Unit, onCopy: () -> Unit) {
+private fun GuideWithCopy(entry: PatternGuideEntry, enabled: Boolean, onEdit: () -> Unit, onCopy: () -> Unit, onRemove: () -> Unit) {
     Column {
         GuideRow(entry, onEdit)
+        if (entry.guide.projectId == null) TextButton(onClick = onRemove, enabled = enabled) {
+            Text(stringResource(R.string.guide_remove_action))
+        }
         if (entry.isPublished && entry.guide.projectId == null) TextButton(onClick = onCopy, enabled = enabled) {
             Text(stringResource(R.string.guide_copy_action))
         }
