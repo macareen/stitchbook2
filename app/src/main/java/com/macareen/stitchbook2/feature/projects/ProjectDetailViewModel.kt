@@ -140,8 +140,8 @@ class ProjectDetailViewModel(
             repository.observeProject(projectId)
                 .map<Project?, ProjectLoadState> { ProjectLoadState.Loaded(it) }
                 .catch { emit(ProjectLoadState.Failed) },
-            // Execution state has no Flow, so a refresh re-resolves each entry action.
-            combine(guideRepository.observeGuides(projectId), entryRefresh) { guides, _ -> guides }
+            // Stored-work invalidations and explicit refresh both re-resolve the selected place.
+            combine(guideRepository.observeGuides(projectId), entryRefresh, executionRepository.observeWorkChanges()) { guides, _, _ -> guides }
                 .map { guides -> guides.map { guide -> resolveGuideEntry(guide) } }
                 .catch { emit(emptyList()) },
             deleteState,
