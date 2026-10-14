@@ -1,6 +1,7 @@
 package com.macareen.stitchbook2.feature.counters
 
 import com.macareen.stitchbook2.domain.model.Counter
+import com.macareen.stitchbook2.domain.model.forwardIncrement
 import com.macareen.stitchbook2.domain.model.CounterNote
 import com.macareen.stitchbook2.domain.model.Craft
 import com.macareen.stitchbook2.domain.model.Project
@@ -632,6 +633,18 @@ private class FakeCounterRepository(initial: List<Counter>) : CounterRepository 
 
     override suspend fun saveCounter(counter: Counter) {
         counters.value = counters.value.filterNot { it.id == counter.id } + counter
+    }
+
+    override suspend fun incrementCounterWithRules(id: String, updatedAt: Long) {
+        val source = counters.value.firstOrNull { it.id == id } ?: return
+        val increment = source.forwardIncrement()
+        counters.value = counters.value.map {
+            when (it.id) {
+                id -> it.copy(currentValue = increment.sourceValue, updatedAt = updatedAt)
+                increment.targetId -> it.copy(currentValue = Math.addExact(it.currentValue, requireNotNull(increment.targetAmount)), updatedAt = updatedAt)
+                else -> it
+            }
+        }
     }
 
     override suspend fun incrementCounterValue(id: String, amount: Int, updatedAt: Long) {

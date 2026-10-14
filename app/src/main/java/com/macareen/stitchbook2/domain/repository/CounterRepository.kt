@@ -20,5 +20,12 @@ interface CounterRepository {
      */
     suspend fun incrementCounterValue(id: String, amount: Int, updatedAt: Long)
 
+    /** Read the persisted source and apply its forward/link/reset rules in one transaction.
+     * Missing sources are a no-op. Failures must leave both counters unchanged.
+     */
+    suspend fun incrementCounterWithRules(id: String, updatedAt: Long) {
+        throw UnsupportedOperationException("Atomic forward increments are not supported")
+    }
+
     suspend fun deleteCounter(counter: Counter)
 }

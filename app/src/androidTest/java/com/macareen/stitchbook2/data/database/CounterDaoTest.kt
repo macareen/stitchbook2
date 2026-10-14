@@ -6,6 +6,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import com.macareen.stitchbook2.data.repository.LocalCounterRepository
+import com.macareen.stitchbook2.domain.usecase.IncrementCounterUseCase
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.take
@@ -38,6 +41,54 @@ class CounterDaoTest {
     @After
     fun closeDatabase() {
         database.close()
+    }
+
+    @Test fun rapidStaleTapsUseStoredRulesAndPreserveMetadata() = runBlocking {
+        val original = counterEntity("source")
+        dao.upsert(counterEntity("target"))
+        dao.upsert(original.copy(name = "Edited", goal = 4, autoResetOnGoal = true,
+            linkedCounterId = "target", linkIncrementInterval = 4, linkIncrementAmount = 2))
+        val useCase = IncrementCounterUseCase(LocalCounterRepository(dao))
+        (1..100).map { async { useCase(original.toDomain()) } }.awaitAll()
+        assertEquals(0, dao.getById("source")?.currentValue)
+        assertEquals("Edited", dao.getById("source")?.name)
+        assertEquals(50, dao.getById("target")?.currentValue)
+    }
+
+    @Test fun sharedLinkTargetsRetainBothSourcesIncrements() = runBlocking {
+        dao.upsert(counterEntity("target"))
+        listOf("a", "b").forEach { dao.upsert(counterEntity(it, linkedCounterId = "target",
+            linkIncrementInterval = 1, linkIncrementAmount = 1)) }
+        (1..100).map { async { dao.incrementWithRules(if (it % 2 == 0) "a" else "b", 300) } }.awaitAll()
+        assertEquals(50, dao.getById("a")?.currentValue)
+        assertEquals(50, dao.getById("b")?.currentValue)
+        assertEquals(100, dao.getById("target")?.currentValue)
+    }
+
+    @Test fun failureAfterTargetWriteRollsBackBothCounters() = runBlocking {
+        dao.upsert(counterEntity("target"))
+        dao.upsert(counterEntity("source", linkedCounterId = "target", linkIncrementInterval = 1, linkIncrementAmount = 1))
+        database.openHelper.writableDatabase.execSQL("CREATE TRIGGER reject_source BEFORE UPDATE ON counters WHEN NEW.id = 'source' BEGIN SELECT RAISE(ABORT, 'test failure'); END")
+        var failed = false
+        try { dao.incrementWithRules("source", 300) } catch (_: Exception) { failed = true }
+        assertEquals(true, failed)
+        assertEquals(0, dao.getById("source")?.currentValue)
+        assertEquals(0, dao.getById("target")?.currentValue)
+    }
+
+    @Test fun targetOverflowLeavesTheSourceUnchanged() = runBlocking {
+        dao.upsert(counterEntity("target", currentValue = Int.MAX_VALUE))
+        dao.upsert(counterEntity("source", linkedCounterId = "target", linkIncrementInterval = 1, linkIncrementAmount = 1))
+        var failed = false
+        try { dao.incrementWithRules("source", 300) } catch (_: ArithmeticException) { failed = true }
+        assertEquals(true, failed)
+        assertEquals(0, dao.getById("source")?.currentValue)
+        assertEquals(Int.MAX_VALUE, dao.getById("target")?.currentValue)
+    }
+
+    @Test fun missingSourceIsNotRecreated() = runBlocking {
+        dao.incrementWithRules("missing", 300)
+        assertNull(dao.getById("missing"))
     }
 
     @Test

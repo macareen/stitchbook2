@@ -20,6 +20,7 @@ import com.macareen.stitchbook2.domain.model.*
 import com.macareen.stitchbook2.domain.repository.JournalRepository
 import com.macareen.stitchbook2.domain.model.Craft
 import com.macareen.stitchbook2.domain.model.Counter
+import com.macareen.stitchbook2.domain.model.forwardIncrement
 import com.macareen.stitchbook2.domain.model.Project
 import com.macareen.stitchbook2.domain.model.ProjectStatus
 import com.macareen.stitchbook2.domain.model.ProjectType
@@ -479,6 +480,17 @@ private class FakeHubCounterRepository : CounterRepository {
     override fun observeCounter(id: String): Flow<Counter?> = counters.map { list -> list.firstOrNull { it.id == id } }
     override suspend fun saveCounter(counter: Counter) {
         counters.value = counters.value.filterNot { it.id == counter.id } + counter
+    }
+    override suspend fun incrementCounterWithRules(id: String, updatedAt: Long) {
+        val source = counters.value.firstOrNull { it.id == id } ?: return
+        val increment = source.forwardIncrement()
+        counters.value = counters.value.map {
+            when (it.id) {
+                id -> it.copy(currentValue = increment.sourceValue, updatedAt = updatedAt)
+                increment.targetId -> it.copy(currentValue = Math.addExact(it.currentValue, requireNotNull(increment.targetAmount)), updatedAt = updatedAt)
+                else -> it
+            }
+        }
     }
     override suspend fun incrementCounterValue(id: String, amount: Int, updatedAt: Long) {
         counters.value = counters.value.map { if (it.id == id) it.copy(currentValue = it.currentValue + amount) else it }

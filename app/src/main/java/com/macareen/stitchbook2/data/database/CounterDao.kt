@@ -6,6 +6,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
+import com.macareen.stitchbook2.domain.model.forwardIncrement
 
 @Dao
 interface CounterDao {
@@ -43,6 +44,24 @@ interface CounterDao {
 
     @Query("SELECT * FROM counters WHERE id = :id LIMIT 1")
     fun observeById(id: String): Flow<CounterEntity?>
+
+    @Query("SELECT * FROM counters WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): CounterEntity?
+
+    @Query("UPDATE counters SET current_value = :value, updated_at = :updatedAt WHERE id = :id")
+    suspend fun setValue(id: String, value: Int, updatedAt: Long)
+
+    @Transaction
+    suspend fun incrementWithRules(id: String, updatedAt: Long) {
+        val source = getById(id) ?: return
+        val increment = source.toDomain().forwardIncrement()
+        val target = increment.targetId?.let { getById(it) }
+        if (target != null) {
+            val targetValue = Math.addExact(target.currentValue, requireNotNull(increment.targetAmount))
+            setValue(target.id, targetValue, updatedAt)
+        }
+        setValue(source.id, increment.sourceValue, updatedAt)
+    }
 
     @Upsert
     suspend fun upsert(counter: CounterEntity)

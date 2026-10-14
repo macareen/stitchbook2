@@ -26,6 +26,7 @@ import com.macareen.stitchbook2.domain.guide.DefinitionRevision
 import com.macareen.stitchbook2.domain.guide.Guide
 import com.macareen.stitchbook2.domain.guide.GuideDraft
 import com.macareen.stitchbook2.domain.model.Counter
+import com.macareen.stitchbook2.domain.model.forwardIncrement
 import com.macareen.stitchbook2.domain.repository.CounterRepository
 import com.macareen.stitchbook2.domain.repository.ExecutionRepository
 import com.macareen.stitchbook2.domain.repository.ExecutionVersionConflictException
@@ -828,6 +829,18 @@ private class FakeCounterRepository(initial: List<Counter> = emptyList()) : Coun
 
     override suspend fun saveCounter(counter: Counter) {
         counters.value = counters.value.filterNot { it.id == counter.id } + counter
+    }
+
+    override suspend fun incrementCounterWithRules(id: String, updatedAt: Long) {
+        val source = counters.value.firstOrNull { it.id == id } ?: return
+        val increment = source.forwardIncrement()
+        counters.value = counters.value.map {
+            when (it.id) {
+                id -> it.copy(currentValue = increment.sourceValue, updatedAt = updatedAt)
+                increment.targetId -> it.copy(currentValue = Math.addExact(it.currentValue, requireNotNull(increment.targetAmount)), updatedAt = updatedAt)
+                else -> it
+            }
+        }
     }
 
     override suspend fun incrementCounterValue(id: String, amount: Int, updatedAt: Long) {

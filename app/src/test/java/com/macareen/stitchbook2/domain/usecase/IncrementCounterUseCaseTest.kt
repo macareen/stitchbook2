@@ -1,6 +1,7 @@
 package com.macareen.stitchbook2.domain.usecase
 
 import com.macareen.stitchbook2.domain.model.Counter
+import com.macareen.stitchbook2.domain.model.forwardIncrement
 import com.macareen.stitchbook2.domain.repository.CounterRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -108,6 +109,39 @@ class IncrementCounterUseCaseTest {
         assertEquals(1, repository.counters.value.first { it.id == "target" }.currentValue)
     }
 
+    @Test fun repeatedTapsIgnoreTheStaleScreenValueAndPreserveEdits() = runBlocking {
+        val stale = counter("source")
+        val current = stale.copy(name = "Edited", goal = 4, autoResetOnGoal = true)
+        val repository = FakeCounterRepository(listOf(current))
+        repeat(10) { IncrementCounterUseCase(repository)(stale) }
+        assertEquals(2, repository.counters.value.single().currentValue)
+        assertEquals("Edited", repository.counters.value.single().name)
+    }
+
+    @Test fun deletedCounterIsNotRecreatedByAStaleTap() = runBlocking {
+        val repository = FakeCounterRepository(emptyList())
+        IncrementCounterUseCase(repository)(counter("deleted"))
+        assertEquals(emptyList<Counter>(), repository.counters.value)
+    }
+
+    @Test fun sourceOverflowIsRejectedUnlessTheGoalResetsIt() {
+        val maximum = counter("source", currentValue = Int.MAX_VALUE)
+        org.junit.Assert.assertThrows(ArithmeticException::class.java) { maximum.forwardIncrement() }
+        assertEquals(0, maximum.copy(goal = Int.MAX_VALUE, autoResetOnGoal = true).forwardIncrement().sourceValue)
+    }
+
+    @Test fun cancellationIsNotSwallowed() = runBlocking {
+        val repository = object : CounterRepository by FakeCounterRepository(emptyList()) {
+            override suspend fun incrementCounterWithRules(id: String, updatedAt: Long) {
+                throw kotlinx.coroutines.CancellationException("cancelled")
+            }
+        }
+        var cancelled = false
+        try { IncrementCounterUseCase(repository)(counter("source")) }
+        catch (_: kotlinx.coroutines.CancellationException) { cancelled = true }
+        assertEquals(true, cancelled)
+    }
+
     private fun counter(
         id: String,
         currentValue: Int = 0,
@@ -145,6 +179,18 @@ private class FakeCounterRepository(initial: List<Counter>) : CounterRepository 
 
     override suspend fun saveCounter(counter: Counter) {
         counters.value = counters.value.filterNot { it.id == counter.id } + counter
+    }
+
+    override suspend fun incrementCounterWithRules(id: String, updatedAt: Long) {
+        val source = counters.value.firstOrNull { it.id == id } ?: return
+        val increment = source.forwardIncrement()
+        counters.value = counters.value.map {
+            when (it.id) {
+                id -> it.copy(currentValue = increment.sourceValue, updatedAt = updatedAt)
+                increment.targetId -> it.copy(currentValue = Math.addExact(it.currentValue, requireNotNull(increment.targetAmount)), updatedAt = updatedAt)
+                else -> it
+            }
+        }
     }
 
     override suspend fun incrementCounterValue(id: String, amount: Int, updatedAt: Long) {

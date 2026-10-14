@@ -185,8 +185,22 @@ This is a capability migration from the user's former app, with original Stitchb
 | Materials | Raw pattern details, stash, allocations and tools | Structured held-together strands, roles/alternatives and specification freshness |
 | Metadata correction | Blank-field filling preserves user edits | Reviewable conflict suggestions with provenance |
 | Covers, journals and sharing | User-accessible photo references, project cover/dashboard, tagged contextual notes and PNG exports | Further requested page refinements and source-photo workflows |
-| Counter companions | Project counters and Focus-scoped notification service | Atomic rapid-tap/link behavior audit; watch snapshot names alone do not prove wearable runtime parity |
+| Counter companions | Project counters, Focus-scoped notification service and atomic persisted-state forward/link/reset rules | Further notification lifecycle checks; watch snapshot names alone do not prove wearable runtime parity |
 
 Acceptance requires tests for the underlying state and portable data, followed by native visual checks for presentation. A smaller parser or placeholder instruction is not evidence that a richer reference capability has been migrated.
 
 2026-10-14: Instruction presentation keeps page citations such as `(p.3, p.4)` together instead of treating them as purl actions or nested stitch groups. Compact actual actions such as `p3, p4` still receive separate lines. This is presentation only; stored guide text and execution counts are unchanged.
+
+## Next migration implementation sequence (user choices, 2026-10-14)
+
+The user requests work on counter reliability, April guide usability, reviewable revision upgrades, and the broader crafting migration. For revision updates, propose carrying over matching completed occurrences for explicit review. For pieces, prioritize named pieces with independent progress (for example Left sleeve and Right sleeve).
+
+1. Counter reliability: fresh stored configuration, atomic source/link/reset writes, no deleted-source resurrection, concurrency and rollback tests. This is separate from numbered guide row/repeat context.
+2. April usability: keep the permissioned PDF outside Git; regenerate all nine sizes using Android extraction and inspect all fixed-repeat contexts and unresolved multi-size runs. Preserve stored source text and review ambiguous alternatives instead of guessing.
+3. Revision upgrades: build a read-only candidate comparison first. Match stable node identity, exact instruction content and unchanged semantic ancestry (section, range bounds/unit, repeat count/label, occurrence values). Changed or ambiguous steps remain uncompleted. Review proposed carried and unmatched work; retain the old execution and pin. Applying must guard the old execution version and target revision and commit a new execution atomically. No automatic migration on publication.
+4. Named pieces: add explicit project piece identity and a free-text name, distinct from guide sections and fixed repeats. Each piece selects a guide/revision and keeps separate current/completed occurrences. Existing project progress maps to the default piece without loss. Provide rename/archive/recover, explicit Room migration and full/project JSON plus Markdown export before release.
+5. Until-target repeats: independently typed length or stitch-count target, unit and user-entered measurements. A measurement confirms the target; estimates never imply completion. Persist each cycle and observation, including Previous/Jump/restart semantics and exports. Do not pretend a large fixed-repeat count implements this.
+6. Manual charts: editable cells/symbol legend, explicit craft/direction, offsets and repeat boundaries, independent row position, PDF source reference and portable model. Validate manual chart execution before attempting recognition.
+7. Materials: named project material roles and held-together groups with explicit strand counts, optional alternatives and provenance. Keep these specifications separate from stash reservations and actual consumption so an alternative cannot reserve or consume stock implicitly. Include backup/export and reviewable extraction conflicts.
+
+These are implementation and acceptance plans, not declarations of shipped functionality. Finish each bounded slice with domain/data checks and native presentation review where applicable.
