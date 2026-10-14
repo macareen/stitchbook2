@@ -44,7 +44,7 @@ internal fun GuideGraphRows.toGraph(): GuideBackupGraph {
     val occurrenceFrames = completedOccurrenceFrames.groupBy { it.executionId to it.addressSignature }
     return GuideBackupGraph(
         guides = guides.map {
-            GuideRecord(it.id, it.projectId, it.libraryItemId, it.sizeLabel, it.name, it.notes, it.createdAt, it.updatedAt)
+            GuideRecord(it.id, it.projectId, it.libraryItemId, it.sizeLabel, it.name, it.notes, it.createdAt, it.updatedAt, it.isArchived)
         },
         drafts = drafts.map { draft ->
             GuideDraftRecord(
@@ -107,7 +107,8 @@ internal fun GuideBackupGraph.toRows(): GuideGraphRows = GuideGraphRows(
             name = it.name,
             notes = it.notes,
             createdAt = it.createdAt,
-            updatedAt = it.updatedAt
+            updatedAt = it.updatedAt,
+            isArchived = it.isArchived
         )
     },
     drafts = drafts.map { GuideDraftEntity(it.id, it.guideId, it.baseRevisionId, it.createdAt, it.updatedAt, it.version) },

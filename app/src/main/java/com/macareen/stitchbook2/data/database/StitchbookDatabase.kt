@@ -36,7 +36,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         JournalEntryEntity::class,
         CraftingSessionEntity::class
     ],
-    version = 23,
+    version = 24,
     exportSchema = true
 )
 abstract class StitchbookDatabase : RoomDatabase() {
@@ -103,7 +103,8 @@ val ALL_MIGRATIONS: Array<Migration>
         MIGRATION_19_20,
         MIGRATION_20_21,
         MIGRATION_21_22,
-        MIGRATION_22_23
+        MIGRATION_22_23,
+        MIGRATION_23_24
     )
 
 val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -1113,5 +1114,12 @@ val MIGRATION_21_22 = object : Migration(21, 22) {
 val MIGRATION_22_23 = object : Migration(22, 23) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE `crafting_sessions` ADD COLUMN `source` TEXT NOT NULL DEFAULT 'TIMED'")
+    }
+}
+
+/** Reversible visibility metadata; all old guides remain active and all work history is retained. */
+val MIGRATION_23_24 = object : Migration(23, 24) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE guides ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0")
     }
 }

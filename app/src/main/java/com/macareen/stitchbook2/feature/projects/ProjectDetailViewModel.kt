@@ -346,7 +346,7 @@ class ProjectDetailViewModel(
 
     /** Pattern guides this project could use: every pattern's size guides it doesn't already show. */
     val availablePatternGuides: StateFlow<List<Guide>> = combine(
-        guideRepository.observeAllPatternGuides(),
+        guideRepository.observeAllPatternGuidesIncludingArchived(),
         guideRepository.observeGuides(projectId)
     ) { all, shown ->
         val shownIds = shown.map { it.id }.toSet()

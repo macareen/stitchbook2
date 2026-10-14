@@ -183,6 +183,7 @@ private fun StringBuilder.guidesSection(projectId: String, graph: GuideBackupGra
         val size = guide.sizeLabel?.takeIf { it.isNotBlank() }?.let { " (size ${it.trim()})" }.orEmpty()
         line("### ${guide.name.trim()}$size")
         line()
+        if (guide.isArchived) { line("Archived guide; project progress is kept."); line() }
         val revision = graph.revisions.filter { it.guideId == guide.id }.maxByOrNull { it.revisionNumber }
         val nodes = revision?.nodes ?: graph.drafts.firstOrNull { it.guideId == guide.id }?.nodes.orEmpty()
         if (revision == null) {

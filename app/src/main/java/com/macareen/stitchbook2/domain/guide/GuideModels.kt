@@ -24,7 +24,8 @@ data class Guide(
     val createdAt: Long,
     val updatedAt: Long,
     val libraryItemId: String? = null,
-    val sizeLabel: String? = null
+    val sizeLabel: String? = null,
+    val isArchived: Boolean = false
 )
 
 enum class DraftNodeType {

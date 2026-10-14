@@ -627,6 +627,7 @@ internal fun GuideRecord.toJson(): JSONObject = JSONObject().apply {
     put("notes", notes ?: JSONObject.NULL)
     put("createdAt", createdAt)
     put("updatedAt", updatedAt)
+    put("isArchived", isArchived)
 }
 
 internal fun JSONObject.toGuideRecord(): GuideRecord = GuideRecord(
@@ -637,7 +638,8 @@ internal fun JSONObject.toGuideRecord(): GuideRecord = GuideRecord(
     name = getString("name"),
     notes = optNullableString("notes"),
     createdAt = getLong("createdAt"),
-    updatedAt = getLong("updatedAt")
+    updatedAt = getLong("updatedAt"),
+    isArchived = if (has("isArchived")) getBoolean("isArchived") else false
 )
 
 private fun GuideNodeRecord.toJson(): JSONObject = JSONObject().apply {

@@ -40,6 +40,31 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PatternGuidesViewModelTest {
+    @Test fun archivingAndRestoringMoveTheSameGuideBetweenLists() {
+        val guides = FakePatternGuides()
+        guides.add(guide("m", "M"), true)
+        val model = viewModel(guides)
+        model.setGuideArchived("m", true)
+        val archived = model.uiState.value as PatternGuidesUiState.Content
+        assertTrue(archived.guides.isEmpty())
+        assertEquals("m", archived.archivedGuides.single().guide.id.value)
+        assertTrue(archived.archivedGuides.single().isPublished)
+        model.setGuideArchived("m", false)
+        val restored = model.uiState.value as PatternGuidesUiState.Content
+        assertEquals("m", restored.guides.single().guide.id.value)
+        assertTrue(restored.archivedGuides.isEmpty())
+    }
+    @Test fun refusedArchiveLeavesTheGuideVisible() {
+        val guides = FakePatternGuides()
+        guides.add(guide("m", "M"), false)
+        guides.allowArchive = false
+        val model = viewModel(guides)
+        model.setGuideArchived("m", true)
+        val content = model.uiState.value as PatternGuidesUiState.Content
+        assertEquals(1, content.guides.size)
+        assertTrue(content.guideArchiveFailed)
+    }
+
     @Test fun removesAnUnusedGuideFromTheCurrentPattern() {
         val guides = FakePatternGuides()
         guides.add(guide("m", "M"), false)
@@ -314,6 +339,15 @@ private class FakePatternGuides : GuideRepository {
         return createPatternGuide("pattern", targetSize.trim(), name)
     }
     private val guides = MutableStateFlow<List<Guide>>(emptyList())
+    var allowArchive = true
+    override fun observePatternGuidesIncludingArchived(libraryItemId: String): Flow<List<Guide>> =
+        guides.map { list -> list.filter { it.libraryItemId == libraryItemId } }
+    override suspend fun setPatternGuideArchived(guideId: GuideId, libraryItemId: String?, archived: Boolean): Boolean {
+        val guide = guides.value.firstOrNull { it.id == guideId && it.libraryItemId == libraryItemId && it.projectId == null }
+        if (!allowArchive || guide == null) return false
+        guides.value = guides.value.map { if (it.id == guideId) it.copy(isArchived = archived) else it }
+        return true
+    }
     var allowRemoval = true
     override suspend fun deleteUnusedPatternGuide(guideId: GuideId, libraryItemId: String): Boolean {
         val target = guides.value.firstOrNull { it.id == guideId && it.libraryItemId == libraryItemId && it.projectId == null }
@@ -335,7 +369,7 @@ private class FakePatternGuides : GuideRepository {
     }
 
     override fun observePatternGuides(libraryItemId: String): Flow<List<Guide>> =
-        guides.map { list -> list.filter { it.libraryItemId == libraryItemId } }
+        guides.map { list -> list.filter { it.libraryItemId == libraryItemId && !it.isArchived } }
 
     override suspend fun createPatternGuide(libraryItemId: String, sizeLabel: String, name: String): Guide {
         val guide = Guide(GuideId("created-${created.size + 1}"), null, name, null, 0, 0, libraryItemId, sizeLabel.trim())
