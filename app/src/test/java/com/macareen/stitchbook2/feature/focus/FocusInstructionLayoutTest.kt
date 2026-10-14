@@ -4,6 +4,12 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class FocusInstructionLayoutTest {
+    @Test fun pageReferencesAreNotPurlActionsOrInlineStitchGroups() {
+        assertEquals(listOf(FocusInstructionLayout.Block("See (p.3, p.4)"), FocusInstructionLayout.Block("then knit 2.")),
+            FocusInstructionLayout.blocks("See (p.3, p.4), then knit 2."))
+        assertEquals(listOf("See p.3,p.4", "p3", "p4."), FocusInstructionLayout.actionLines("See p.3,p.4; p3,p4."))
+    }
+
     @Test fun compactActionsAlsoUseSeparateLines() {
         assertEquals(listOf("k2", "p2", "sl1."), FocusInstructionLayout.actionLines("k2,p2,sl1."))
     }

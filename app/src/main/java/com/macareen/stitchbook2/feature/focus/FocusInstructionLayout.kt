@@ -3,7 +3,7 @@ package com.macareen.stitchbook2.feature.focus
 /** Presentation only: separate clear actions without rewriting a guide or its execution. */
 internal object FocusInstructionLayout {
     private val action = Regex(
-        """^(?:(?:then|and)\s+)?(?:marker\s+\d+|\d+\s+(?:sts?|stitches)\b|knit|purl|slip|make|increase|decrease|cast\s+on|bind\s+off|pick\s+up|yarn\s+over|place|remove|move|transfer|turn|join|attach|fasten|weave|work|repeat|continue|chain|skip|draw|insert|wrap|pass|lift|hold|slide|single\s+crochet|double\s+crochet|half\s+double\s+crochet|treble\s+crochet|m1[lr]?|kfb|pfb|ssk|ssp|k\d+tog|p\d+tog|k\d*|p\d*|sl\d*|yo|pm|sm|rm|ch\d*|sc\d*|dc\d*|hdc\d*|tr\d*|dtr\d*|tss\d*|tks\d*|tps\d*|tfs\d*|trs\d*)\b""",
+        """^(?:(?:then|and)\s+)?(?!(?:p|pp)\.\s*\d)(?:marker\s+\d+|\d+\s+(?:sts?|stitches)\b|knit|purl|slip|make|increase|decrease|cast\s+on|bind\s+off|pick\s+up|yarn\s+over|place|remove|move|transfer|turn|join|attach|fasten|weave|work|repeat|continue|chain|skip|draw|insert|wrap|pass|lift|hold|slide|single\s+crochet|double\s+crochet|half\s+double\s+crochet|treble\s+crochet|m1[lr]?|kfb|pfb|ssk|ssp|k\d+tog|p\d+tog|k\d*|p\d*|sl\d*|yo|pm|sm|rm|ch\d*|sc\d*|dc\d*|hdc\d*|tr\d*|dtr\d*|tss\d*|tks\d*|tps\d*|tfs\d*|trs\d*)\b""",
         RegexOption.IGNORE_CASE
     )
 

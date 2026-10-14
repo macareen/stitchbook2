@@ -24,6 +24,23 @@ class ActionLinesFocusTest {
     @Test fun nestedInlineGroupsAreReadableInLightMode() = checkGroups(false, 1f)
     @Test fun nestedInlineGroupsAreReadableInDarkMode() = checkGroups(true, 1f)
     @Test fun nestedInlineGroupsRemainReachableAtLargeText() = checkGroups(true, 1.8f)
+    @Test fun pageReferencesStayTogetherAndOnlyActualActionsAreSeparated() {
+        val state = GuideFocusUiState.InProgress("Sample references", "project", ExecutionId("e"), 0,
+            "See (p.3, p.4), then knit 2, p3.", emptyList(), emptyList())
+        compose.setContent { StitchbookTheme { Surface(Modifier.systemBarsPadding()) {
+            GuideFocusScreen(state, {}, {}, {}, {}, {}, {}, {})
+        } } }
+        compose.onNodeWithText("See (p.3, p.4)").assertIsDisplayed()
+        compose.onNodeWithText("then knit 2").assertIsDisplayed()
+        compose.onNodeWithText("p3.").assertIsDisplayed()
+        if (InstrumentationRegistry.getArguments().getString("captureInstructionGroups") == "true") {
+            assertTrue(android.os.Build.HARDWARE in listOf("ranchu", "goldfish"))
+            compose.waitForIdle()
+            ParcelFileDescriptor.AutoCloseInputStream(InstrumentationRegistry.getInstrumentation().uiAutomation
+                .executeShellCommand("screencap -p /sdcard/Download/stitchbook-instruction-references.png")).use { it.readBytes() }
+        }
+    }
+
     private fun checkGroups(dark: Boolean, scale: Float) {
         var completed = 0
         val state = GuideFocusUiState.InProgress("Sample stitches", "project", ExecutionId("e"), 0,
