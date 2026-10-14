@@ -188,3 +188,5 @@ This is a capability migration from the user's former app, with original Stitchb
 | Counter companions | Project counters and Focus-scoped notification service | Atomic rapid-tap/link behavior audit; watch snapshot names alone do not prove wearable runtime parity |
 
 Acceptance requires tests for the underlying state and portable data, followed by native visual checks for presentation. A smaller parser or placeholder instruction is not evidence that a richer reference capability has been migrated.
+
+2026-10-14: Instruction presentation keeps page citations such as `(p.3, p.4)` together instead of treating them as purl actions or nested stitch groups. Compact actual actions such as `p3, p4` still receive separate lines. This is presentation only; stored guide text and execution counts are unchanged.
