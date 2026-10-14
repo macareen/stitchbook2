@@ -25,7 +25,7 @@ class ActionLinesFocusTest {
         var completed = 0
         val state = GuideFocusUiState.InProgress("Sample cardigan", "project", ExecutionId("e"), 0,
             "Row 1 (RS): Knit to marker 1, m1r, slip marker 1, knit 2, m1l, slip marker 2, knit to end. There are 60 stitches.",
-            listOf("Yoke"), listOf(StructuralPosition.RepeatPosition(null, 1, 9)))
+            listOf("Yoke"), listOf(StructuralPosition.RepeatPosition(null, 1, 9), StructuralPosition.RangePosition("row", 1, 1, 2)))
         compose.setContent {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density, scale)) {
@@ -36,7 +36,8 @@ class ActionLinesFocusTest {
                 }
             }
         }
-        compose.onNodeWithText("Repeat 1 of 9").assertIsDisplayed()
+        compose.onNodeWithText("Repeat 1 of 9", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("Row 1 of 2", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithText("Row 1 (RS): Knit to marker 1").assertIsDisplayed()
         compose.onNodeWithText("m1r").assertIsDisplayed()
         val first = compose.onNodeWithText("Row 1 (RS): Knit to marker 1").fetchSemanticsNode().boundsInRoot

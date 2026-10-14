@@ -137,6 +137,15 @@ class PatternSizesTest {
         assertEquals(1, found.second.source.lineNumber)
     }
 
+    @Test fun numberedMarkerIsNotPartOfFollowingSizeValues() {
+        val counts = listOf(20, 20, 24, 24, 16, 12, 12, 8, 4)
+        counts.indices.forEach { index ->
+            assertEquals("Marker 3 ${counts[index]} sts (right sleeve), Marker 4.",
+                PatternSizes.resolve("Marker 3 20 (20) 24 (24) 16 (12) 12 (8) 4 sts (right sleeve), Marker 4.", index, 9))
+        }
+        assertEquals("Marker 3 20 (24) 28 (32) sts.", PatternSizes.resolve("Marker 3 20 (24) 28 (32) sts.", 1, 3))
+    }
+
     private fun document(vararg lines: String) = ExtractedDocument(
         pageCount = 1,
         lines = lines.mapIndexed { index, text -> ExtractedLine(text, SourceReference(1, index + 1)) }

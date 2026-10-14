@@ -330,3 +330,5 @@ Ravelry is an external integration, not the master source of truth. Purchased PD
 ## 9. Release boundary
 
 The first useful MVP is complete when the application shell and settings work offline, local project CRUD is reliable, configurable counters can be used during a project or standalone, project and counter records can be exported in a documented versioned format to a user-selected destination, core behavior is tested, and the project can be built and linted reproducibly. Inventories, pattern storage, sessions, sharing, complete-library backup/restore, integrations, and parsing remain later work even though the data model should avoid blocking them.
+
+Guide readability: drafts and Focus overview display clear actions on separate lines without changing tracked instruction nodes. Sections, repeats and row containers have explicit type labels and distinct theme colors. Deep outline indentation is capped to preserve reading width. Numbered marker context is excluded when resolving an immediately following multi-size count sequence; ambiguous sequences remain unchanged for review. Existing published revisions are not silently rewritten.

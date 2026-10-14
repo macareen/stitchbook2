@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.foundation.background
 import androidx.compose.material3.Surface
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.unit.sp
@@ -648,8 +649,15 @@ private fun OverviewLine(entry: OverviewEntry, onClick: () -> Unit) {
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .heightIn(min = 48.dp)
+            .padding(start = (entry.depth.coerceAtMost(3) * 12).dp)
+            .background(when (entry.kind) {
+                OverviewEntry.Kind.SECTION -> MaterialTheme.colorScheme.primaryContainer
+                OverviewEntry.Kind.REPEAT -> MaterialTheme.colorScheme.tertiaryContainer
+                OverviewEntry.Kind.ROWS -> MaterialTheme.colorScheme.secondaryContainer
+                OverviewEntry.Kind.STEP -> MaterialTheme.colorScheme.surface
+            })
             .padding(
-                start = StitchbookSpacing.large + (entry.depth * 16).dp,
+                start = StitchbookSpacing.large,
                 end = StitchbookSpacing.large,
                 top = StitchbookSpacing.extraSmall,
                 bottom = StitchbookSpacing.extraSmall
@@ -665,14 +673,17 @@ private fun OverviewLine(entry: OverviewEntry, onClick: () -> Unit) {
             color = if (entry.status == OverviewStatus.CURRENT) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.clearAndSetSemantics {}
         )
-        Text(
-            text = entry.text,
-            style = if (entry.kind == OverviewEntry.Kind.SECTION) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge,
-            color = if (entry.status == OverviewStatus.DONE) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f)
-        )
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.extraSmall)) {
+            Text(text = stringResource(when (entry.kind) {
+                OverviewEntry.Kind.SECTION -> R.string.draft_node_type_section
+                OverviewEntry.Kind.REPEAT -> R.string.draft_node_type_repeat
+                OverviewEntry.Kind.ROWS -> R.string.draft_node_type_range
+                OverviewEntry.Kind.STEP -> R.string.draft_node_type_instruction
+            }), style = MaterialTheme.typography.labelMedium)
+            FocusInstructionLayout.actionLines(entry.text).forEach { line ->
+                Text(text = line, style = MaterialTheme.typography.bodyLarge)
+            }
+        }
         if (entry.totalSteps > 1) {
             QuietText(text = stringResource(R.string.focus_overview_count, entry.completedSteps, entry.totalSteps))
         }
@@ -760,7 +771,16 @@ private fun PositionLine(position: StructuralPosition) {
             }
         }
     }
-    Text(text = text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+    val repeat = position is StructuralPosition.RepeatPosition
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.small,
+        color = if (repeat) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = if (repeat) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
+    ) {
+        Text(text = text, style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.padding(horizontal = StitchbookSpacing.small, vertical = StitchbookSpacing.extraSmall))
+    }
 }
 
 @Composable
