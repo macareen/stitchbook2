@@ -1,6 +1,6 @@
 package com.macareen.stitchbook2.domain.backup
 
-const val CURRENT_BACKUP_FORMAT_VERSION = 3
+const val CURRENT_BACKUP_FORMAT_VERSION = 4
 
 /**
  * Checks a parsed backup *before* anything is written (PRODUCT_SPEC.md
@@ -19,6 +19,14 @@ fun validateBackup(incoming: BackupSnapshot, existing: BackupSnapshot, mode: Res
             "Format ${incoming.formatVersion} is newer than this app supports ($CURRENT_BACKUP_FORMAT_VERSION)."
         )
         return issues
+    }
+
+    if (mode == RestoreMode.REPLACE && incoming.guides == null && incoming.projects != null) {
+        val keptProjects = incoming.projects.map { it.id }.toSet()
+        existing.projectPieces.orEmpty().filter { it.projectId !in keptProjects }.forEach { piece ->
+            issues += BackupIssue(BackupIssueKind.MISSING_REFERENCE, BackupRecordType.PROJECT_PIECES, piece.id,
+                "This older backup cannot replace a project with piece work it does not contain. Use Merge to keep that work.")
+        }
     }
 
     BackupRecordType.entries.forEach { type ->

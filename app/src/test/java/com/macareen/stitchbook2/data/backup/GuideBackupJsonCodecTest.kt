@@ -30,7 +30,7 @@ class GuideBackupJsonCodecTest {
 
         val decoded = decodeBackup(encodeBackup(snapshot, exportedAt = 42))
 
-        assertEquals(3, decoded.formatVersion)
+        assertEquals(CURRENT_BACKUP_FORMAT_VERSION, decoded.formatVersion)
         assertEquals(GuideBackupFixtures.graph, decoded.guideGraph())
     }
 

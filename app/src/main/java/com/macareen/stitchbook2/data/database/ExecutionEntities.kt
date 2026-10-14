@@ -34,6 +34,7 @@ import androidx.room.Index
             childColumns = ["guide_id"],
             onDelete = ForeignKey.CASCADE
         ),
+        ForeignKey(entity = ProjectPieceEntity::class, parentColumns = ["id"], childColumns = ["piece_id"], onDelete = ForeignKey.CASCADE),
         ForeignKey(
             entity = DefinitionRevisionEntity::class,
             parentColumns = ["id"],
@@ -42,7 +43,7 @@ import androidx.room.Index
     ],
     indices = [
         Index("guide_id"),
-        Index("definition_revision_id")
+        Index("definition_revision_id"), Index("piece_id")
     ]
 )
 data class ExecutionEntity(
@@ -57,7 +58,8 @@ data class ExecutionEntity(
     @ColumnInfo(name = "completed_at") val completedAt: Long?,
     val version: Long,
     /** The project this knitting belongs to; null when the guide was opened on its own. */
-    @ColumnInfo(name = "project_id") val projectId: String? = null
+    @ColumnInfo(name = "project_id") val projectId: String? = null,
+    @ColumnInfo(name = "piece_id") val pieceId: String? = null
 )
 
 /**
@@ -140,21 +142,12 @@ data class ExecutionCompletedOccurrenceFrameEntity(
     @ColumnInfo(name = "frame_value") val frameValue: Int
 )
 
-/**
- * Database-level enforcement of "at most one ACTIVE Execution per Guide."
- *
- * A row exists for a Guide if and only if that Guide currently has an ACTIVE
- * Execution. `guide_id` is the primary key, so a second attempt to activate
- * an Execution for a Guide that already has one violates the primary key
- * and the whole creating/reopening transaction rolls back — this is
- * enforced by SQLite itself, not only by a repository-level check. The row
- * is deleted when its Execution completes and reinserted if a later
- * transition (Previous) reopens a completed Execution, mirroring the
- * one-row-per-guide shape of [GuideDraftEntity].
+/** One active pointer per guide/project/piece scope; an empty piece key preserves default progress.
+ * Completing removes only that scope's pointer; Previous can reopen it without touching siblings.
  */
 @Entity(
     tableName = "active_executions",
-    primaryKeys = ["guide_id", "project_key"],
+    primaryKeys = ["guide_id", "project_key", "piece_key"],
     foreignKeys = [
         ForeignKey(
             entity = GuideEntity::class,
@@ -180,5 +173,6 @@ data class ActiveExecutionEntity(
      * own: one guide used by two projects keeps one place in each.
      */
     @ColumnInfo(name = "project_key") val projectKey: String,
-    @ColumnInfo(name = "execution_id") val executionId: String
+    @ColumnInfo(name = "execution_id") val executionId: String,
+    @ColumnInfo(name = "piece_key", defaultValue = "''") val pieceKey: String = ""
 )

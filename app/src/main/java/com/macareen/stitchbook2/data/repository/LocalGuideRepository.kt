@@ -143,7 +143,9 @@ class LocalGuideRepository(
         guideDao.deleteUnusedPatternGuide(guideId.value, libraryItemId) == 1
 
     override suspend fun deleteGuide(guideId: GuideId) {
-        guideDao.deleteGuide(guideId.value)
+        if (guideDao.deleteGuide(guideId.value) == 0 && getGuide(guideId) != null) {
+            throw IllegalStateException("This guide is used by project pieces. Archive it to keep their work.")
+        }
     }
 
     override suspend fun loadDraft(guideId: GuideId): GuideDraft? {

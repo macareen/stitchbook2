@@ -34,7 +34,8 @@ data class ResumeGuide(
     /** The project whose place to resume; one guide can be in progress in several projects. */
     val projectId: String? = null,
     /** How far through the guide, weighted by stitches as in Focus Mode; null if it can't be worked out. */
-    val percentDone: Int? = null
+    val percentDone: Int? = null,
+    val pieceId: String? = null
 )
 
 sealed interface HomeUiState {
@@ -69,11 +70,12 @@ class HomeViewModel(
 
     private val scope: CoroutineScope = externalScope ?: viewModelScope
 
-    val uiState = combine<List<Project>, List<Photo>, HomeUiState>(
+    val uiState = combine<List<Project>, List<Photo>, Unit, HomeUiState>(
         projectRepository.observeProjects(),
         journalRepository?.observePhotos()?.map { photos -> photos.filter { it.projectId != null } }?.distinctUntilChanged()
-            ?: flowOf(emptyList())
-    ) { projects, photos -> buildContent(projects, photos) }
+            ?: flowOf(emptyList()),
+        executionRepository.observeWorkChanges()
+    ) { projects, photos, _ -> buildContent(projects, photos) }
         .catch { emit(HomeUiState.Error) }
         .stateIn(
             scope = scope,
@@ -106,7 +108,7 @@ class HomeViewModel(
             }
             for (guide in guides) {
                 val activeExecution = try {
-                    executionRepository.getActiveExecution(GuideId(guide.id.value), project.id)
+                    executionRepository.getActiveProjectWork(GuideId(guide.id.value), project.id)
                 } catch (error: CancellationException) {
                     throw error
                 } catch (_: Exception) {
@@ -117,9 +119,10 @@ class HomeViewModel(
                     resumeGuide = ResumeGuide(
                         guideId = guide.id.value,
                         projectId = project.id,
-                        guideName = guide.name,
+                        guideName = activeExecution.pieceId?.let { executionRepository.loadPiece(it)?.name }?.let { "${guide.name} · $it" } ?: guide.name,
                         projectName = project.name,
-                        percentDone = percentDone(activeExecution)
+                        percentDone = percentDone(activeExecution),
+                        pieceId = activeExecution.pieceId
                     )
                 }
             }

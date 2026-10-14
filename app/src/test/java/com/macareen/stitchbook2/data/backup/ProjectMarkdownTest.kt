@@ -19,6 +19,16 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ProjectMarkdownTest {
+    @Test fun namedPieceHistoryAndArchiveAreReadableWithoutTheApp() {
+        val piece = com.macareen.stitchbook2.domain.model.ProjectPiece("left", "project-1", "guide-1", "Left sleeve", true, 1, 2)
+        val graph = GuideBackupFixtures.graph.copy(pieces = listOf(piece), executions = listOf(GuideBackupFixtures.execution.copy(pieceId = piece.id)))
+        val text = projectMarkdown(project.copy(id = "project-1"), BackupSnapshot(4).withGuideGraph(graph), 10)
+        assertTrue(text.contains("## Pieces"))
+        assertTrue(text.contains("### Left sleeve"))
+        assertTrue(text.contains("Archived; progress is kept."))
+        assertTrue(text.contains("Revision 1: ACTIVE"))
+    }
+
     @Test fun archivedGuideVisibilityIsIncludedWithoutDroppingItsSteps() {
         val graph = GuideBackupFixtures.graph.copy(guides = GuideBackupFixtures.graph.guides.map { it.copy(isArchived = true) })
         val saved = BackupSnapshot(formatVersion = CURRENT_BACKUP_FORMAT_VERSION).withGuideGraph(graph)

@@ -71,6 +71,88 @@ class ExecutionRepositoryTest {
         database.close()
     }
 
+    @Test fun homeResumeRefreshesWhenOnlyPieceWorkOrArchiveChanges() = runBlocking<Unit> {
+        val guide = createGuideWithSimpleRevision("g", "d", "r")
+        database.projectDao().upsert(projectEntity("project-g").copy(status = "ACTIVE"))
+        enqueueIds("left", "work")
+        val left = executionRepository.createPiece("project-g", guide, "Left sleeve")
+        executionRepository.createPieceExecution(left.id, DefinitionRevisionId("r"))
+        val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
+        try {
+            val home = com.macareen.stitchbook2.feature.home.HomeViewModel(
+                com.macareen.stitchbook2.data.repository.LocalProjectRepository(database.projectDao()), guideRepository, executionRepository, externalScope = scope)
+            val initial = kotlinx.coroutines.withTimeout(5_000) { home.uiState.first { it is com.macareen.stitchbook2.feature.home.HomeUiState.Content && it.resumeGuide?.pieceId == left.id } }
+            assertEquals(left.id, (initial as com.macareen.stitchbook2.feature.home.HomeUiState.Content).resumeGuide?.pieceId)
+            assertTrue(executionRepository.updatePiece(left, "Renamed sleeve", false))
+            kotlinx.coroutines.withTimeout(5_000) { home.uiState.first { it is com.macareen.stitchbook2.feature.home.HomeUiState.Content && it.resumeGuide?.guideName?.contains("Renamed sleeve") == true } }
+            val renamed = requireNotNull(executionRepository.loadPiece(left.id))
+            assertTrue(executionRepository.updatePiece(renamed, renamed.name, true))
+            kotlinx.coroutines.withTimeout(5_000) { home.uiState.first { it is com.macareen.stitchbook2.feature.home.HomeUiState.Content && it.resumeGuide == null } }
+        } finally { scope.coroutineContext[kotlinx.coroutines.Job]?.cancel() }
+    }
+
+    @Test fun namedPiecesAndDefaultProgressRemainIndependentAcrossCompleteAndPrevious() = runBlocking {
+        val guide = createGuideWithSimpleRevision("g", "d", "r")
+        enqueueIds("left", "right", "default-work", "left-work", "right-work")
+        val left = executionRepository.createPiece("project-g", guide, "Left sleeve")
+        val right = executionRepository.createPiece("project-g", guide, "Right sleeve")
+        val default = executionRepository.createExecution(guide, DefinitionRevisionId("r"), "project-g")
+        var work = executionRepository.createPieceExecution(left.id, DefinitionRevisionId("r"))
+        val untouched = executionRepository.createPieceExecution(right.id, DefinitionRevisionId("r"))
+        repeat(4) { work = executionRepository.applyComplete(work.state.executionId, work.version).execution }
+        assertEquals(ExecutionStatus.COMPLETED, work.state.status)
+        assertNull(executionRepository.getActivePieceExecution(left.id))
+        assertEquals(untouched, executionRepository.getActivePieceExecution(right.id))
+        assertEquals(default, executionRepository.getActiveExecution(guide, "project-g"))
+        work = executionRepository.applyPrevious(work.state.executionId, work.version).execution
+        assertEquals(ExecutionStatus.ACTIVE, work.state.status)
+        assertEquals(left.id, work.pieceId)
+        assertEquals(3, countRows("active_executions", "guide_id = 'g'").toInt())
+        assertEquals(untouched, executionRepository.getActivePieceExecution(right.id))
+        enqueueIds("duplicate")
+        assertSuspendThrows<ActiveExecutionAlreadyExistsException> { executionRepository.createPieceExecution(left.id, DefinitionRevisionId("r")) }
+        assertEquals(3, countRows("executions", "guide_id = 'g'").toInt())
+    }
+
+    @Test fun pieceScopeAndStaleMetadataWritesAreGuarded() = runBlocking {
+        val guide = createGuideWithSimpleRevision("g", "d", "r")
+        insertProject("other")
+        enqueueIds("left", "work", "wrong-project")
+        val left = executionRepository.createPiece("project-g", guide, "Left sleeve")
+        val work = executionRepository.createPieceExecution(left.id, DefinitionRevisionId("r"))
+        assertSuspendThrows<IllegalArgumentException> { executionRepository.createPiece("other", guide, "Wrong project") }
+        assertSuspendThrows<IllegalArgumentException> { database.executionDao().createExecution("g", "r", "bad", 500, "other", left.id) }
+        assertTrue(executionRepository.updatePiece(left, "Left sleeve renamed", false))
+        assertEquals(false, executionRepository.updatePiece(left, "Stale overwrite", true))
+        val renamed = requireNotNull(executionRepository.loadPiece(left.id))
+        assertTrue(executionRepository.updatePiece(renamed, renamed.name, true))
+        assertNull(executionRepository.getActiveProjectWork(guide, "project-g"))
+        assertEquals(work, executionRepository.getActivePieceExecution(left.id))
+        val archived = requireNotNull(executionRepository.loadPiece(left.id))
+        assertTrue(executionRepository.updatePiece(archived, archived.name, false))
+        assertEquals(work, executionRepository.getActiveProjectWork(guide, "project-g"))
+        assertSuspendThrows<IllegalStateException> { guideRepository.deleteGuide(guide) }
+        assertNotNull(guideRepository.getGuide(guide))
+    }
+
+    @Test fun pieceGraphRoundTripsAndMalformedRestoreRollsBack() = runBlocking {
+        val guide = createGuideWithSimpleRevision("g", "d", "r")
+        enqueueIds("left", "right", "left-work", "right-work")
+        val left = executionRepository.createPiece("project-g", guide, "Left sleeve")
+        val right = executionRepository.createPiece("project-g", guide, "Right sleeve")
+        val work = executionRepository.createPieceExecution(left.id, DefinitionRevisionId("r"))
+        executionRepository.createPieceExecution(right.id, DefinitionRevisionId("r"))
+        executionRepository.applyComplete(work.state.executionId, work.version)
+        val store = com.macareen.stitchbook2.data.backup.RoomGuideBackupStore(database.guideBackupDao())
+        val graph = store.load()
+        store.replace(graph)
+        assertEquals(graph, store.load())
+        assertEquals(1, executionRepository.getActivePieceExecution(left.id)?.state?.completedAddresses?.size)
+        assertEquals(0, executionRepository.getActivePieceExecution(right.id)?.state?.completedAddresses?.size)
+        assertSuspendThrows<Exception> { store.replace(graph.copy(pieces = emptyList())) }
+        assertEquals(graph, store.load())
+    }
+
     @Test
     fun latestProjectProgressIncludesCompletionAndNeverUsesAnotherProjectsExecution() = runBlocking {
         val guide = createGuideWithSimpleRevision("shared", "draft", "revision", occurrences = 2)

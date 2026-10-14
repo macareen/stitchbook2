@@ -126,7 +126,8 @@ fun ExecutionAggregate.toDomain(): PersistedExecution {
         version = execution.version,
         createdAt = execution.createdAt,
         updatedAt = execution.updatedAt,
-        completedAt = execution.completedAt
+        completedAt = execution.completedAt,
+        pieceId = execution.pieceId
     )
 }
 

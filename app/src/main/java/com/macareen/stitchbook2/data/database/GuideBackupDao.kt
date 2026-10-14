@@ -19,7 +19,8 @@ data class GuideGraphRows(
     val completedOccurrences: List<ExecutionCompletedOccurrenceEntity> = emptyList(),
     val completedOccurrenceFrames: List<ExecutionCompletedOccurrenceFrameEntity> = emptyList(),
     val activeExecutions: List<ActiveExecutionEntity> = emptyList(),
-    val projectGuides: List<ProjectGuideLinkEntity> = emptyList()
+    val projectGuides: List<ProjectGuideLinkEntity> = emptyList(),
+    val pieces: List<ProjectPieceEntity> = emptyList()
 )
 
 /**
@@ -30,6 +31,10 @@ data class GuideGraphRows(
  */
 @Dao
 abstract class GuideBackupDao {
+
+    @Query("SELECT * FROM project_pieces") protected abstract suspend fun allPieces(): List<ProjectPieceEntity>
+    @Insert(onConflict = OnConflictStrategy.ABORT) protected abstract suspend fun insertPieces(rows: List<ProjectPieceEntity>)
+    @Query("DELETE FROM project_pieces WHERE guide_id = :guideId") protected abstract suspend fun deletePiecesOf(guideId: String)
 
     @Query("SELECT * FROM guides") protected abstract suspend fun allGuides(): List<GuideEntity>
     @Query("SELECT * FROM guide_drafts") protected abstract suspend fun allDrafts(): List<GuideDraftEntity>
@@ -83,7 +88,8 @@ abstract class GuideBackupDao {
         completedOccurrences = allCompletedOccurrences(),
         completedOccurrenceFrames = allCompletedOccurrenceFrames(),
         activeExecutions = allActiveExecutions(),
-        projectGuides = allProjectGuides()
+        projectGuides = allProjectGuides(),
+        pieces = allPieces()
     )
 
     /**
@@ -101,6 +107,7 @@ abstract class GuideBackupDao {
         if (rows.guides.isNotEmpty()) upsertGuides(rows.guides)
         keep.forEach { guideId ->
             deleteExecutionsOf(guideId)
+            deletePiecesOf(guideId)
             deleteDraftsOf(guideId)
             deleteRevisionsOf(guideId)
         }
@@ -124,6 +131,7 @@ abstract class GuideBackupDao {
         if (rows.revisionNodes.isNotEmpty()) insertRevisionNodes(rows.revisionNodes)
         if (rows.drafts.isNotEmpty()) insertDrafts(rows.drafts)
         if (rows.draftNodes.isNotEmpty()) insertDraftNodes(rows.draftNodes)
+        if (rows.pieces.isNotEmpty()) insertPieces(rows.pieces)
         if (rows.executions.isNotEmpty()) insertExecutions(rows.executions)
         if (rows.currentFrames.isNotEmpty()) insertCurrentFrames(rows.currentFrames)
         if (rows.completedOccurrences.isNotEmpty()) insertCompletedOccurrences(rows.completedOccurrences)

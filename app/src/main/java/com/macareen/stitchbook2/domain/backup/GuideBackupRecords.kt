@@ -89,14 +89,16 @@ data class ExecutionRecord(
     val completedAt: Long?,
     val version: Long,
     val currentFrames: List<AddressFrameRecord>,
-    val completedOccurrences: List<CompletedOccurrenceRecord>
+    val completedOccurrences: List<CompletedOccurrenceRecord>,
+    val pieceId: String? = null
 )
 
 /** Which execution is resumed for a guide in one project ("" for the guide on its own). */
 data class ActiveExecutionRecord(
     val guideId: String,
     val projectKey: String,
-    val executionId: String
+    val executionId: String,
+    val pieceKey: String = ""
 )
 
 /** A project using a pattern guide it doesn't own. */
@@ -109,7 +111,8 @@ data class GuideBackupGraph(
     val revisions: List<GuideRevisionRecord> = emptyList(),
     val executions: List<ExecutionRecord> = emptyList(),
     val activeExecutions: List<ActiveExecutionRecord> = emptyList(),
-    val projectGuides: List<ProjectGuideLink> = emptyList()
+    val projectGuides: List<ProjectGuideLink> = emptyList(),
+    val pieces: List<com.macareen.stitchbook2.domain.model.ProjectPiece> = emptyList()
 )
 
 /**

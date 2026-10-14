@@ -36,6 +36,16 @@ class ExecutionVersionConflictException(
  */
 interface ExecutionRepository {
 
+    fun observeWorkChanges(): kotlinx.coroutines.flow.Flow<Unit> = kotlinx.coroutines.flow.flowOf(Unit)
+    fun observePieces(projectId: String): kotlinx.coroutines.flow.Flow<List<com.macareen.stitchbook2.domain.model.ProjectPiece>> = kotlinx.coroutines.flow.flowOf(emptyList())
+    suspend fun loadPiece(pieceId: String): com.macareen.stitchbook2.domain.model.ProjectPiece? = null
+    suspend fun createPiece(projectId: String, guideId: GuideId, name: String): com.macareen.stitchbook2.domain.model.ProjectPiece = throw UnsupportedOperationException()
+    suspend fun updatePiece(expected: com.macareen.stitchbook2.domain.model.ProjectPiece, name: String, archived: Boolean): Boolean = throw UnsupportedOperationException()
+    suspend fun createPieceExecution(pieceId: String, revisionId: DefinitionRevisionId): PersistedExecution = throw UnsupportedOperationException()
+    suspend fun getActivePieceExecution(pieceId: String): PersistedExecution? = null
+    suspend fun getLatestPieceExecution(pieceId: String): PersistedExecution? = null
+    suspend fun getActiveProjectWork(guideId: GuideId, projectId: String): PersistedExecution? = getActiveExecution(guideId, projectId)
+
     /**
      * Creates a new ACTIVE Execution for [guideId] pinned to [revisionId].
      *

@@ -1,6 +1,10 @@
 package com.macareen.stitchbook2.data.repository
 
 import com.macareen.stitchbook2.data.database.ExecutionConflictException
+import kotlinx.coroutines.flow.map
+import com.macareen.stitchbook2.data.database.ProjectPieceEntity
+import com.macareen.stitchbook2.domain.model.ProjectPiece
+import com.macareen.stitchbook2.domain.model.normalizedPieceName
 import com.macareen.stitchbook2.data.database.ExecutionDao
 import com.macareen.stitchbook2.data.database.ExecutionTransitionRow
 import com.macareen.stitchbook2.data.database.toDomain
@@ -20,6 +24,30 @@ class LocalExecutionRepository(
     private val newId: () -> String = { UUID.randomUUID().toString() },
     private val currentTimeMillis: () -> Long = System::currentTimeMillis
 ) : ExecutionRepository {
+
+    override fun observeWorkChanges() = executionDao.observeWorkChangeCount().map { Unit }
+    override fun observePieces(projectId: String) = executionDao.observePieces(projectId).map { rows -> rows.map { it.toDomain() } }
+    override suspend fun loadPiece(pieceId: String) = executionDao.getPiece(pieceId)?.toDomain()
+    override suspend fun createPiece(projectId: String, guideId: GuideId, name: String): ProjectPiece {
+        val now = currentTimeMillis()
+        val piece = ProjectPieceEntity(newId(), projectId, guideId.value,
+            requireNotNull(normalizedPieceName(name)), false, now, now)
+        executionDao.createPiece(piece)
+        return piece.toDomain()
+    }
+    override suspend fun updatePiece(expected: ProjectPiece, name: String, archived: Boolean): Boolean =
+        executionDao.updatePiece(expected.id, expected.projectId, expected.guideId,
+            requireNotNull(normalizedPieceName(name)), archived, currentTimeMillis(), expected.name,
+            expected.isArchived, expected.updatedAt) == 1
+
+    override suspend fun createPieceExecution(pieceId: String, revisionId: DefinitionRevisionId): PersistedExecution {
+        val piece = requireNotNull(executionDao.getPiece(pieceId))
+        return executionDao.createExecution(piece.guideId, revisionId.value, newId(), currentTimeMillis(), piece.projectId, piece.id).toDomain()
+    }
+    override suspend fun getActivePieceExecution(pieceId: String) = executionDao.getActivePieceExecution(pieceId)?.toDomain()
+    override suspend fun getLatestPieceExecution(pieceId: String) = executionDao.getLatestPieceExecution(pieceId)?.toDomain()
+
+    override suspend fun getActiveProjectWork(guideId: GuideId, projectId: String) = executionDao.getActiveProjectWork(guideId.value, projectId)?.toDomain()
 
     override suspend fun createExecution(
         guideId: GuideId,

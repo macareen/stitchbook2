@@ -167,7 +167,8 @@ class GuideFocusViewModel(
     private val clock: () -> Long = System::currentTimeMillis,
     private val zone: () -> ZoneId = ZoneId::systemDefault,
     /** Moves a planned project to active once its knitting starts. */
-    private val projectRepository: ProjectRepository? = null
+    private val projectRepository: ProjectRepository? = null,
+    private val pieceId: String? = null
 ) : ViewModel() {
 
     /** The Library pattern to open from Focus, decided once per load. */
@@ -381,7 +382,8 @@ class GuideFocusViewModel(
                     _uiState.value = GuideFocusUiState.NoPublishedRevision
                     return@launch
                 }
-                val execution = executionRepository.createExecution(guideId, revisionId, projectId.ifEmpty { null })
+                val execution = if (pieceId == null) executionRepository.createExecution(guideId, revisionId, projectId.ifEmpty { null })
+                else executionRepository.createPieceExecution(pieceId, revisionId)
                 markProjectActive(projectId)
                 val projectCounters = counterRepository.observeCountersByProject(projectId).first()
                 applyExecutionResult(guideName, projectId, execution, projectCounters)
@@ -451,20 +453,24 @@ class GuideFocusViewModel(
             // A pattern guide opened on its own has no project, so no project counters.
             val contextProjectId = this.projectId ?: guide.projectId
             val projectId = contextProjectId.orEmpty()
+            val piece = pieceId?.let { id -> requireNotNull(executionRepository.loadPiece(id)) }
+            require(piece == null || (piece.projectId == contextProjectId && piece.guideId == guideId.value && !piece.isArchived))
+            val displayName = piece?.let { "${guide.name} · ${it.name}" } ?: guide.name
             patternLibraryItemId = guide.libraryItemId ?: contextProjectId?.let { id ->
                 // Only a project with exactly one pattern file says which pattern to open.
                 materialsRepository?.observePatternsForProject(id)?.first()?.filter { it.pdfUri != null }?.singleOrNull()?.id
             }
-            val active = executionRepository.getActiveExecution(guideId, contextProjectId)
+            val active = if (pieceId == null) executionRepository.getActiveExecution(guideId, contextProjectId)
+                else executionRepository.getActivePieceExecution(pieceId) ?: executionRepository.getLatestPieceExecution(pieceId)
             if (active != null) {
                 val projectCounters = contextProjectId?.let { counterRepository.observeCountersByProject(it).first() }.orEmpty()
-                applyExecutionResult(guide.name, projectId, active, projectCounters, feedback)
+                applyExecutionResult(displayName, projectId, active, projectCounters, feedback)
                 return
             }
 
             val hasPublishedRevision = guideRepository.getLatestRevision(guideId) != null
             _uiState.value = if (hasPublishedRevision) {
-                GuideFocusUiState.ReadyToStart(guideName = guide.name, projectId = projectId)
+                GuideFocusUiState.ReadyToStart(guideName = displayName, projectId = projectId)
             } else {
                 GuideFocusUiState.NoPublishedRevision
             }
@@ -616,7 +622,8 @@ class GuideFocusViewModel(
             projectId: String? = null,
             materialsRepository: MaterialsRepository? = null,
             sessionRepository: SessionRepository? = null,
-            projectRepository: ProjectRepository? = null
+            projectRepository: ProjectRepository? = null,
+            pieceId: String? = null
         ): ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 GuideFocusViewModel(
@@ -627,7 +634,8 @@ class GuideFocusViewModel(
                     projectId = projectId,
                     materialsRepository = materialsRepository,
                     sessionRepository = sessionRepository,
-                    projectRepository = projectRepository
+                    projectRepository = projectRepository,
+                    pieceId = pieceId
                 )
             }
         }

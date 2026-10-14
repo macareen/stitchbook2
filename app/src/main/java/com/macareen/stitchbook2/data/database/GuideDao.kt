@@ -28,6 +28,7 @@ abstract class GuideDao {
         SELECT * FROM guides
         WHERE project_id = :projectId
            OR id IN (SELECT guide_id FROM project_guides WHERE project_id = :projectId)
+           OR id IN (SELECT guide_id FROM project_pieces WHERE project_id = :projectId)
         ORDER BY updated_at DESC, name COLLATE NOCASE ASC, id ASC
         """
     )
@@ -106,11 +107,12 @@ abstract class GuideDao {
     @Query("""
         DELETE FROM guides WHERE id = :guideId AND library_item_id = :libraryItemId AND project_id IS NULL
         AND NOT EXISTS (SELECT 1 FROM project_guides WHERE guide_id = :guideId)
+        AND NOT EXISTS (SELECT 1 FROM project_pieces WHERE guide_id = :guideId)
         AND NOT EXISTS (SELECT 1 FROM executions WHERE guide_id = :guideId)
     """)
     abstract suspend fun deleteUnusedPatternGuide(guideId: String, libraryItemId: String): Int
 
-    @Query("DELETE FROM guides WHERE id = :guideId")
+    @Query("DELETE FROM guides WHERE id = :guideId AND NOT EXISTS (SELECT 1 FROM project_pieces WHERE guide_id = :guideId)")
     abstract suspend fun deleteGuide(guideId: String): Int
 
     @Insert(onConflict = OnConflictStrategy.ABORT)

@@ -17,6 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         DefinitionRevisionEntity::class,
         RevisionNodeEntity::class,
         ExecutionEntity::class,
+        ProjectPieceEntity::class,
         ExecutionCurrentAddressFrameEntity::class,
         ExecutionCompletedOccurrenceEntity::class,
         ExecutionCompletedOccurrenceFrameEntity::class,
@@ -36,7 +37,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         JournalEntryEntity::class,
         CraftingSessionEntity::class
     ],
-    version = 24,
+    version = 25,
     exportSchema = true
 )
 abstract class StitchbookDatabase : RoomDatabase() {
@@ -104,7 +105,8 @@ val ALL_MIGRATIONS: Array<Migration>
         MIGRATION_20_21,
         MIGRATION_21_22,
         MIGRATION_22_23,
-        MIGRATION_23_24
+        MIGRATION_23_24,
+        MIGRATION_24_25
     )
 
 val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -1121,5 +1123,22 @@ val MIGRATION_22_23 = object : Migration(22, 23) {
 val MIGRATION_23_24 = object : Migration(23, 24) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE guides ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+
+/** Add independent piece ownership while preserving every existing execution and pointer. */
+val MIGRATION_24_25 = object : Migration(24, 25) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS project_pieces (id TEXT NOT NULL PRIMARY KEY, project_id TEXT NOT NULL, guide_id TEXT NOT NULL, name TEXT NOT NULL, is_archived INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, FOREIGN KEY(project_id) REFERENCES projects(id) ON UPDATE NO ACTION ON DELETE CASCADE, FOREIGN KEY(guide_id) REFERENCES guides(id) ON UPDATE NO ACTION ON DELETE CASCADE)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_project_pieces_project_id ON project_pieces(project_id)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_project_pieces_guide_id ON project_pieces(guide_id)")
+        db.execSQL("ALTER TABLE executions ADD COLUMN piece_id TEXT REFERENCES project_pieces(id) ON UPDATE NO ACTION ON DELETE CASCADE")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_executions_piece_id ON executions(piece_id)")
+        db.execSQL("CREATE TABLE active_executions_new (guide_id TEXT NOT NULL, project_key TEXT NOT NULL, execution_id TEXT NOT NULL, piece_key TEXT NOT NULL DEFAULT '', PRIMARY KEY(guide_id, project_key, piece_key), FOREIGN KEY(guide_id) REFERENCES guides(id) ON UPDATE NO ACTION ON DELETE CASCADE, FOREIGN KEY(execution_id) REFERENCES executions(id) ON UPDATE NO ACTION ON DELETE CASCADE)")
+        db.execSQL("INSERT INTO active_executions_new(guide_id, project_key, execution_id) SELECT guide_id, project_key, execution_id FROM active_executions")
+        db.execSQL("DROP TABLE active_executions")
+        db.execSQL("ALTER TABLE active_executions_new RENAME TO active_executions")
+        db.execSQL("CREATE UNIQUE INDEX index_active_executions_execution_id ON active_executions(execution_id)")
     }
 }

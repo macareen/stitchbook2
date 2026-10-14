@@ -277,5 +277,6 @@ fun BackupRecordType.labelResource(): Int = when (this) {
     BackupRecordType.GUIDE_REVISIONS -> R.string.backup_type_guide_revisions
     BackupRecordType.EXECUTIONS -> R.string.backup_type_executions
     BackupRecordType.ACTIVE_EXECUTIONS -> R.string.backup_type_active_executions
+    BackupRecordType.PROJECT_PIECES -> R.string.backup_type_project_pieces
     BackupRecordType.PROJECT_GUIDES -> R.string.backup_type_project_guides
 }

@@ -38,6 +38,9 @@ internal fun validateGuides(
     }
     val graph = checkNotNull(incoming.guideGraph())
     val strict = mode == RestoreMode.REPLACE
+    if (incoming.formatVersion < 4 && (graph.pieces.isNotEmpty() || graph.executions.any { it.pieceId != null } || graph.activeExecutions.any { it.pieceKey.isNotEmpty() })) {
+        return listOf(BackupIssue(BackupIssueKind.INVALID_VALUE, null, null, "Piece records require backup format 4."))
+    }
 
     fun invalid(type: BackupRecordType, key: String, detail: String) {
         issues += BackupIssue(BackupIssueKind.INVALID_VALUE, type, key, detail)
@@ -65,6 +68,7 @@ internal fun validateGuides(
         existing.guideDrafts.orEmpty().forEach { put(BackupRecordType.GUIDE_DRAFTS to it.id, it.guideId) }
         existing.guideRevisions.orEmpty().forEach { put(BackupRecordType.GUIDE_REVISIONS to it.id, it.guideId) }
         existing.executions.orEmpty().forEach { put(BackupRecordType.EXECUTIONS to it.id, it.guideId) }
+        existing.projectPieces.orEmpty().forEach { put(BackupRecordType.PROJECT_PIECES to it.id, it.guideId) }
     }
     fun requireSameGuideLocally(type: BackupRecordType, id: String, guideId: String) {
         val localGuide = localGuideOf[type to id]
@@ -99,7 +103,22 @@ internal fun validateGuides(
     }
 
     val executionsById = graph.executions.associateBy { it.id }
+    val piecesById = graph.pieces.associateBy { it.id }
+    graph.pieces.forEach { piece ->
+        requireGuide(BackupRecordType.PROJECT_PIECES, piece.id, piece.guideId)
+        requireSameGuideLocally(BackupRecordType.PROJECT_PIECES, piece.id, piece.guideId)
+        if (strict && piece.projectId !in projects) missing(BackupRecordType.PROJECT_PIECES, piece.id, "project", piece.projectId)
+        if (piece.id.isBlank() || com.macareen.stitchbook2.domain.model.normalizedPieceName(piece.name) != piece.name) invalid(BackupRecordType.PROJECT_PIECES, piece.id, "Enter a piece name of 1 to 100 characters.")
+        val owner = graph.guides.firstOrNull { it.id == piece.guideId }?.projectId
+        if (owner != null && owner != piece.projectId) invalid(BackupRecordType.PROJECT_PIECES, piece.id, "A piece cannot use another project's owned guide.")
+    }
+
     graph.executions.forEach { execution ->
+        execution.pieceId?.let { id ->
+            val piece = piecesById[id]
+            if (piece == null) missing(BackupRecordType.EXECUTIONS, execution.id, "piece", id)
+            else if (piece.projectId != execution.projectId || piece.guideId != execution.guideId) invalid(BackupRecordType.EXECUTIONS, execution.id, "Progress belongs to a different piece scope.")
+        }
         val key = execution.id
         requireGuide(BackupRecordType.EXECUTIONS, key, execution.guideId)
         requireSameGuideLocally(BackupRecordType.EXECUTIONS, key, execution.guideId)
@@ -122,19 +141,19 @@ internal fun validateGuides(
     }
 
     graph.activeExecutions.forEach { pointer ->
-        val key = activeExecutionKey(pointer.guideId, pointer.projectKey)
+        val key = activeExecutionKey(pointer.guideId, pointer.projectKey, pointer.pieceKey)
         requireGuide(BackupRecordType.ACTIVE_EXECUTIONS, key, pointer.guideId)
         val execution = executionsById[pointer.executionId]
         when {
             execution == null -> missing(BackupRecordType.ACTIVE_EXECUTIONS, key, "progress", pointer.executionId)
-            execution.guideId != pointer.guideId || execution.projectId.orEmpty() != pointer.projectKey ->
+            execution.guideId != pointer.guideId || execution.projectId.orEmpty() != pointer.projectKey || execution.pieceId.orEmpty() != pointer.pieceKey ->
                 invalid(BackupRecordType.ACTIVE_EXECUTIONS, key, "Points to progress for a different guide or project.")
             execution.status != "ACTIVE" -> invalid(BackupRecordType.ACTIVE_EXECUTIONS, key, "Points to finished progress.")
         }
     }
     graph.activeExecutions.groupBy { it.executionId }.filterValues { it.size > 1 }.forEach { (executionId, pointers) ->
         pointers.forEach {
-            invalid(BackupRecordType.ACTIVE_EXECUTIONS, activeExecutionKey(it.guideId, it.projectKey), "Progress \"$executionId\" is resumed from more than one place.")
+            invalid(BackupRecordType.ACTIVE_EXECUTIONS, activeExecutionKey(it.guideId, it.projectKey, it.pieceKey), "Progress \"$executionId\" is resumed from more than one place.")
         }
     }
 
@@ -227,9 +246,22 @@ fun planGuideMerge(incoming: BackupSnapshot, existing: BackupSnapshot): GuideMer
     val revisions = graph.revisions.keptOrReported(
         BackupRecordType.GUIDE_REVISIONS, existing.guideRevisions.orEmpty().map { it.id }.toSet(), { it.id }, { it.guideId }
     )
+    val pieces = graph.pieces.keptOrReported(
+        BackupRecordType.PROJECT_PIECES, existing.projectPieces.orEmpty().map { it.id }.toSet(), { it.id }, { it.guideId }
+    ).filter { piece ->
+        if (piece.projectId in projects) true else {
+            notice(BackupRecordType.PROJECT_PIECES, piece.id, "Not restored: its project is missing; its progress is retained without the piece.")
+            false
+        }
+    }
+    val keptPieceIds = pieces.map { it.id }.toSet()
     val executions = graph.executions.keptOrReported(
         BackupRecordType.EXECUTIONS, existing.executions.orEmpty().map { it.id }.toSet(), { it.id }, { it.guideId }
-    ).map { execution ->
+    ).map { original ->
+        val execution = if (original.pieceId != null && original.pieceId !in keptPieceIds) {
+            notice(BackupRecordType.EXECUTIONS, original.id, "Its piece was not restored; progress is retained without it.")
+            original.copy(pieceId = null)
+        } else original
         if (execution.projectId != null && execution.projectId !in projects) {
             notice(BackupRecordType.EXECUTIONS, execution.id, "Its project \"${execution.projectId}\" isn't in the file or on this device, so this progress now belongs to the guide on its own.")
             execution.copy(projectId = null)
@@ -241,14 +273,14 @@ fun planGuideMerge(incoming: BackupSnapshot, existing: BackupSnapshot): GuideMer
 
     val pointers = graph.activeExecutions.keptOrReported(
         BackupRecordType.ACTIVE_EXECUTIONS,
-        existing.activeExecutions.orEmpty().map { activeExecutionKey(it.guideId, it.projectKey) }.toSet(),
-        { activeExecutionKey(it.guideId, it.projectKey) },
+        existing.activeExecutions.orEmpty().map { activeExecutionKey(it.guideId, it.projectKey, it.pieceKey) }.toSet(),
+        { activeExecutionKey(it.guideId, it.projectKey, it.pieceKey) },
         { it.guideId }
     ).map { pointer ->
         // Follows its execution if the execution's project was cleared above.
-        pointer.copy(projectKey = executionsById[pointer.executionId]?.projectId.orEmpty())
+        pointer.copy(projectKey = executionsById[pointer.executionId]?.projectId.orEmpty(), pieceKey = executionsById[pointer.executionId]?.pieceId.orEmpty())
     }
-    val activeExecutions = pointers.groupBy { it.guideId to it.projectKey }.map { (_, sameKey) ->
+    val activeExecutions = pointers.groupBy { Triple(it.guideId, it.projectKey, it.pieceKey) }.map { (_, sameKey) ->
         val resumed = sameKey.maxBy { executionsById[it.executionId]?.updatedAt ?: Long.MIN_VALUE }
         sameKey.filter { it != resumed }.forEach {
             notice(
@@ -284,7 +316,8 @@ fun planGuideMerge(incoming: BackupSnapshot, existing: BackupSnapshot): GuideMer
             revisions = revisions,
             executions = executions,
             activeExecutions = activeExecutions,
-            projectGuides = projectGuides
+            projectGuides = projectGuides,
+            pieces = pieces
         ),
         notices = notices
     )
