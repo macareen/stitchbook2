@@ -143,7 +143,7 @@ fun GuideFocusRoute(viewModel: GuideFocusViewModel, onOpenPattern: (PatternPage)
         onReviewVersions = viewModel.revisionReview::open
     )
     revisionReview?.let { GuideRevisionReviewDialog(it, viewModel.revisionReview::select,
-        viewModel.revisionReview::selectAll, viewModel.revisionReview::apply, viewModel.revisionReview::resume, viewModel.revisionReview::close) }
+        viewModel.revisionReview::selectAll, viewModel.revisionReview::apply, viewModel.revisionReview::resume, viewModel.revisionReview::close, viewModel.revisionReview::choosePublication) }
 }
 
 @Composable
