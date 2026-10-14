@@ -19,6 +19,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ProjectMarkdownTest {
+    @Test fun archivedGuideVisibilityIsIncludedWithoutDroppingItsSteps() {
+        val graph = GuideBackupFixtures.graph.copy(guides = GuideBackupFixtures.graph.guides.map { it.copy(isArchived = true) })
+        val saved = BackupSnapshot(formatVersion = CURRENT_BACKUP_FORMAT_VERSION).withGuideGraph(graph)
+        val text = projectMarkdown(project.copy(id = "project-1"), saved, now = 0)
+        assertTrue(text.contains("Archived guide; project progress is kept."))
+        assertTrue(text.contains("## Guides"))
+    }
+
 
     private val project = Project(
         id = "p1",

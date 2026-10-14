@@ -166,3 +166,25 @@ Visual review found a multiline size label at 180% system text and offscreen sav
 2026-10-14: April Cardigan private diagnostics found that its single-row instructions become instruction leaves inside fixed repeats rather than Range nodes. Stitchbook derives row/round display context only from a repeat whose direct children have consecutive, unique numbered labels in the same unit; it does not change execution addresses or counted steps. One printed numeric run has ten identical alternatives for nine sizes. Oversized identical alternatives now collapse because the result is invariant; differing oversized alternatives stay unchanged. This is an independent conservative rule, not confirmed reference-app handling. Private PDF and extracted content remain outside Git.
 
 2026-10-14 scope clarification: LooseLoop is the user's former craft app and Stitchbook is their new project. The goal is migration of most useful crafting capabilities, with changes and improvements, rather than a few isolated inspirations. Exclude community/social features and reference aesthetics. Keep Stitchbook's own cozy design, offline essential workflows, portable originals and exports. Typed nesting colors are functional reading cues implemented with Stitchbook theme tokens. Maintain confirmed/inferred/unknown evidence and a feature-by-feature migration backlog; remote-only parsing remains a capability gap to close independently, not a mandate to recreate the reference service.
+
+## Functional migration checklist (2026-10-14)
+
+This is a capability migration from the user's former app, with original Stitchbook implementation and design. Static evidence is not a runtime comparison. Community/social features and reference aesthetics are excluded; local exports and the Android share sheet remain ownership tools.
+
+| Crafting capability | Stitchbook status | Remaining acceptance work |
+| --- | --- | --- |
+| PDF-to-guide interpretation | Local PDFBox/OCR, editable drafts, source pages and optional structured assisted input | Broad layout/language/chart accuracy and differential comparison; the reference server algorithm is unavailable |
+| Sizes and size-specific work | PDF-derived labels, numeric resolution, explicit bounded size selectors; all nine April sizes checked on Android | General size-dependent construction and more permissioned patterns |
+| Nested rows and fixed repeats | Stable execution addresses, per-project progress, explicit row/repeat context, typed colors and scoped inline action groups | More complex conditional sequences and parser recovery cases |
+| Pattern–guide–project reuse | Reusable size guides, atomic use plus pattern association, immutable revision pinning, draft copy and preserved orphan guides | Explicit revision-upgrade choices and named dependency previews |
+| Old guide management | Confirmed unused removal and reversible archives with schema-24 migration, portable metadata and retained progress | Named dependency previews and further runtime comparison |
+| Timer recovery and statistics | Configurable overdue review, correction/manual time, recorded sessions, atomic starts and version guards | Additional crash/background scenarios; no claim of exact reference reconciliation parity |
+| Multiple pieces/instances | Project construction metadata and section-based guides | Explicit instance identity, quantity and mirroring with independent work state |
+| Until-length/stitch-count loops | Original wording can be reviewed in instruction steps | Executable targets, scoped cycle persistence, back/jump/restart and measured-versus-estimated totals |
+| Charts | Original PDF remains accessible; chart interpretation is not declared complete | Manual chart model first: symbols, direction, offsets/repeats, correction and exports; recognition afterward |
+| Materials | Raw pattern details, stash, allocations and tools | Structured held-together strands, roles/alternatives and specification freshness |
+| Metadata correction | Blank-field filling preserves user edits | Reviewable conflict suggestions with provenance |
+| Covers, journals and sharing | User-accessible photo references, project cover/dashboard, tagged contextual notes and PNG exports | Further requested page refinements and source-photo workflows |
+| Counter companions | Project counters and Focus-scoped notification service | Atomic rapid-tap/link behavior audit; watch snapshot names alone do not prove wearable runtime parity |
+
+Acceptance requires tests for the underlying state and portable data, followed by native visual checks for presentation. A smaller parser or placeholder instruction is not evidence that a richer reference capability has been migrated.

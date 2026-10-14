@@ -649,6 +649,7 @@ private fun GuideListItem(
                     text = entry.guide.name,
                     style = MaterialTheme.typography.cardTitle
                 )
+                if (entry.guide.isArchived) QuietText(stringResource(R.string.guide_archived_status))
                 if (entry.action == GuideEntryAction.NOT_EXECUTABLE) {
                     QuietText(text = stringResource(R.string.guide_draft_status_label))
                 }
@@ -773,18 +774,23 @@ private fun previewGuide(id: String, name: String) = Guide(
 
 /** Picks one of the patterns' size guides for this project to use. */
 @Composable
-private fun PatternGuidePicker(guides: List<Guide>, onChoose: (Guide) -> Unit, onDismiss: () -> Unit) {
+internal fun PatternGuidePicker(guides: List<Guide>, onChoose: (Guide) -> Unit, onDismiss: () -> Unit) {
+    var showArchived by rememberSaveable { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.project_use_pattern_guide)) },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                guides.forEach { guide ->
+                if (guides.any { it.isArchived }) TextButton(onClick = { showArchived = !showArchived }) {
+                    Text(stringResource(if (showArchived) R.string.guide_archived_hide else R.string.guide_archived_show))
+                }
+                guides.filter { showArchived || !it.isArchived }.forEach { guide ->
                     TextButton(onClick = { onChoose(guide) }, modifier = Modifier.fillMaxWidth()) {
                         val size = guide.sizeLabel?.takeUnless { guide.name.endsWith(it) }
                         Text(
                             text = listOfNotNull(guide.name, size?.let { stringResource(R.string.pattern_guides_size, it) },
-                                if (guide.libraryItemId == null) stringResource(R.string.guide_pattern_removed) else null)
+                                if (guide.libraryItemId == null) stringResource(R.string.guide_pattern_removed) else null,
+                                if (guide.isArchived) stringResource(R.string.guide_archived_reuse) else null)
                                 .joinToString(" · "),
                             modifier = Modifier.fillMaxWidth()
                         )

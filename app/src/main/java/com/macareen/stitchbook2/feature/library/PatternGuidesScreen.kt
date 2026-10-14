@@ -107,7 +107,8 @@ fun PatternGuidesRoute(
         onGetRavelryPdf = viewModel::getRavelryPdf,
         onAttachPdf = viewModel::attachPdf,
         onCopyGuide = viewModel::copyGuideToSize,
-        onRemoveGuide = viewModel::removeUnusedGuide
+        onRemoveGuide = viewModel::removeUnusedGuide,
+        onArchiveGuide = viewModel::setGuideArchived
     )
 }
 
@@ -123,7 +124,8 @@ fun PatternGuidesScreen(
     onGetRavelryPdf: () -> Unit = {},
     onAttachPdf: (PickedDocument) -> Unit = {},
     onCopyGuide: (String, String) -> Unit = { _, _ -> },
-    onRemoveGuide: (String) -> Unit = {}
+    onRemoveGuide: (String) -> Unit = {},
+    onArchiveGuide: (String, Boolean) -> Unit = { _, _ -> }
 ) {
     when (uiState) {
         PatternGuidesUiState.Loading -> Box(modifier.fillMaxSize()) {
@@ -135,7 +137,7 @@ fun PatternGuidesScreen(
         }
 
         is PatternGuidesUiState.Content ->
-            Content(uiState, onOpenPdf, onEditGuide, onCreateGuide, onStartProject, onGetRavelryPdf, onAttachPdf, onCopyGuide, onRemoveGuide, modifier)
+            Content(uiState, onOpenPdf, onEditGuide, onCreateGuide, onStartProject, onGetRavelryPdf, onAttachPdf, onCopyGuide, onRemoveGuide, onArchiveGuide, modifier)
     }
 }
 
@@ -150,11 +152,13 @@ private fun Content(
     onAttachPdf: (PickedDocument) -> Unit,
     onCopyGuide: (String, String) -> Unit,
     onRemoveGuide: (String) -> Unit,
+    onArchiveGuide: (String, Boolean) -> Unit,
     modifier: Modifier
 ) {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     val scope = rememberCoroutineScope()
+    var showArchived by rememberSaveable { mutableStateOf(false) }
     var removingGuideId by rememberSaveable { mutableStateOf<String?>(null) }
     var copyingGuideId by rememberSaveable { mutableStateOf<String?>(null) }
     var attachFailed by rememberSaveable { mutableStateOf(false) }
@@ -222,7 +226,7 @@ private fun Content(
 
 
         Text(text = stringResource(R.string.pattern_guides_title), style = MaterialTheme.typography.titleMedium)
-        if (state.guides.isEmpty() && state.sizeChoices.isEmpty()) {
+        if (state.guides.isEmpty() && state.archivedGuides.isEmpty() && state.sizeChoices.isEmpty()) {
             QuietText(text = stringResource(R.string.pattern_guides_empty))
         }
         SecondaryActionButton(
@@ -240,11 +244,23 @@ private fun Content(
                     requestedSize = size
                     showNewGuide = true
                 })
-            } else entries.forEach { entry -> GuideWithCopy(entry, !state.isCreating, { onEditGuide(entry.guide.id.value) }, { copyingGuideId = entry.guide.id.value }, { removingGuideId = entry.guide.id.value }) }
+            } else entries.forEach { entry -> GuideWithCopy(entry, !state.isCreating, { onEditGuide(entry.guide.id.value) }, { copyingGuideId = entry.guide.id.value }, { removingGuideId = entry.guide.id.value }, { onArchiveGuide(entry.guide.id.value, !entry.guide.isArchived) }) }
         }
         state.guides.filter {
             com.macareen.stitchbook2.domain.parsing.PatternSizes.indexOf(it.guide.sizeLabel.orEmpty(), state.sizeChoices) == null
-        }.forEach { entry -> GuideWithCopy(entry, !state.isCreating, { onEditGuide(entry.guide.id.value) }, { copyingGuideId = entry.guide.id.value }, { removingGuideId = entry.guide.id.value }) }
+        }.forEach { entry -> GuideWithCopy(entry, !state.isCreating, { onEditGuide(entry.guide.id.value) }, { copyingGuideId = entry.guide.id.value }, { removingGuideId = entry.guide.id.value }, { onArchiveGuide(entry.guide.id.value, !entry.guide.isArchived) }) }
+        if (state.archivedGuides.isNotEmpty()) {
+            TextButton(onClick = { showArchived = !showArchived }) {
+                Text(if (showArchived) stringResource(R.string.guide_archived_hide) else stringResource(R.string.guide_archived_count, state.archivedGuides.size))
+            }
+            if (showArchived) state.archivedGuides.forEach { entry ->
+                QuietText(stringResource(R.string.guide_archived_status))
+                GuideWithCopy(entry, !state.isCreating, { onEditGuide(entry.guide.id.value) }, {},
+                    { removingGuideId = entry.guide.id.value }, { onArchiveGuide(entry.guide.id.value, false) })
+            }
+        }
+        if (state.guideArchiveFailed) Text(stringResource(R.string.guide_archive_failed), color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.bodyMedium)
         if (state.guideRemovalFailed) Text(stringResource(R.string.guide_remove_failed),
             color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
         PatternDetailsCard(state.pattern)
@@ -264,7 +280,7 @@ private fun Content(
         }
     }
 
-    state.guides.firstOrNull { it.guide.id.value == removingGuideId }?.let { entry ->
+    (state.guides + state.archivedGuides).firstOrNull { it.guide.id.value == removingGuideId }?.let { entry ->
         AlertDialog(onDismissRequest = { removingGuideId = null },
             title = { Text(stringResource(R.string.guide_remove_action)) },
             text = { Text(stringResource(R.string.guide_remove_confirmation, entry.guide.name)) },
@@ -370,14 +386,18 @@ private fun GuideRow(entry: PatternGuideEntry, onClick: () -> Unit) {
 }
 
 @Composable
-private fun GuideWithCopy(entry: PatternGuideEntry, enabled: Boolean, onEdit: () -> Unit, onCopy: () -> Unit, onRemove: () -> Unit) {
+private fun GuideWithCopy(entry: PatternGuideEntry, enabled: Boolean, onEdit: () -> Unit, onCopy: () -> Unit,
+    onRemove: () -> Unit, onArchive: () -> Unit) {
     Column {
         GuideRow(entry, onEdit)
-        if (entry.guide.projectId == null) TextButton(onClick = onRemove, enabled = enabled) {
-            Text(stringResource(R.string.guide_remove_action))
-        }
-        if (entry.isPublished && entry.guide.projectId == null) TextButton(onClick = onCopy, enabled = enabled) {
-            Text(stringResource(R.string.guide_copy_action))
+        if (entry.guide.projectId == null) FlowRow {
+            TextButton(onClick = onArchive, enabled = enabled) {
+                Text(stringResource(if (entry.guide.isArchived) R.string.guide_restore_action else R.string.guide_archive_action))
+            }
+            TextButton(onClick = onRemove, enabled = enabled) { Text(stringResource(R.string.guide_remove_action)) }
+            if (entry.isPublished && !entry.guide.isArchived) TextButton(onClick = onCopy, enabled = enabled) {
+                Text(stringResource(R.string.guide_copy_action))
+            }
         }
     }
 }

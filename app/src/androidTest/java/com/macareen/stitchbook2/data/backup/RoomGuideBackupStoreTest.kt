@@ -19,6 +19,7 @@ import com.macareen.stitchbook2.domain.execution.NodeId
 import com.macareen.stitchbook2.domain.guide.DraftNode
 import com.macareen.stitchbook2.domain.guide.DraftNodeType
 import java.util.ArrayDeque
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -48,6 +49,18 @@ class RoomGuideBackupStoreTest {
     fun closeDatabases() {
         source.close()
         destination.close()
+    }
+
+    @Test
+    fun archiveVisibilitySurvivesPortableJsonAndRoomRestore() = runBlocking {
+        val graph = GuideBackupGraph(guides = listOf(GuideRecord("archive", null, null, "L", "Sample", null, 1, 2, true)))
+        val json = encodeBackup(BackupSnapshot(formatVersion = CURRENT_BACKUP_FORMAT_VERSION).withGuideGraph(graph), exportedAt = 0)
+        val restored = checkNotNull(decodeBackup(json).guideGraph())
+        val store = RoomGuideBackupStore(destination.guideBackupDao())
+        store.replace(restored)
+        assertEquals(graph, store.load())
+        assertEquals(true, guideRepository(destination).observeAllPatternGuidesIncludingArchived().first().single().isArchived)
+        assertEquals(emptyList<Any>(), guideRepository(destination).observeAllPatternGuides().first())
     }
 
     @Test

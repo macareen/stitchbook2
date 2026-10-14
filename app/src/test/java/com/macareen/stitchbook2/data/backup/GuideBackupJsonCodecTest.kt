@@ -10,6 +10,19 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class GuideBackupJsonCodecTest {
+    @Test fun archiveVisibilityRoundTripsAndLegacyRecordsDefaultToActive() {
+        val record = GuideBackupFixtures.graph.guides.first().copy(isArchived = true)
+        val json = record.toJson()
+        assertEquals(record, json.toGuideRecord())
+        json.remove("isArchived")
+        assertEquals(false, json.toGuideRecord().isArchived)
+    }
+    @Test fun archivedGuideGraphRoundTripsThroughTheFullBackup() {
+        val graph = GuideBackupFixtures.graph.copy(guides = GuideBackupFixtures.graph.guides.map { it.copy(isArchived = true) })
+        val snapshot = BackupSnapshot(formatVersion = CURRENT_BACKUP_FORMAT_VERSION).withGuideGraph(graph)
+        assertEquals(graph, decodeBackup(encodeBackup(snapshot, exportedAt = 42)).guideGraph())
+    }
+
 
     @Test
     fun theGuideGraphRoundTripsThroughJson() {

@@ -38,7 +38,8 @@ data class GuideEntity(
     val name: String,
     val notes: String?,
     @ColumnInfo(name = "created_at") val createdAt: Long,
-    @ColumnInfo(name = "updated_at") val updatedAt: Long
+    @ColumnInfo(name = "updated_at") val updatedAt: Long,
+    @ColumnInfo(name = "is_archived", defaultValue = "0") val isArchived: Boolean = false
 )
 
 /** A project using a pattern's guide it doesn't own. Removed with either side. */

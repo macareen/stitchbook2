@@ -104,7 +104,7 @@ class LocalGuideRepository(
     }
 
     override suspend fun useGuideInProject(projectId: String, guideId: GuideId) {
-        guideDao.useGuideInProject(projectId, guideId.value)
+        guideDao.useGuideInProject(projectId, guideId.value, currentTimeMillis())
     }
 
     override suspend fun copyPatternGuideToSize(sourceGuideId: GuideId, targetSize: String, name: String): Guide =
@@ -129,6 +129,15 @@ class LocalGuideRepository(
         )
         return if (updated == 1) guideDao.getGuide(guideId.value)?.toDomain() else null
     }
+
+    override fun observePatternGuidesIncludingArchived(libraryItemId: String): Flow<List<Guide>> =
+        guideDao.observeByLibraryItemIncludingArchived(libraryItemId).map { rows -> rows.map { it.toDomain() } }
+
+    override fun observeAllPatternGuidesIncludingArchived(): Flow<List<Guide>> =
+        guideDao.observeAllPatternGuidesIncludingArchived().map { rows -> rows.map { it.toDomain() } }
+
+    override suspend fun setPatternGuideArchived(guideId: GuideId, libraryItemId: String?, archived: Boolean): Boolean =
+        guideDao.setPatternGuideArchived(guideId.value, libraryItemId, archived, currentTimeMillis()) == 1
 
     override suspend fun deleteUnusedPatternGuide(guideId: GuideId, libraryItemId: String): Boolean =
         guideDao.deleteUnusedPatternGuide(guideId.value, libraryItemId) == 1

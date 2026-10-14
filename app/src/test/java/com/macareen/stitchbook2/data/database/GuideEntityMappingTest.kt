@@ -17,6 +17,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GuideEntityMappingTest {
+    @Test fun guideArchiveMetadataRoundTripsWithItsPatternAssociation() {
+        val guide = com.macareen.stitchbook2.domain.guide.Guide(GuideId("guide"), null, "Sample", null, 1, 2, "pattern", "L", true)
+        assertEquals(guide, guide.toEntity().toDomain())
+    }
+
 
     @Test
     fun draftTreeRoundTripPreservesHierarchyAndOrder() {

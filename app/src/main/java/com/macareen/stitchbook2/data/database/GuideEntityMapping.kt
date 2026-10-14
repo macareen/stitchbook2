@@ -48,7 +48,8 @@ fun GuideEntity.toDomain() = Guide(
     name = name,
     notes = notes,
     createdAt = createdAt,
-    updatedAt = updatedAt
+    updatedAt = updatedAt,
+    isArchived = isArchived
 )
 
 fun Guide.toEntity() = GuideEntity(
@@ -59,7 +60,8 @@ fun Guide.toEntity() = GuideEntity(
     name = name,
     notes = notes,
     createdAt = createdAt,
-    updatedAt = updatedAt
+    updatedAt = updatedAt,
+    isArchived = isArchived
 )
 
 fun DraftAggregate.toDomain(): GuideDraft {

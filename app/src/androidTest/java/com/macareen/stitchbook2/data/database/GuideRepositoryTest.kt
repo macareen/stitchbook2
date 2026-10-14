@@ -350,6 +350,82 @@ class GuideRepositoryTest {
         assertNotNull(repository.getGuide(guide.id)); assertNotNull(repository.loadRevision(revision.id))
     }
 
+    @Test fun archiveKeepsProjectUseAndContentAndReuseRestoresItAtomically() = runBlocking {
+        insertPattern("pattern"); insertProject("hat"); insertProject("second")
+        enqueueIds("guide", "draft")
+        val guide = repository.createPatternGuide("pattern", "L", "Sample")
+        repository.saveDraft(checkNotNull(repository.loadDraft(guide.id)).withValidTree("Knit"))
+        enqueueIds("revision")
+        val revision = repository.publishDraft(guide.id)
+        repository.useGuideInProject("hat", guide.id)
+        val executions = com.macareen.stitchbook2.data.repository.LocalExecutionRepository(
+            executionDao = database.executionDao(), newId = { "archive-progress" }, currentTimeMillis = { now++ })
+        val started = executions.createExecution(guide.id, revision.id, "hat")
+        executions.applyComplete(started.state.executionId, started.version)
+        val progress = checkNotNull(executions.loadExecution(started.state.executionId))
+        org.junit.Assert.assertTrue(repository.setPatternGuideArchived(guide.id, "pattern", true))
+        assertEquals(progress.state, checkNotNull(executions.loadExecution(started.state.executionId)).state)
+        assertEquals(progress.version, checkNotNull(executions.loadExecution(started.state.executionId)).version)
+        org.junit.Assert.assertTrue(repository.observePatternGuides("pattern").first().isEmpty())
+        org.junit.Assert.assertTrue(repository.observeAllPatternGuides().first().isEmpty())
+        org.junit.Assert.assertTrue(repository.observePatternGuidesIncludingArchived("pattern").first().single().isArchived)
+        assertEquals("pattern", repository.observeGuides("hat").first().single().libraryItemId)
+        assertEquals(revision, repository.getLatestRevision(guide.id))
+        repository.useGuideInProject("second", guide.id)
+        org.junit.Assert.assertFalse(checkNotNull(repository.getGuide(guide.id)).isArchived)
+        assertEquals(guide.id, repository.observeGuides("hat").first().single().id)
+        assertEquals(guide.id, repository.observeGuides("second").first().single().id)
+        assertEquals(revision, repository.getLatestRevision(guide.id))
+        assertEquals(progress.state, checkNotNull(executions.loadExecution(started.state.executionId)).state)
+        assertEquals(progress.version, checkNotNull(executions.loadExecution(started.state.executionId)).version)
+    }
+    @Test fun archiveRejectsWrongPatternAndOwnedGuidesAndFailedReuseKeepsArchive() = runBlocking {
+        insertPattern("pattern"); insertProject("hat")
+        enqueueIds("guide", "draft", "owned", "owned-draft")
+        val guide = repository.createPatternGuide("pattern", "M", "Sample")
+        val owned = repository.createGuide("hat", "Owned")
+        org.junit.Assert.assertFalse(repository.setPatternGuideArchived(guide.id, "other", true))
+        org.junit.Assert.assertFalse(repository.setPatternGuideArchived(owned.id, null, true))
+        org.junit.Assert.assertTrue(repository.setPatternGuideArchived(guide.id, "pattern", true))
+        var failed = false
+        try { repository.useGuideInProject("missing-project", guide.id) } catch (_: Exception) { failed = true }
+        org.junit.Assert.assertTrue(failed)
+        org.junit.Assert.assertTrue(checkNotNull(repository.getGuide(guide.id)).isArchived)
+        assertEquals(emptyList<Any>(), repository.observeGuides("missing-project").first())
+    }
+    @Test fun orphanedArchivedGuidesRemainRecoverableAndRestorableThroughReuse() = runBlocking {
+        insertPattern("pattern"); insertProject("hat")
+        enqueueIds("guide", "draft")
+        val guide = repository.createPatternGuide("pattern", "M", "Sample")
+        repository.setPatternGuideArchived(guide.id, "pattern", true)
+        database.openHelper.writableDatabase.execSQL("DELETE FROM library_items WHERE id = 'pattern'")
+        assertEquals(guide.id, repository.observeAllPatternGuidesIncludingArchived().first().single().id)
+        repository.useGuideInProject("hat", guide.id)
+        org.junit.Assert.assertFalse(checkNotNull(repository.getGuide(guide.id)).isArchived)
+        assertNull(checkNotNull(repository.getGuide(guide.id)).libraryItemId)
+    }
+
+    @Test fun archivedTargetAllowsNewSizeCopyButArchivedSourceCannotCopyToItself() = runBlocking {
+        insertPattern("pattern"); enqueueIds("source", "source-draft")
+        val source = repository.createPatternGuide("pattern", "M", "Body M")
+        repository.saveDraft(checkNotNull(repository.loadDraft(source.id)).withValidTree("Knit"))
+        enqueueIds("revision"); repository.publishDraft(source.id)
+        enqueueIds("old-target", "old-target-draft")
+        val old = repository.createPatternGuide("pattern", "L", "Old L")
+        repository.setPatternGuideArchived(old.id, "pattern", true)
+        enqueueIds("copy", "copy-draft")
+        val copy = repository.copyPatternGuideToSize(source.id, "L", "New L")
+        org.junit.Assert.assertFalse(copy.isArchived)
+        org.junit.Assert.assertTrue(checkNotNull(repository.getGuide(old.id)).isArchived)
+        assertEquals(listOf(source.id, copy.id).toSet(), repository.observePatternGuides("pattern").first().map { it.id }.toSet())
+        repository.setPatternGuideArchived(source.id, "pattern", true)
+        var rejected = false
+        enqueueIds("unused-copy", "unused-draft")
+        try { repository.copyPatternGuideToSize(source.id, " m ", "Same size") } catch (_: IllegalArgumentException) { rejected = true }
+        org.junit.Assert.assertTrue(rejected)
+        assertNull(repository.getGuide(GuideId("unused-copy")))
+    }
+
     private suspend fun createGuide(): GuideId {
         insertProject("project")
         enqueueIds("guide", "draft")

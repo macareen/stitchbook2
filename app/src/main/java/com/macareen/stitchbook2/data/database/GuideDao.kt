@@ -36,16 +36,25 @@ abstract class GuideDao {
     @Query(
         """
         SELECT * FROM guides
-        WHERE library_item_id = :libraryItemId
+        WHERE library_item_id = :libraryItemId AND is_archived = 0
         ORDER BY size_label COLLATE NOCASE ASC, name COLLATE NOCASE ASC, id ASC
         """
     )
     abstract fun observeByLibraryItem(libraryItemId: String): Flow<List<GuideEntity>>
 
+    @Query("SELECT * FROM guides WHERE library_item_id = :libraryItemId ORDER BY size_label COLLATE NOCASE, name COLLATE NOCASE, id")
+    abstract fun observeByLibraryItemIncludingArchived(libraryItemId: String): Flow<List<GuideEntity>>
+
+    @Query("SELECT * FROM guides WHERE project_id IS NULL ORDER BY name COLLATE NOCASE, size_label COLLATE NOCASE, id")
+    abstract fun observeAllPatternGuidesIncludingArchived(): Flow<List<GuideEntity>>
+
+    @Query("UPDATE guides SET is_archived = :archived, updated_at = :updatedAt WHERE id = :guideId AND project_id IS NULL AND library_item_id IS :libraryItemId")
+    abstract suspend fun setPatternGuideArchived(guideId: String, libraryItemId: String?, archived: Boolean, updatedAt: Long): Int
+
     @Query(
         """
         SELECT * FROM guides
-        WHERE project_id IS NULL
+        WHERE project_id IS NULL AND is_archived = 0
         ORDER BY name COLLATE NOCASE ASC, size_label COLLATE NOCASE ASC, id ASC
         """
     )
@@ -59,13 +68,16 @@ abstract class GuideDao {
 
     /** Resolve ownership in the transaction; never trust a stale guide passed by the UI. */
     @Transaction
-    open suspend fun useGuideInProject(projectId: String, guideId: String) {
+    open suspend fun useGuideInProject(projectId: String, guideId: String, now: Long) {
         val guide = getGuide(guideId) ?: throw GuideNotFoundException(guideId)
         require(guide.projectId == null || guide.projectId == projectId) {
             "A project-owned guide cannot be attached to another project."
         }
         insertProjectGuideLink(ProjectGuideLinkEntity(projectId, guideId))
         guide.libraryItemId?.let { insertProjectPatternLink(ProjectPatternLinkEntity(projectId, it)) }
+        if (guide.projectId == null && guide.isArchived) {
+            check(setPatternGuideArchived(guideId, guide.libraryItemId, false, now) == 1)
+        }
     }
 
     @Query("DELETE FROM project_guides WHERE project_id = :projectId AND guide_id = :guideId")
@@ -203,8 +215,11 @@ abstract class GuideDao {
         require(source.projectId == null) { "Only reusable pattern guides can be copied between sizes." }
         val size = targetSize.trim()
         require(size.isNotEmpty() && name.isNotBlank())
+        require(com.macareen.stitchbook2.domain.parsing.PatternSizes.indexOf(size, listOfNotNull(source.sizeLabel)) == null) {
+            "Source and target size must differ."
+        }
         val rows = getPatternGuideRows(patternId)
-        val labels = rows.mapNotNull { it.sizeLabel }
+        val labels = rows.filterNot { it.isArchived }.mapNotNull { it.sizeLabel }
         require(com.macareen.stitchbook2.domain.parsing.PatternSizes.indexOf(size, labels) == null) {
             "That size already has a guide."
         }

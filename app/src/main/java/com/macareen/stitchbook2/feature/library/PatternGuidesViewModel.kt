@@ -62,7 +62,9 @@ sealed interface PatternGuidesUiState {
         val ravelryPdf: RavelryPdfState = RavelryPdfState(),
         val pdfSizeChoices: List<String> = emptyList(),
         val completedProjects: Int = 0,
-        val guideRemovalFailed: Boolean = false
+        val guideRemovalFailed: Boolean = false,
+        val guideArchiveFailed: Boolean = false,
+        val archivedGuides: List<PatternGuideEntry> = emptyList()
     ) : PatternGuidesUiState {
         /** PDF sizes take precedence; saved Library sizes remain a fallback. */
         val sizeChoices: List<String> get() = pdfSizeChoices.ifEmpty { PatternSizes.labelsFrom(pattern.sizes.orEmpty()) }
@@ -180,7 +182,8 @@ class PatternGuidesViewModel(
         val isCreating: Boolean = false,
         val failed: Boolean = false,
         val pdfProblem: PatternPdfProblem? = null,
-        val guideRemovalFailed: Boolean = false
+        val guideRemovalFailed: Boolean = false,
+        val guideArchiveFailed: Boolean = false
     )
 
     private val completedProjects = combine(
@@ -190,7 +193,7 @@ class PatternGuidesViewModel(
 
     val uiState: StateFlow<PatternGuidesUiState> = combine(
         libraryRepository.observeLibraryItem(libraryItemId),
-        guideRepository.observePatternGuides(libraryItemId).map { guides ->
+        guideRepository.observePatternGuidesIncludingArchived(libraryItemId).map { guides ->
             guides.map { guide -> PatternGuideEntry(guide, isPublished = guideRepository.getLatestRevision(guide.id) != null) }
         },
         creation,
@@ -202,14 +205,16 @@ class PatternGuidesViewModel(
         } else {
             PatternGuidesUiState.Content(
                 pattern,
-                guides,
+                guides.filterNot { it.guide.isArchived },
                 creationState.isCreating,
                 creationState.failed,
                 creationState.pdfProblem,
                 canGetRavelryPdf = downloadRavelryPdf?.canDownload(pattern) == true,
                 ravelryPdf = ravelryState,
                 pdfSizeChoices = sizes?.takeIf { it.uri == pattern.pdfUri }?.labels.orEmpty(),
-                guideRemovalFailed = creationState.guideRemovalFailed
+                guideRemovalFailed = creationState.guideRemovalFailed,
+                guideArchiveFailed = creationState.guideArchiveFailed,
+                archivedGuides = guides.filter { it.guide.isArchived }
             )
         }
     }
@@ -244,6 +249,19 @@ class PatternGuidesViewModel(
             } catch (_: Exception) {
                 creation.value = CreationState(failed = true)
             }
+        }
+    }
+
+    fun setGuideArchived(guideId: String, archived: Boolean) {
+        if (creation.value.isCreating) return
+        creation.value = CreationState(isCreating = true)
+        scope.launch {
+            try {
+                val changed = guideRepository.setPatternGuideArchived(
+                    com.macareen.stitchbook2.domain.execution.GuideId(guideId), libraryItemId, archived)
+                creation.value = CreationState(guideArchiveFailed = !changed)
+            } catch (error: CancellationException) { throw error }
+            catch (_: Exception) { creation.value = CreationState(guideArchiveFailed = true) }
         }
     }
 

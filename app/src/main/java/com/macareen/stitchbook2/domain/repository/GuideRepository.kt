@@ -76,6 +76,16 @@ interface GuideRepository {
     /** A pattern's guides, one per size. */
     fun observePatternGuides(libraryItemId: String): Flow<List<Guide>> = flowOf(emptyList())
 
+    /** Includes archived guides so the pattern can offer restoration. */
+    fun observePatternGuidesIncludingArchived(libraryItemId: String): Flow<List<Guide>> = observePatternGuides(libraryItemId)
+
+    /** Includes archived reusable guides for an explicit Show archived picker. */
+    fun observeAllPatternGuidesIncludingArchived(): Flow<List<Guide>> = observeAllPatternGuides()
+
+    /** Changes visibility only, retaining the pattern, revisions, links and executions. */
+    suspend fun setPatternGuideArchived(guideId: GuideId, libraryItemId: String?, archived: Boolean): Boolean =
+        throw UnsupportedOperationException("Guide archiving is not supported here.")
+
     /** Reusable pattern guides, including kept guides whose Library reference was removed. */
     fun observeAllPatternGuides(): Flow<List<Guide>> = flowOf(emptyList())
 
@@ -86,6 +96,7 @@ interface GuideRepository {
     /** Atomically attaches a reusable guide and its current pattern to [projectId].
      * Repeated use is harmless; a guide owned by another project cannot be shared.
      * Detached reusable guides remain usable without an invented pattern association.
+     * Explicit reuse restores an archived guide in the same transaction.
      */
     suspend fun useGuideInProject(projectId: String, guideId: GuideId): Unit =
         throw UnsupportedOperationException("Pattern guides are not supported here.")

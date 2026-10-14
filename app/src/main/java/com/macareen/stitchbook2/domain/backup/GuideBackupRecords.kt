@@ -25,7 +25,8 @@ data class GuideRecord(
     val name: String,
     val notes: String?,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val isArchived: Boolean = false
 )
 
 /** One node of a draft or revision tree. The tree it belongs to is the enclosing record. */

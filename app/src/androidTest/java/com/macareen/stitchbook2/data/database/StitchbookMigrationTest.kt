@@ -18,7 +18,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Bump alongside `StitchbookDatabase.version`; every migration chain below must reach it. */
-private const val CURRENT_SCHEMA_VERSION = 23
+private const val CURRENT_SCHEMA_VERSION = 24
 
 @RunWith(AndroidJUnit4::class)
 class StitchbookMigrationTest {
@@ -85,6 +85,19 @@ class StitchbookMigrationTest {
         if (::database.isInitialized) database.close()
         context.deleteDatabase(DATABASE_NAME)
         context.deleteDatabase(HELPER_DATABASE_NAME)
+    }
+
+    @Test
+    fun migrationTwentyThreeToTwentyFourKeepsExistingGuidesActive() {
+        migrationHelper.createDatabase(HELPER_DATABASE_NAME, 23).use { db ->
+            db.execSQL("INSERT INTO guides (id, project_id, library_item_id, size_label, name, notes, created_at, updated_at) VALUES ('g', NULL, NULL, 'L', 'Keep guide', 'Keep notes', 1, 2)")
+        }
+        migrationHelper.runMigrationsAndValidate(HELPER_DATABASE_NAME, 24, true, MIGRATION_23_24).use { db ->
+            db.query("SELECT name, notes, size_label, is_archived FROM guides WHERE id = 'g'").use {
+                assertTrue(it.moveToFirst()); assertEquals("Keep guide", it.getString(0)); assertEquals("Keep notes", it.getString(1))
+                assertEquals("L", it.getString(2)); assertEquals(0, it.getInt(3))
+            }
+        }
     }
 
     @Test
@@ -760,7 +773,8 @@ class StitchbookMigrationTest {
             MIGRATION_19_20,
             MIGRATION_20_21,
             MIGRATION_21_22,
-            MIGRATION_22_23
+            MIGRATION_22_23,
+            MIGRATION_23_24
         ).use { db ->
             db.query(
                 "SELECT name, notes, description, construction_method, custom_type_label, start_date, target_date, completed_date FROM projects WHERE id = 'existing-project'"
