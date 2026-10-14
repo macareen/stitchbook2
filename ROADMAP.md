@@ -568,3 +568,5 @@ Single rows keep their number in the step text ("Row 3 (RS): Knit."), and genera
 ### Functional migration from LooseLoop
 
 The user clarified on 2026-10-14 that LooseLoop is their former app and Stitchbook is their new project. Carry over most useful crafting capabilities with requested changes and improvements; exclude community/social features and LooseLoop aesthetics. Use docs/LOOSELOOP_FUNCTIONAL_FINDINGS.md as an active migration backlog, alongside this roadmap. Preserve Stitchbook's visual identity, first-class craft types, offline essentials, portable original files and exports. Track feature parity honestly: confirmed reference capability, Stitchbook implementation and verification, remaining differences. Prioritize guide interpretation, nested execution, size resolution, project/guide/pattern relationships, counters and work-time reliability.
+
+2026-10-14 counter reliability: forward taps now use persisted state and commit source/link/goal-reset updates in one Room transaction. Native tests cover concurrent stale taps, shared targets, rollback and overflow. Decrement/reset and one-level link semantics are unchanged.
