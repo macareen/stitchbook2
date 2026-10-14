@@ -309,6 +309,47 @@ class GuideRepositoryTest {
         assertNull(repository.loadRevision(revision.id))
     }
 
+    @Test fun unusedPatternGuideRemovalCascadesOnlyItsContent() = runBlocking {
+        insertPattern("pattern")
+        enqueueIds("guide", "draft")
+        val guide = repository.createPatternGuide("pattern", "M", "Sample guide")
+        repository.saveDraft(checkNotNull(repository.loadDraft(guide.id)).withValidTree("Knit"))
+        enqueueIds("revision")
+        val revision = repository.publishDraft(guide.id)
+        org.junit.Assert.assertFalse(repository.deleteUnusedPatternGuide(guide.id, "other-pattern"))
+        org.junit.Assert.assertTrue(repository.deleteUnusedPatternGuide(guide.id, "pattern"))
+        assertNull(repository.getGuide(guide.id))
+        assertNull(repository.loadDraft(guide.id))
+        assertNull(repository.loadRevision(revision.id))
+        database.openHelper.readableDatabase.query("SELECT id FROM library_items WHERE id = 'pattern'").use { org.junit.Assert.assertTrue(it.moveToFirst()) }
+    }
+
+    @Test fun linkedGuideAndProjectOwnedGuideCannotBeRemovedAsUnused() = runBlocking {
+        insertPattern("pattern"); insertProject("hat")
+        enqueueIds("reusable", "draft", "owned", "owned-draft")
+        val guide = repository.createPatternGuide("pattern", "M", "Sample")
+        val owned = repository.createGuide("hat", "Owned")
+        repository.useGuideInProject("hat", guide.id)
+        org.junit.Assert.assertFalse(repository.deleteUnusedPatternGuide(guide.id, "pattern"))
+        org.junit.Assert.assertFalse(repository.deleteUnusedPatternGuide(owned.id, "pattern"))
+        assertNotNull(repository.getGuide(guide.id)); assertNotNull(repository.getGuide(owned.id))
+        assertEquals(2, repository.observeGuides("hat").first().size)
+    }
+
+    @Test fun savedStandaloneProgressProtectsAReusableGuide() = runBlocking {
+        insertPattern("pattern")
+        enqueueIds("guide", "draft")
+        val guide = repository.createPatternGuide("pattern", "M", "Sample")
+        repository.saveDraft(checkNotNull(repository.loadDraft(guide.id)).withValidTree("Knit"))
+        enqueueIds("revision")
+        val revision = repository.publishDraft(guide.id)
+        database.openHelper.writableDatabase.execSQL(
+            "INSERT INTO executions (id, guide_id, definition_revision_id, status, current_instruction_node_id, created_at, updated_at, completed_at, version, project_id) VALUES (?, ?, ?, 'ACTIVE', NULL, 1, 1, NULL, 0, NULL)",
+            arrayOf("execution", guide.id.value, revision.id.value))
+        org.junit.Assert.assertFalse(repository.deleteUnusedPatternGuide(guide.id, "pattern"))
+        assertNotNull(repository.getGuide(guide.id)); assertNotNull(repository.loadRevision(revision.id))
+    }
+
     private suspend fun createGuide(): GuideId {
         insertProject("project")
         enqueueIds("guide", "draft")

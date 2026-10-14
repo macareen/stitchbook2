@@ -130,6 +130,9 @@ class LocalGuideRepository(
         return if (updated == 1) guideDao.getGuide(guideId.value)?.toDomain() else null
     }
 
+    override suspend fun deleteUnusedPatternGuide(guideId: GuideId, libraryItemId: String): Boolean =
+        guideDao.deleteUnusedPatternGuide(guideId.value, libraryItemId) == 1
+
     override suspend fun deleteGuide(guideId: GuideId) {
         guideDao.deleteGuide(guideId.value)
     }

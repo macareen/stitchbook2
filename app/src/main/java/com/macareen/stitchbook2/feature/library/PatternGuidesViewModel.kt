@@ -61,7 +61,8 @@ sealed interface PatternGuidesUiState {
         val canGetRavelryPdf: Boolean = false,
         val ravelryPdf: RavelryPdfState = RavelryPdfState(),
         val pdfSizeChoices: List<String> = emptyList(),
-        val completedProjects: Int = 0
+        val completedProjects: Int = 0,
+        val guideRemovalFailed: Boolean = false
     ) : PatternGuidesUiState {
         /** PDF sizes take precedence; saved Library sizes remain a fallback. */
         val sizeChoices: List<String> get() = pdfSizeChoices.ifEmpty { PatternSizes.labelsFrom(pattern.sizes.orEmpty()) }
@@ -178,7 +179,8 @@ class PatternGuidesViewModel(
     private data class CreationState(
         val isCreating: Boolean = false,
         val failed: Boolean = false,
-        val pdfProblem: PatternPdfProblem? = null
+        val pdfProblem: PatternPdfProblem? = null,
+        val guideRemovalFailed: Boolean = false
     )
 
     private val completedProjects = combine(
@@ -206,7 +208,8 @@ class PatternGuidesViewModel(
                 creationState.pdfProblem,
                 canGetRavelryPdf = downloadRavelryPdf?.canDownload(pattern) == true,
                 ravelryPdf = ravelryState,
-                pdfSizeChoices = sizes?.takeIf { it.uri == pattern.pdfUri }?.labels.orEmpty()
+                pdfSizeChoices = sizes?.takeIf { it.uri == pattern.pdfUri }?.labels.orEmpty(),
+                guideRemovalFailed = creationState.guideRemovalFailed
             )
         }
     }
@@ -241,6 +244,19 @@ class PatternGuidesViewModel(
             } catch (_: Exception) {
                 creation.value = CreationState(failed = true)
             }
+        }
+    }
+
+    fun removeUnusedGuide(guideId: String) {
+        if (creation.value.isCreating) return
+        creation.value = CreationState(isCreating = true)
+        scope.launch {
+            try {
+                val removed = guideRepository.deleteUnusedPatternGuide(
+                    com.macareen.stitchbook2.domain.execution.GuideId(guideId), libraryItemId)
+                creation.value = CreationState(guideRemovalFailed = !removed)
+            } catch (error: CancellationException) { throw error }
+            catch (_: Exception) { creation.value = CreationState(guideRemovalFailed = true) }
         }
     }
 

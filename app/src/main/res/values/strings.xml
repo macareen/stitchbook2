@@ -654,4 +654,7 @@
     <string name="home_photo_hint">Add a photo in your project journal to make this space yours.</string>
     <string name="home_continue_action">Continue</string>
     <string name="home_open_current_project">Open project</string>
+    <string name="guide_remove_action">Remove guide</string>
+    <string name="guide_remove_confirmation">Remove \"%1$s\"? This permanently deletes its draft and published revisions. Guides linked to a project or holding progress are protected. The pattern and original PDF are kept.</string>
+    <string name="guide_remove_failed">This guide could not be removed. It may be linked to a project or have saved progress. Nothing was removed. Guides with progress are kept.</string>
 </resources>
