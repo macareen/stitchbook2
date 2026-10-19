@@ -14,6 +14,8 @@ import com.macareen.stitchbook2.domain.library.PatternFolderSyncResult
 import com.macareen.stitchbook2.domain.library.SyncPatternFolder
 import com.macareen.stitchbook2.domain.model.Craft
 import com.macareen.stitchbook2.domain.model.LibraryItem
+import com.macareen.stitchbook2.domain.model.PatternRemovalPreview
+import com.macareen.stitchbook2.domain.model.PatternRemovalResult
 import com.macareen.stitchbook2.domain.model.normalizedLibraryItemTags
 import com.macareen.stitchbook2.domain.model.normalizedLibraryItemTitle
 import com.macareen.stitchbook2.domain.repository.LibraryRepository
@@ -48,6 +50,17 @@ sealed interface LibraryUiState {
 
 enum class PatternFolderProblem { NOT_ALLOWED, UNREADABLE }
 
+enum class PatternRemovalProblem { FAILED, CHANGED }
+
+data class PatternRemovalUiState(
+    val item: LibraryItem,
+    val preview: PatternRemovalPreview? = null,
+    val isLoading: Boolean = true,
+    val isRemoving: Boolean = false,
+    val problem: PatternRemovalProblem? = null,
+    val requestId: String = ""
+)
+
 /** The pattern folder line at the top of Library. */
 data class PatternFolderUiState(
     val isAvailable: Boolean = false,
@@ -68,6 +81,8 @@ class LibraryViewModel(
     private val scope: CoroutineScope = externalScope ?: viewModelScope
     private val _folderState = MutableStateFlow(PatternFolderUiState(isAvailable = patternFolder != null))
     val folderState: StateFlow<PatternFolderUiState> = _folderState
+    private val _removalReview = MutableStateFlow<PatternRemovalUiState?>(null)
+    val removalReview: StateFlow<PatternRemovalUiState?> = _removalReview
 
     init {
         // Opening Library picks up any PDFs added to the folder since last time.
@@ -237,15 +252,48 @@ class LibraryViewModel(
         }
     }
 
-    fun deleteItem(item: LibraryItem) {
+    fun requestRemoval(item: LibraryItem) {
+        if (_removalReview.value?.isRemoving == true) return
+        val requestId = UUID.randomUUID().toString()
+        _removalReview.value = PatternRemovalUiState(item, requestId = requestId)
         scope.launch {
             try {
-                repository.deleteLibraryItem(item)
+                val preview = repository.previewRemoval(item.id)
+                if (_removalReview.value?.requestId != requestId) return@launch
+                _removalReview.value = preview?.let {
+                    PatternRemovalUiState(it.item, it, isLoading = false, requestId = requestId)
+                }
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Exception) {
-                // Nothing to reconcile locally: the list reflects whatever is
-                // actually persisted on the next emission.
+                _removalReview.update { if (it?.requestId == requestId)
+                    it.copy(isLoading = false, problem = PatternRemovalProblem.FAILED) else it }
+            }
+        }
+    }
+
+    fun dismissRemoval() {
+        if (_removalReview.value?.isRemoving != true) _removalReview.value = null
+    }
+
+    fun confirmRemoval(expected: PatternRemovalPreview? = _removalReview.value?.preview) {
+        val review = _removalReview.value ?: return
+        val preview = review.preview ?: return
+        if (review.isLoading || review.isRemoving || preview != expected) return
+        _removalReview.value = review.copy(isRemoving = true, problem = null)
+        scope.launch {
+            try {
+                when (val result = repository.removeReviewed(preview)) {
+                    PatternRemovalResult.Removed, PatternRemovalResult.Missing -> _removalReview.value = null
+                    is PatternRemovalResult.Changed -> _removalReview.value = review.copy(
+                        item = result.preview.item, preview = result.preview,
+                        isRemoving = false, problem = PatternRemovalProblem.CHANGED
+                    )
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                _removalReview.value = review.copy(isRemoving = false, problem = PatternRemovalProblem.FAILED)
             }
         }
     }

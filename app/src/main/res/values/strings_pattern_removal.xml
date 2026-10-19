@@ -1,0 +1,15 @@
+<resources>
+    <plurals name="pattern_remove_guides">
+        <item quantity="one">%d guide will keep its instructions and progress (including archived guides).</item>
+        <item quantity="other">%d guides will keep their instructions and progress (including archived guides).</item>
+    </plurals>
+    <plurals name="pattern_remove_projects">
+        <item quantity="one">%d project references this pattern or its guides:</item>
+        <item quantity="other">%d projects reference this pattern or its guides:</item>
+    </plurals>
+    <string name="pattern_remove_project">%1$s · %2$s</string>
+    <string name="pattern_remove_changed">References changed while this dialog was open. Review the updated list before removing.</string>
+    <string name="pattern_remove_failed">Could not finish the removal review. Your selection is kept; try again.</string>
+    <string name="pattern_remove_retry">Try again</string>
+    <string name="pattern_remove_loading">Reviewing…</string>
+</resources>

@@ -1,5 +1,7 @@
 # Stitchbook Architecture
 
+Library reference removal uses a reviewed dependency snapshot (the complete Library item, associated guide IDs and distinct projects from pattern links, guide ownership/use, executions and pieces). `LibraryDao.removeReviewed` compares a fresh snapshot and deletes the index entry in one Room transaction. A changed snapshot returns the updated review without deleting anything; failed writes roll back associated foreign-key updates. The UI retains failed selections and guards busy or stale confirmation events. Original SAF files and retained guide/progress records are never deleted by this action. No schema or export-format change is required.
+
 ## 1. Status and intent
 
 This document primarily describes the intended architecture. Stitchbook currently has one Android `app` module containing a Material 3 application shell, Room-backed projects, library, stash, tools, counters, yarn allocations, photo references, journal, milestones, and crafting sessions, the pure execution-engine domain model with guide and execution persistence and Focus Mode, PNG share cards, and a versioned JSON backup with reviewed restore. Architecture should continue to be introduced incrementally as product phases require it.
