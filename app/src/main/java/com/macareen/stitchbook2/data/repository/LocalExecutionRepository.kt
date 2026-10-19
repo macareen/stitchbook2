@@ -51,6 +51,24 @@ class LocalExecutionRepository(
             requireNotNull(normalizedPieceName(name)), archived, currentTimeMillis(), expected.name,
             expected.isArchived, expected.updatedAt) == 1
 
+    override suspend fun createPieces(projectId: String, guideId: GuideId, names: List<String>): List<ProjectPiece> {
+        require(names.size in 1..com.macareen.stitchbook2.domain.model.MAX_PIECES_PER_BATCH)
+        val normalized = names.map { requireNotNull(normalizedPieceName(it)) }
+        require(normalized.distinct().size == normalized.size)
+        val now = currentTimeMillis()
+        val pieces = normalized.map { ProjectPieceEntity(newId(), projectId, guideId.value, it, false, now, now) }
+        executionDao.createPieces(pieces)
+        return pieces.map { it.toDomain() }
+    }
+
+    override suspend fun copyPiece(expected: ProjectPiece, name: String): ProjectPiece {
+        val normalized = requireNotNull(normalizedPieceName(name))
+        val now = currentTimeMillis()
+        val fresh = ProjectPieceEntity(newId(), expected.projectId, expected.guideId, normalized, false, now, now)
+        executionDao.copyPiece(expected, fresh)
+        return fresh.toDomain()
+    }
+
     override suspend fun createPieceExecution(pieceId: String, revisionId: DefinitionRevisionId): PersistedExecution {
         val piece = requireNotNull(executionDao.getPiece(pieceId))
         return executionDao.createExecution(piece.guideId, revisionId.value, newId(), currentTimeMillis(), piece.projectId, piece.id).toDomain()

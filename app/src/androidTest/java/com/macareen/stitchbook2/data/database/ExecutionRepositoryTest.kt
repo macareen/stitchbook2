@@ -319,6 +319,68 @@ class ExecutionRepositoryTest {
         } finally { scope.coroutineContext[kotlinx.coroutines.Job]?.cancel() }
     }
 
+    @Test fun quantityCreationKeepsIndependentWorkAndPortablePieceRecords() = runBlocking<Unit> {
+        val guide = createGuideWithSimpleRevision("g", "d", "r")
+        enqueueIds("one", "two", "one-work", "two-work")
+        val pieces = executionRepository.createPieces("project-g", guide, listOf(" Panel 1 ", "Panel 2"))
+        assertEquals(listOf("Panel 1", "Panel 2"), pieces.map { it.name })
+        assertTrue(pieces.all { !it.isArchived })
+        assertNull(executionRepository.getLatestPieceExecution(pieces.first().id))
+        var first = executionRepository.createPieceExecution(pieces[0].id, DefinitionRevisionId("r"))
+        val second = executionRepository.createPieceExecution(pieces[1].id, DefinitionRevisionId("r"))
+        first = executionRepository.applyComplete(first.state.executionId, first.version).execution
+        assertEquals(1, first.state.completedAddresses.size)
+        assertEquals(second, executionRepository.getActivePieceExecution(pieces[1].id))
+        val store = com.macareen.stitchbook2.data.backup.RoomGuideBackupStore(database.guideBackupDao())
+        val graph = store.load()
+        store.replace(graph)
+        assertEquals(graph, store.load())
+        assertEquals(first, executionRepository.getActivePieceExecution(pieces[0].id))
+        assertEquals(second, executionRepository.getActivePieceExecution(pieces[1].id))
+    }
+
+    @Test fun freshPieceCopyLeavesSourceWorkAloneAndRechecksSourceAndGuide() = runBlocking<Unit> {
+        val guide = createGuideWithSimpleRevision("g", "d", "r")
+        enqueueIds("source", "source-work", "copy", "copy-work", "stale-copy", "blocked-copy")
+        val source = executionRepository.createPiece("project-g", guide, "Left panel")
+        var originalWork = executionRepository.createPieceExecution(source.id, DefinitionRevisionId("r"))
+        originalWork = executionRepository.applyComplete(originalWork.state.executionId, originalWork.version).execution
+        assertTrue(executionRepository.updatePiece(source, source.name, true))
+        val archived = executionRepository.loadPiece(source.id)!!
+        val fresh = executionRepository.copyPiece(archived, "Right panel")
+        assertEquals(archived.guideId, fresh.guideId)
+        assertEquals(archived.projectId, fresh.projectId)
+        assertEquals(false, fresh.isArchived)
+        assertNull(executionRepository.getActivePieceExecution(fresh.id))
+        assertNull(executionRepository.getLatestPieceExecution(fresh.id))
+        val freshWork = executionRepository.createPieceExecution(fresh.id, DefinitionRevisionId("r"))
+        assertTrue(freshWork.state.completedAddresses.isEmpty())
+        assertEquals(originalWork, executionRepository.getActivePieceExecution(source.id))
+        assertTrue(executionRepository.updatePiece(archived, "Renamed source", true))
+        assertSuspendThrows<IllegalStateException> { executionRepository.copyPiece(archived, "Stale copy") }
+        val currentSource = executionRepository.loadPiece(source.id)!!
+        database.openHelper.writableDatabase.execSQL("UPDATE guides SET is_archived = 1 WHERE id = 'g'")
+        assertSuspendThrows<IllegalArgumentException> { executionRepository.copyPiece(currentSource, "Blocked copy") }
+        assertEquals(2, executionRepository.observePieces("project-g").first().size)
+        assertEquals(originalWork, executionRepository.getActivePieceExecution(source.id))
+        assertEquals(freshWork, executionRepository.getActivePieceExecution(fresh.id))
+    }
+
+    @Test fun quantityCreationRollsBackEveryPieceOnInsertFailureAndRejectsWrongScope() = runBlocking<Unit> {
+        val guide = createGuideWithSimpleRevision("g", "d", "r")
+        database.openHelper.writableDatabase.execSQL("""CREATE TRIGGER reject_second_piece AFTER INSERT ON project_pieces
+            WHEN NEW.name = 'Panel 2' BEGIN SELECT RAISE(ABORT, 'Test rollback'); END""")
+        enqueueIds("first", "second", "wrong-scope")
+        assertSuspendThrows<Exception> { executionRepository.createPieces("project-g", guide, listOf("Panel 1", "Panel 2")) }
+        assertTrue(executionRepository.observePieces("project-g").first().isEmpty())
+        insertProject("other")
+        assertSuspendThrows<IllegalArgumentException> { executionRepository.createPieces("other", guide, listOf("Foreign panel")) }
+        assertTrue(executionRepository.observePieces("other").first().isEmpty())
+        assertEquals(0, countRows("project_pieces", "1 = 1"))
+        assertSuspendThrows<IllegalArgumentException> { executionRepository.createPieces("project-g", guide, listOf("Same", " Same ")) }
+        assertSuspendThrows<IllegalArgumentException> { executionRepository.createPieces("project-g", guide, emptyList()) }
+    }
+
     @Test fun namedPiecesAndDefaultProgressRemainIndependentAcrossCompleteAndPrevious() = runBlocking {
         val guide = createGuideWithSimpleRevision("g", "d", "r")
         enqueueIds("left", "right", "default-work", "left-work", "right-work")

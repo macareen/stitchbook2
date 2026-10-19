@@ -32,6 +32,8 @@ See [PRODUCT_SPEC.md](PRODUCT_SPEC.md) for structured requirements and [ROADMAP.
 
 ## Currently implemented
 
+- Manage pieces can create a quantity of 1–100 independently tracked pieces in one reviewed batch, or make a fresh named copy of a piece with the same guide and no copied progress. Numbered names are previewed; all pieces use existing portable exports.
+
 - Edit pattern details directly on the pattern page; failed saves keep the form open and concurrent changes require an explicit reload. The scrollable form supports all crafts and validates optional yardage.
 - Pattern pages offer PDF actions to review replacing or unlinking the document. Original files, guide versions and project progress are preserved; a concurrent pattern change requires a fresh confirmation. New guide drafts must be created and reviewed explicitly.
 - Library removal reviews named affected projects and retained guides, rechecks references atomically before removing the index entry, and retains failed selections for retry. Original files and guide/progress history are kept.

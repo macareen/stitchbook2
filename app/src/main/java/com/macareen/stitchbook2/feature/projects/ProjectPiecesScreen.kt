@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -26,7 +28,8 @@ import com.macareen.stitchbook2.domain.model.ProjectPiece
 fun ProjectPiecesRoute(viewModel: ProjectPiecesViewModel, onOpen: (ProjectPiece) -> Unit, onBack: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     ProjectPiecesScreen(state, viewModel::add, viewModel::edit, viewModel::archive, onOpen, onBack,
-        viewModel::name, viewModel::guide, viewModel::save, viewModel::dismiss, viewModel::refresh)
+        viewModel::name, viewModel::guide, { state.editor?.let(viewModel::save) }, viewModel::dismiss, viewModel::refresh,
+        onQuantity = viewModel::quantity, onCopy = viewModel::copy)
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -34,7 +37,7 @@ fun ProjectPiecesRoute(viewModel: ProjectPiecesViewModel, onOpen: (ProjectPiece)
 fun ProjectPiecesScreen(state: ProjectPiecesState, onAdd: () -> Unit, onEdit: (ProjectPiece) -> Unit,
     onArchive: (ProjectPiece) -> Unit, onOpen: (ProjectPiece) -> Unit, onBack: () -> Unit,
     onName: (String) -> Unit, onGuide: (String) -> Unit, onSave: () -> Unit, onDismiss: () -> Unit,
-    onRetry: () -> Unit) {
+    onRetry: () -> Unit, onQuantity: (String) -> Unit = {}, onCopy: (ProjectPiece) -> Unit = {}) {
     var showArchived by remember { mutableStateOf(false) }
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         LazyColumn(Modifier.fillMaxSize().testTag("pieces_list"), contentPadding = PaddingValues(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -46,7 +49,7 @@ fun ProjectPiecesScreen(state: ProjectPiecesState, onAdd: () -> Unit, onEdit: (P
                 Text(stringResource(R.string.pieces_load_error), color = MaterialTheme.colorScheme.error)
                 TextButton(onClick = onRetry) { Text(stringResource(R.string.pieces_retry)) }
             }
-            item { Button(onClick = onAdd, enabled = !state.loading && state.choices.isNotEmpty(), modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.pieces_add)) } }
+            item { Button(onClick = onAdd, enabled = !state.loading && state.busyPieceId == null && state.choices.isNotEmpty(), modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.pieces_add)) } }
             if (!state.loading && state.choices.isEmpty()) item { Text(stringResource(R.string.pieces_need_guide)) }
             item { FilterChip(selected = showArchived, onClick = { showArchived = !showArchived }, label = { Text(stringResource(R.string.pieces_show_archived)) }) }
             if (!state.loading && state.entries.none { showArchived || !it.piece.isArchived }) item { Text(stringResource(R.string.pieces_empty)) }
@@ -67,6 +70,10 @@ fun ProjectPiecesScreen(state: ProjectPiecesState, onAdd: () -> Unit, onEdit: (P
                         }
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             TextButton(onClick = { onEdit(entry.piece) }, enabled = state.busyPieceId == null) { Text(stringResource(R.string.pieces_rename)) }
+                            TextButton(onClick = { onCopy(entry.piece) },
+                                enabled = state.busyPieceId == null && state.choices.any { it.id == entry.piece.guideId }) {
+                                Text(stringResource(R.string.pieces_fresh_copy))
+                            }
                             TextButton(onClick = { onArchive(entry.piece) }, enabled = state.busyPieceId == null) {
                                 Text(stringResource(if (entry.piece.isArchived) R.string.pieces_restore else R.string.pieces_archive))
                             }
@@ -79,7 +86,11 @@ fun ProjectPiecesScreen(state: ProjectPiecesState, onAdd: () -> Unit, onEdit: (P
             val scroll = rememberScrollState()
             LaunchedEffect(editor.error) { if (editor.error) scroll.animateScrollTo(0) }
             AlertDialog(onDismissRequest = { if (!editor.busy) onDismiss() },
-                title = { Text(stringResource(if (editor.expected == null) R.string.pieces_add else R.string.pieces_rename)) },
+                title = { Text(stringResource(when {
+                    editor.expected != null -> R.string.pieces_rename
+                    editor.copySource != null -> R.string.pieces_fresh_copy
+                    else -> R.string.pieces_add
+                })) },
                 text = {
                     val keyboard = LocalSoftwareKeyboardController.current
                     val focusManager = LocalFocusManager.current
@@ -88,8 +99,28 @@ fun ProjectPiecesScreen(state: ProjectPiecesState, onAdd: () -> Unit, onEdit: (P
                         OutlinedTextField(value = editor.name, onValueChange = onName, enabled = !editor.busy, singleLine = true,
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                             keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus(); keyboard?.hide() }),
-                            label = { Text(stringResource(R.string.pieces_name)) }, modifier = Modifier.fillMaxWidth())
-                        if (editor.expected == null) {
+                            label = { Text(stringResource(R.string.pieces_name), maxLines = 1, overflow = TextOverflow.Ellipsis) }, modifier = Modifier.fillMaxWidth())
+                        editor.copySource?.let { source ->
+                            Text(stringResource(R.string.pieces_copy_source, source.name))
+                            Text(stringResource(R.string.pieces_copy_explanation))
+                            Text(state.choices.firstOrNull { it.id == source.guideId }?.name.orEmpty())
+                        }
+                        if (editor.expected == null && editor.copySource == null) {
+                            OutlinedTextField(value = editor.quantity, onValueChange = onQuantity,
+                                enabled = !editor.busy, singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus(); keyboard?.hide() }),
+                                label = { Text(stringResource(R.string.pieces_quantity)) },
+                                supportingText = { Text(stringResource(R.string.pieces_quantity_help)) },
+                                isError = (editor.quantity.trim().toIntOrNull() ?: 0) !in 1..com.macareen.stitchbook2.domain.model.MAX_PIECES_PER_BATCH,
+                                modifier = Modifier.fillMaxWidth())
+                            if (editor.name.isNotBlank() && editor.names == null && (editor.quantity.trim().toIntOrNull() ?: 0) in 1..com.macareen.stitchbook2.domain.model.MAX_PIECES_PER_BATCH) {
+                                Text(stringResource(R.string.pieces_numbered_name_error), color = MaterialTheme.colorScheme.error)
+                            }
+                            editor.names?.takeIf { it.size > 1 }?.let { names ->
+                                Text(pluralStringResource(R.plurals.pieces_quantity_preview, names.size, names.size))
+                                Text(names.joinToString("\n"))
+                            }
                             Text(stringResource(R.string.pieces_choose_guide))
                             state.choices.forEach { choice ->
                                 Row(Modifier.fillMaxWidth().selectable(selected = editor.guideId == choice.id, enabled = !editor.busy, onClick = { onGuide(choice.id) }).padding(vertical = 8.dp)) {
