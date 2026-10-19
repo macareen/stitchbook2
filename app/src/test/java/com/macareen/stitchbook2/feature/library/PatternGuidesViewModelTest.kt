@@ -16,6 +16,8 @@ import com.macareen.stitchbook2.domain.guide.DraftId
 import com.macareen.stitchbook2.domain.guide.Guide
 import com.macareen.stitchbook2.domain.guide.GuideDraft
 import com.macareen.stitchbook2.domain.model.Craft
+import com.macareen.stitchbook2.domain.model.PatternPdfChangeResult
+import com.macareen.stitchbook2.domain.model.PickedDocument
 import com.macareen.stitchbook2.domain.model.LibraryItem
 import com.macareen.stitchbook2.domain.parsing.ExtractedDocument
 import com.macareen.stitchbook2.domain.parsing.ExtractedLine
@@ -211,6 +213,9 @@ class PatternGuidesViewModelTest {
 
         assertEquals(PatternPdfProblem.UNREADABLE, (viewModel.uiState.value as PatternGuidesUiState.Content).pdfProblem)
         assertTrue(guides.created.isEmpty())
+        viewModel.attachPdf(PickedDocument("content://replacement.pdf", "replacement.pdf"))
+        viewModel.confirmPdfChange(viewModel.pdfChangeReview.value!!)
+        assertEquals(null, (viewModel.uiState.value as PatternGuidesUiState.Content).pdfProblem)
     }
 
     @Test
@@ -273,12 +278,169 @@ class PatternGuidesViewModelTest {
         val vm = PatternGuidesViewModel("pattern", library, guides, scope, clock = { 77 })
         scope.launch { vm.uiState.collect {} }
         vm.attachPdf(com.macareen.stitchbook2.domain.model.PickedDocument("content://original", "random.pdf"))
+        assertEquals(original, (vm.uiState.value as PatternGuidesUiState.Content).pattern)
+        vm.confirmPdfChange(vm.pdfChangeReview.value!!)
         val state = vm.uiState.value as PatternGuidesUiState.Content
         assertEquals(original.copy(pdfUri = "content://original", pdfFileName = "random.pdf", pdfLastViewedPage = null, updatedAt = 77), state.pattern)
         assertEquals("existing", state.guides.single().guide.id.value)
         assertTrue(state.guides.single().isPublished)
         assertTrue(!state.isCreating)
     }
+
+    @Test fun changedPatternRequiresFreshReviewAndStaleCallbacksCannotSave() = runBlocking<Unit> {
+        val original = pattern.copy(pdfUri = "content://old", pdfFileName = "old.pdf", pdfLastViewedPage = 5)
+        val library = FakeLibrary(listOf(original))
+        val vm = PatternGuidesViewModel("pattern", library, FakePatternGuides(), scope)
+        scope.launch { vm.uiState.collect {} }
+        vm.attachPdf(PickedDocument("content://new", "new.pdf"))
+        val first = vm.pdfChangeReview.value!!
+        val changed = original.copy(notes = "Concurrent edit", pdfUri = "content://other", pdfFileName = "other.pdf")
+        library.saveLibraryItem(changed)
+        vm.confirmPdfChange(first)
+        val refreshed = vm.pdfChangeReview.value!!
+        assertEquals(PdfChangeProblem.CHANGED, refreshed.problem)
+        assertEquals(changed, refreshed.expected)
+        vm.confirmPdfChange(first)
+        assertEquals(changed, library.observeLibraryItem("pattern").first())
+        vm.confirmPdfChange(refreshed)
+        assertEquals("Concurrent edit", library.observeLibraryItem("pattern").first()!!.notes)
+        assertEquals("content://new", library.observeLibraryItem("pattern").first()!!.pdfUri)
+        assertEquals(null, vm.pdfChangeReview.value)
+    }
+
+    @Test fun failedSaveKeepsSelectionAndBusySaveRejectsDismissAndDuplicate() {
+        val library = FakeLibrary(listOf(pattern))
+        val vm = PatternGuidesViewModel("pattern", library, FakePatternGuides(), scope)
+        scope.launch { vm.uiState.collect {} }
+        vm.attachPdf(PickedDocument("content://new", "new.pdf"))
+        library.failPdf = true
+        vm.confirmPdfChange(vm.pdfChangeReview.value!!)
+        assertEquals(PdfChangeProblem.FAILED, vm.pdfChangeReview.value!!.problem)
+        library.failPdf = false
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        library.pdfGate = gate
+        val retry = vm.pdfChangeReview.value!!
+        vm.confirmPdfChange(retry)
+        vm.confirmPdfChange(retry)
+        vm.dismissPdfChange()
+        vm.requestPdfChange(null)
+        assertTrue(vm.pdfChangeReview.value!!.isSaving)
+        assertEquals(2, library.pdfCalls)
+        gate.complete(Unit)
+        assertEquals(null, vm.pdfChangeReview.value)
+    }
+
+    @Test fun unlinkRequiresConfirmationAndCanceledReviewCannotBeReused() {
+        val original = pattern.copy(pdfUri = "content://old", pdfFileName = "old.pdf", pdfLastViewedPage = 4)
+        val library = FakeLibrary(listOf(original))
+        val vm = PatternGuidesViewModel("pattern", library, FakePatternGuides(), scope, clock = { 99 })
+        scope.launch { vm.uiState.collect {} }
+        vm.requestPdfChange(null)
+        val canceled = vm.pdfChangeReview.value!!
+        vm.dismissPdfChange()
+        vm.requestPdfChange(null)
+        vm.confirmPdfChange(canceled)
+        assertEquals(original, (vm.uiState.value as PatternGuidesUiState.Content).pattern)
+        vm.confirmPdfChange(vm.pdfChangeReview.value!!)
+        assertEquals(original.copy(pdfUri = null, pdfFileName = null, pdfLastViewedPage = null, updatedAt = 99),
+            (vm.uiState.value as PatternGuidesUiState.Content).pattern)
+    }
+
+    @Test fun missingPatternCannotBeRecreatedByRetryingPdfReview() = runBlocking<Unit> {
+        val library = FakeLibrary(listOf(pattern))
+        val vm = PatternGuidesViewModel("pattern", library, FakePatternGuides(), scope)
+        scope.launch { vm.uiState.collect {} }
+        vm.attachPdf(PickedDocument("content://new", "new.pdf"))
+        library.deleteLibraryItem(pattern)
+        vm.confirmPdfChange(vm.pdfChangeReview.value!!)
+        assertEquals(PdfChangeProblem.MISSING, vm.pdfChangeReview.value!!.problem)
+        vm.confirmPdfChange(vm.pdfChangeReview.value!!)
+        assertEquals(1, library.pdfCalls)
+        assertEquals(null, library.observeLibraryItem("pattern").first())
+    }
+
+    @Test fun editingPatternDetailsPreservesDocumentIdentityBookmarksAndGuideWork() {
+        val original = pattern.copy(bookmarked = true, pdfUri = "content://original", pdfFileName = "original.pdf", pdfLastViewedPage = 7)
+        val library = FakeLibrary(listOf(original))
+        val guides = FakePatternGuides().also { it.add(guide("ready", "M"), true) }
+        val vm = PatternGuidesViewModel("pattern", library, guides, scope, clock = { 50 })
+        scope.launch { vm.uiState.collect {} }
+        vm.editPattern()
+        val review = vm.patternEditReview.value!!
+        vm.savePatternEdit(review, " New title ", Craft.LOOM_KNITTING, " Designer ", " https://example.com ",
+            listOf(" soft ", "", "blue,green"), " My note ", PatternMetadataInput(" 12 passes ", " M/L ", "123,5", " Loom ", " 123 "))
+        val actual = (vm.uiState.value as PatternGuidesUiState.Content).pattern
+        assertEquals(original.copy(title = "New title", craft = Craft.LOOM_KNITTING, author = "Designer", sourceUrl = "https://example.com",
+            tags = listOf("soft", "bluegreen"), notes = "My note", gauge = "12 passes", sizes = "M/L", yardageRequired = 123.5,
+            recommendedTools = "Loom", ravelryPatternId = "123", updatedAt = 50), actual)
+        assertEquals("ready", (vm.uiState.value as PatternGuidesUiState.Content).guides.single().guide.id.value)
+        assertEquals(null, vm.patternEditReview.value)
+    }
+
+    @Test fun concurrentPdfChangeRequiresReloadAndRejectsOldEditCallbacks() = runBlocking<Unit> {
+        val library = FakeLibrary(listOf(pattern))
+        val vm = PatternGuidesViewModel("pattern", library, FakePatternGuides(), scope)
+        scope.launch { vm.uiState.collect {} }
+        vm.editPattern()
+        val initial = vm.patternEditReview.value!!
+        val changed = pattern.copy(pdfUri = "content://elsewhere", pdfFileName = "elsewhere.pdf")
+        library.saveLibraryItem(changed)
+        saveEdit(vm, initial)
+        assertEquals(PatternEditProblem.CHANGED, vm.patternEditReview.value!!.problem)
+        saveEdit(vm, vm.patternEditReview.value!!)
+        assertEquals(1, library.editCalls)
+        vm.reloadPatternEdit(vm.patternEditReview.value!!)
+        val reloaded = vm.patternEditReview.value!!
+        assertEquals(changed, reloaded.expected)
+        assertTrue(initial.requestId != reloaded.requestId)
+        saveEdit(vm, initial)
+        assertEquals(1, library.editCalls)
+        saveEdit(vm, reloaded)
+        val saved = library.observeLibraryItem("pattern").first()!!
+        assertEquals("Edited", saved.title)
+        assertEquals("content://elsewhere", saved.pdfUri)
+    }
+
+    @Test fun editFailureCanRetryAndBusyFormRejectsDismissPdfChangesAndDuplicateSaves() {
+        val library = FakeLibrary(listOf(pattern))
+        val vm = PatternGuidesViewModel("pattern", library, FakePatternGuides(), scope)
+        scope.launch { vm.uiState.collect {} }
+        vm.editPattern()
+        library.failEdit = true
+        saveEdit(vm, vm.patternEditReview.value!!)
+        assertEquals(PatternEditProblem.FAILED, vm.patternEditReview.value!!.problem)
+        library.failEdit = false
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        library.editGate = gate
+        val retry = vm.patternEditReview.value!!
+        saveEdit(vm, retry)
+        saveEdit(vm, retry)
+        vm.dismissPatternEdit()
+        vm.attachPdf(PickedDocument("content://new", "new.pdf"))
+        assertEquals(null, vm.pdfChangeReview.value)
+        assertTrue(vm.patternEditReview.value!!.isSaving)
+        assertEquals(2, library.editCalls)
+        gate.complete(Unit)
+        assertEquals(null, vm.patternEditReview.value)
+    }
+
+    @Test fun invalidTitleAndNonfiniteOrNegativeYardageCannotSave() {
+        val library = FakeLibrary(listOf(pattern))
+        val vm = PatternGuidesViewModel("pattern", library, FakePatternGuides(), scope)
+        scope.launch { vm.uiState.collect {} }
+        vm.editPattern()
+        val review = vm.patternEditReview.value!!
+        saveEdit(vm, review, title = " ")
+        for (invalid in listOf("NaN", "Infinity", "-5", "0", "abc")) saveEdit(vm, review, metadata = PatternMetadataInput(yardageRequiredText = invalid))
+        assertEquals(0, library.editCalls)
+        vm.dismissPatternEdit()
+        saveEdit(vm, review)
+        assertEquals(0, library.editCalls)
+    }
+
+    private fun saveEdit(vm: PatternGuidesViewModel, review: PatternEditReview, title: String = "Edited",
+        metadata: PatternMetadataInput = PatternMetadataInput()) =
+        vm.savePatternEdit(review, title, Craft.CROCHET, "", "", emptyList(), "", metadata)
 
     @Test fun copyingRequiresPublishedSourceAndOpensNamedDraft() {
         val guides = FakePatternGuides().also {
@@ -325,7 +487,31 @@ private class FakeLibrary(items: List<LibraryItem>) : LibraryRepository {
     override suspend fun saveLibraryItem(item: LibraryItem) {
         flow.value = flow.value.map { if (it.id == item.id) item else it }
     }
-    override suspend fun deleteLibraryItem(item: LibraryItem) = Unit
+    var failEdit = false
+    var editCalls = 0
+    var editGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+    override suspend fun saveIfUnchanged(expected: LibraryItem, replacement: LibraryItem): Boolean {
+        editCalls++
+        editGate?.await()
+        if (failEdit) error("Test failure")
+        if (flow.value.firstOrNull { it.id == expected.id } != expected) return false
+        saveLibraryItem(replacement)
+        return true
+    }
+    var failPdf = false
+    var pdfCalls = 0
+    var pdfGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+    override suspend fun changePdfReviewed(expected: LibraryItem, document: PickedDocument?, now: Long): PatternPdfChangeResult {
+        pdfCalls++
+        pdfGate?.await()
+        if (failPdf) error("Test failure")
+        val current = flow.value.firstOrNull { it.id == expected.id } ?: return PatternPdfChangeResult.Missing
+        if (current != expected) return PatternPdfChangeResult.Changed(current)
+        saveLibraryItem(current.copy(pdfUri = document?.uri, pdfFileName = document?.displayName,
+            pdfLastViewedPage = if (document != null && document.uri == current.pdfUri) current.pdfLastViewedPage else null, updatedAt = now))
+        return PatternPdfChangeResult.Applied
+    }
+    override suspend fun deleteLibraryItem(item: LibraryItem) { flow.value = flow.value.filterNot { it.id == item.id } }
 }
 
 private class FakePatternGuides : GuideRepository {

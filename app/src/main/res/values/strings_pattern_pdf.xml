@@ -1,0 +1,22 @@
+<resources>
+    <string name="pattern_edit_action">Edit pattern details</string>
+    <string name="pattern_edit_reload">Reload saved details</string>
+    <string name="pattern_edit_failed">The details could not be saved. Your edits are kept; try again.</string>
+    <string name="pattern_edit_changed">This pattern changed elsewhere. Your edits have not been saved. Reloading replaces this form with the latest saved details.</string>
+    <string name="pattern_edit_missing">This pattern is no longer in the Library. Your edits have not been saved.</string>
+    <string name="pattern_edit_yardage_invalid">Enter a positive number, or leave this empty.</string>
+    <string name="pattern_pdf_actions">PDF actions</string>
+    <string name="pattern_pdf_replace">Replace PDF link</string>
+    <string name="pattern_pdf_unlink">Unlink PDF</string>
+    <string name="pattern_pdf_link_review">Link selected PDF</string>
+    <string name="pattern_pdf_current">Current PDF: %1$s</string>
+    <string name="pattern_pdf_selected">Selected PDF: %1$s</string>
+    <string name="pattern_pdf_unnamed">Unnamed document</string>
+    <string name="pattern_pdf_preserved">Original files stay in their current locations. Existing guides, published versions and project progress stay as they are. To use new instructions, create and review a new guide draft.</string>
+    <string name="pattern_pdf_unlink_explanation">This removes the PDF link from this pattern. You can attach a document again later.</string>
+    <string name="pattern_pdf_review_failed">The PDF link could not be saved. Your selection is kept; try again.</string>
+    <string name="pattern_pdf_review_changed">This pattern changed. Review the current PDF shown below before confirming again.</string>
+    <string name="pattern_pdf_review_missing">This pattern is no longer in the Library. Close this review.</string>
+    <string name="pattern_pdf_folder_refresh">If an original is in your linked pattern folder, refreshing the Library can discover it again as a separate entry.</string>
+    <string name="pattern_pdf_saving">Saving…</string>
+</resources>

@@ -41,6 +41,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
@@ -86,6 +88,8 @@ fun PatternGuidesRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val createdGuideId by viewModel.createdGuideId.collectAsStateWithLifecycle()
     val startedProjectId by viewModel.startedProjectId.collectAsStateWithLifecycle()
+    val pdfReview by viewModel.pdfChangeReview.collectAsStateWithLifecycle()
+    val editReview by viewModel.patternEditReview.collectAsStateWithLifecycle()
     LaunchedEffect(createdGuideId) {
         createdGuideId?.let {
             viewModel.consumeCreatedGuide()
@@ -108,8 +112,21 @@ fun PatternGuidesRoute(
         onAttachPdf = viewModel::attachPdf,
         onCopyGuide = viewModel::copyGuideToSize,
         onRemoveGuide = viewModel::removeUnusedGuide,
-        onArchiveGuide = viewModel::setGuideArchived
+        onArchiveGuide = viewModel::setGuideArchived,
+        onUnlinkPdf = { viewModel.requestPdfChange(null) },
+        onEditPattern = viewModel::editPattern
     )
+    editReview?.let { review ->
+        androidx.compose.runtime.key(review.requestId) {
+            PatternEditDialog(review, viewModel::dismissPatternEdit, { viewModel.reloadPatternEdit(review) },
+                { title, craft, author, url, tags, notes, metadata ->
+                    viewModel.savePatternEdit(review, title, craft, author, url, tags, notes, metadata)
+                })
+        }
+    }
+    pdfReview?.let { review ->
+        PatternPdfChangeDialog(review, viewModel::dismissPdfChange, { viewModel.confirmPdfChange(review) })
+    }
 }
 
 /** A pattern, its original file, and its guides by size. */
@@ -125,7 +142,9 @@ fun PatternGuidesScreen(
     onAttachPdf: (PickedDocument) -> Unit = {},
     onCopyGuide: (String, String) -> Unit = { _, _ -> },
     onRemoveGuide: (String) -> Unit = {},
-    onArchiveGuide: (String, Boolean) -> Unit = { _, _ -> }
+    onArchiveGuide: (String, Boolean) -> Unit = { _, _ -> },
+    onUnlinkPdf: () -> Unit = {},
+    onEditPattern: () -> Unit = {}
 ) {
     when (uiState) {
         PatternGuidesUiState.Loading -> Box(modifier.fillMaxSize()) {
@@ -137,7 +156,7 @@ fun PatternGuidesScreen(
         }
 
         is PatternGuidesUiState.Content ->
-            Content(uiState, onOpenPdf, onEditGuide, onCreateGuide, onStartProject, onGetRavelryPdf, onAttachPdf, onCopyGuide, onRemoveGuide, onArchiveGuide, modifier)
+            Content(uiState, onOpenPdf, onEditGuide, onCreateGuide, onStartProject, onGetRavelryPdf, onAttachPdf, onCopyGuide, onRemoveGuide, onArchiveGuide, onUnlinkPdf, onEditPattern, modifier)
     }
 }
 
@@ -153,6 +172,8 @@ private fun Content(
     onCopyGuide: (String, String) -> Unit,
     onRemoveGuide: (String) -> Unit,
     onArchiveGuide: (String, Boolean) -> Unit,
+    onUnlinkPdf: () -> Unit,
+    onEditPattern: () -> Unit,
     modifier: Modifier
 ) {
     val context = LocalContext.current
@@ -161,6 +182,7 @@ private fun Content(
     var showArchived by rememberSaveable { mutableStateOf(false) }
     var removingGuideId by rememberSaveable { mutableStateOf<String?>(null) }
     var copyingGuideId by rememberSaveable { mutableStateOf<String?>(null) }
+    var pdfMenuOpen by remember { mutableStateOf(false) }
     var attachFailed by rememberSaveable { mutableStateOf(false) }
     val pickPdf = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) scope.launch {
@@ -188,6 +210,9 @@ private fun Content(
             .padding(horizontal = StitchbookSpacing.large, vertical = StitchbookSpacing.medium)
     ) {
         PatternPageHeader(state.pattern, state.completedProjects)
+        TextButton(onClick = onEditPattern, enabled = !state.isCreating && !state.ravelryPdf.isDownloading) {
+            Text(stringResource(R.string.pattern_edit_action))
+        }
         PatternOverview(state.pattern)
         PrimaryActionButton(
             text = stringResource(R.string.pattern_guides_start_project),
@@ -200,6 +225,23 @@ private fun Content(
                 onClick = { onOpenPdf(state.pattern.id) },
                 modifier = Modifier.fillMaxWidth()
             )
+        }
+        if (state.pattern.pdfUri != null) {
+            Box {
+                TextButton(onClick = { pdfMenuOpen = true }, enabled = !state.isCreating && !state.ravelryPdf.isDownloading) {
+                    Text(stringResource(R.string.pattern_pdf_actions))
+                }
+                DropdownMenu(expanded = pdfMenuOpen, onDismissRequest = { pdfMenuOpen = false }) {
+                    DropdownMenuItem(text = { Text(stringResource(R.string.pattern_pdf_replace)) }, onClick = {
+                        pdfMenuOpen = false
+                        pickPdf.launch(arrayOf("application/pdf"))
+                    })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.pattern_pdf_unlink)) }, onClick = {
+                        pdfMenuOpen = false
+                        onUnlinkPdf()
+                    })
+                }
+            }
         }
         if (state.canGetRavelryPdf) {
             SecondaryActionButton(

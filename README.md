@@ -32,6 +32,8 @@ See [PRODUCT_SPEC.md](PRODUCT_SPEC.md) for structured requirements and [ROADMAP.
 
 ## Currently implemented
 
+- Edit pattern details directly on the pattern page; failed saves keep the form open and concurrent changes require an explicit reload. The scrollable form supports all crafts and validates optional yardage.
+- Pattern pages offer PDF actions to review replacing or unlinking the document. Original files, guide versions and project progress are preserved; a concurrent pattern change requires a fresh confirmation. New guide drafts must be created and reviewed explicitly.
 - Library removal reviews named affected projects and retained guides, rechecks references atomically before removing the index entry, and retains failed selections for retry. Original files and guide/progress history are kept.
 - Offline calculators for shaping, yarn requirements, gauge conversion and measured swatch gauge. Count stitches and height units over independently measured spans in centimetres or inches; results show both per 10 cm and per 4 inches. Calculator inputs are temporary, not saved swatch records.
 - Focus reading uses smaller regular-weight text throughout grouped instructions, an explicit More below scrolling control, and a fresh reading position for each occurrence.

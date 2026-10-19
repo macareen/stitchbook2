@@ -1,5 +1,10 @@
 package com.macareen.stitchbook2.feature.library
 
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.draw.clipToBounds
 import android.graphics.Bitmap
 import androidx.compose.foundation.rememberScrollState
@@ -754,26 +759,36 @@ internal fun PatternCover(pdfUri: String?, pastel: Pastel, modifier: Modifier = 
 }
 
 @Composable
-private fun LibraryItemDialog(
+internal fun LibraryItemDialog(
     original: LibraryItem?,
     onDismiss: () -> Unit,
-    onSave: (String, Craft, String, String, List<String>, String, String?, String?, PatternMetadataInput) -> Unit
+    onSave: (String, Craft, String, String, List<String>, String, String?, String?, PatternMetadataInput) -> Unit,
+    showPdfControls: Boolean = true,
+    isSaving: Boolean = false,
+    canSave: Boolean = true,
+    errorMessage: String? = null,
+    onReload: (() -> Unit)? = null
 ) {
-    var title by remember { mutableStateOf(original?.title.orEmpty()) }
-    var craft by remember { mutableStateOf(original?.craft ?: Craft.KNITTING) }
-    var author by remember { mutableStateOf(original?.author.orEmpty()) }
-    var sourceUrl by remember { mutableStateOf(original?.sourceUrl.orEmpty()) }
-    var tagsText by remember { mutableStateOf(original?.tags?.joinToString(", ").orEmpty()) }
-    var notes by remember { mutableStateOf(original?.notes.orEmpty()) }
-    var titleIsBlank by remember { mutableStateOf(false) }
-    var pdfUri by remember { mutableStateOf(original?.pdfUri) }
-    var pdfFileName by remember { mutableStateOf(original?.pdfFileName) }
-    var gauge by remember { mutableStateOf(original?.gauge.orEmpty()) }
-    var sizes by remember { mutableStateOf(original?.sizes.orEmpty()) }
-    var yardageRequiredText by remember { mutableStateOf(original?.yardageRequired?.toString().orEmpty()) }
-    var recommendedTools by remember { mutableStateOf(original?.recommendedTools.orEmpty()) }
-    var ravelryPatternId by remember { mutableStateOf(original?.ravelryPatternId.orEmpty()) }
+    var title by rememberSaveable { mutableStateOf(original?.title.orEmpty()) }
+    var craft by rememberSaveable { mutableStateOf(original?.craft ?: Craft.KNITTING) }
+    var author by rememberSaveable { mutableStateOf(original?.author.orEmpty()) }
+    var sourceUrl by rememberSaveable { mutableStateOf(original?.sourceUrl.orEmpty()) }
+    var tagsText by rememberSaveable { mutableStateOf(original?.tags?.joinToString(", ").orEmpty()) }
+    var notes by rememberSaveable { mutableStateOf(original?.notes.orEmpty()) }
+    var titleIsBlank by rememberSaveable { mutableStateOf(false) }
+    var pdfUri by rememberSaveable { mutableStateOf(original?.pdfUri) }
+    var pdfFileName by rememberSaveable { mutableStateOf(original?.pdfFileName) }
+    var gauge by rememberSaveable { mutableStateOf(original?.gauge.orEmpty()) }
+    var sizes by rememberSaveable { mutableStateOf(original?.sizes.orEmpty()) }
+    var yardageRequiredText by rememberSaveable { mutableStateOf(original?.yardageRequired?.toString().orEmpty()) }
+    var recommendedTools by rememberSaveable { mutableStateOf(original?.recommendedTools.orEmpty()) }
+    var ravelryPatternId by rememberSaveable { mutableStateOf(original?.ravelryPatternId.orEmpty()) }
 
+    val yardageText = yardageRequiredText.trim().replace(',', '.')
+    val yardage = yardageText.toDoubleOrNull()
+    val invalidYardage = yardageText.isNotEmpty() && (yardage == null || !yardage.isFinite() || yardage <= 0.0)
+    val formScroll = rememberScrollState()
+    LaunchedEffect(errorMessage) { if (errorMessage != null) formScroll.scrollTo(0) }
     val context = LocalContext.current
     val pickPdfLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -789,7 +804,7 @@ private fun LibraryItemDialog(
     }
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!isSaving) onDismiss() },
         title = {
             Text(
                 text = if (original == null) {
@@ -800,8 +815,16 @@ private fun LibraryItemDialog(
             )
         },
         text = {
-            Column {
+            Column(Modifier.verticalScroll(formScroll)) {
+                errorMessage?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+                }
+                onReload?.let { reload -> TextButton(onClick = reload, enabled = !isSaving) {
+                    Text(stringResource(R.string.pattern_edit_reload))
+                } }
                 OutlinedTextField(
+                    enabled = !isSaving,
                     value = title,
                     onValueChange = {
                         title = it
@@ -809,7 +832,7 @@ private fun LibraryItemDialog(
                     },
                     singleLine = true,
                     isError = titleIsBlank,
-                    label = { Text(text = stringResource(R.string.library_field_title)) },
+                    label = { Text(text = stringResource(R.string.library_field_title), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     supportingText = if (titleIsBlank) {
                         { Text(text = stringResource(R.string.library_field_title_required)) }
                     } else {
@@ -818,135 +841,148 @@ private fun LibraryItemDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(StitchbookSpacing.small))
-                CraftDropdown(selected = craft, onSelected = { craft = it })
+                CraftDropdown(selected = craft, onSelected = { craft = it }, enabled = !isSaving)
                 Spacer(modifier = Modifier.height(StitchbookSpacing.small))
                 OutlinedTextField(
+                    enabled = !isSaving,
                     value = author,
                     onValueChange = { author = it },
                     singleLine = true,
-                    label = { Text(text = stringResource(R.string.library_field_author)) },
+                    label = { Text(text = stringResource(R.string.library_field_author), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(StitchbookSpacing.small))
                 OutlinedTextField(
+                    enabled = !isSaving,
                     value = sourceUrl,
                     onValueChange = { sourceUrl = it },
                     singleLine = true,
-                    label = { Text(text = stringResource(R.string.library_field_source_url)) },
+                    label = { Text(text = stringResource(R.string.library_field_source_url), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(StitchbookSpacing.small))
                 OutlinedTextField(
+                    enabled = !isSaving,
                     value = tagsText,
                     onValueChange = { tagsText = it },
                     singleLine = true,
-                    label = { Text(text = stringResource(R.string.library_field_tags)) },
+                    label = { Text(text = stringResource(R.string.library_field_tags), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(StitchbookSpacing.small))
                 OutlinedTextField(
+                    enabled = !isSaving,
                     value = notes,
                     onValueChange = { notes = it },
                     minLines = 3,
-                    label = { Text(text = stringResource(R.string.library_field_notes)) },
+                    label = { Text(text = stringResource(R.string.library_field_notes), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(StitchbookSpacing.small))
                 OutlinedTextField(
+                    enabled = !isSaving,
                     value = gauge,
                     onValueChange = { gauge = it },
                     singleLine = true,
-                    label = { Text(text = stringResource(R.string.library_field_gauge)) },
+                    label = { Text(text = stringResource(R.string.library_field_gauge), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(StitchbookSpacing.small))
-                Row(horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
+                Column(verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
                     OutlinedTextField(
+                        enabled = !isSaving,
                         value = sizes,
                         onValueChange = { sizes = it },
                         singleLine = true,
-                        label = { Text(text = stringResource(R.string.library_field_sizes)) },
-                        modifier = Modifier.weight(1f)
+                        label = { Text(text = stringResource(R.string.library_field_sizes), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
+                        enabled = !isSaving,
+                        isError = invalidYardage,
+                        supportingText = if (invalidYardage) { { Text(stringResource(R.string.pattern_edit_yardage_invalid)) } } else null,
                         value = yardageRequiredText,
                         onValueChange = { yardageRequiredText = it },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        label = { Text(text = stringResource(R.string.library_field_yardage_required)) },
-                        modifier = Modifier.weight(1f)
+                        label = { Text(text = stringResource(R.string.library_field_yardage_required), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
                 Spacer(modifier = Modifier.height(StitchbookSpacing.small))
                 OutlinedTextField(
+                    enabled = !isSaving,
                     value = recommendedTools,
                     onValueChange = { recommendedTools = it },
                     singleLine = true,
-                    label = { Text(text = stringResource(R.string.library_field_recommended_tools)) },
+                    label = { Text(text = stringResource(R.string.library_field_recommended_tools), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(StitchbookSpacing.small))
                 OutlinedTextField(
+                    enabled = !isSaving,
                     value = ravelryPatternId,
                     onValueChange = { ravelryPatternId = it },
                     singleLine = true,
-                    label = { Text(text = stringResource(R.string.library_field_ravelry_pattern_id)) },
+                    label = { Text(text = stringResource(R.string.library_field_ravelry_pattern_id), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(StitchbookSpacing.small))
-                if (pdfUri == null) {
-                    OutlinedButton(
-                        onClick = { pickPdfLauncher.launch(arrayOf("application/pdf")) },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.AttachFile,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Text(
-                            text = stringResource(R.string.library_attach_pdf_action),
-                            modifier = Modifier.padding(start = StitchbookSpacing.small)
-                        )
-                    }
-                } else {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.extraSmall),
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
+                if (showPdfControls) {
+                    if (pdfUri == null) {
+                        OutlinedButton(
+                            onClick = { pickPdfLauncher.launch(arrayOf("application/pdf")) },
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.PictureAsPdf,
+                                imageVector = Icons.Outlined.AttachFile,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(18.dp)
                             )
                             Text(
-                                text = pdfFileName.orEmpty(),
-                                style = MaterialTheme.typography.bodyMedium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f, fill = false)
+                                text = stringResource(R.string.library_attach_pdf_action),
+                                modifier = Modifier.padding(start = StitchbookSpacing.small)
                             )
                         }
-                        TextButton(onClick = { pickPdfLauncher.launch(arrayOf("application/pdf")) }) {
-                            Text(text = stringResource(R.string.library_change_pdf_action))
-                        }
-                        IconButton(
-                            onClick = {
-                                pdfUri = null
-                                pdfFileName = null
-                            }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Close,
-                                contentDescription = stringResource(R.string.library_remove_pdf_action)
-                            )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.extraSmall),
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.PictureAsPdf,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    text = pdfFileName.orEmpty(),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f, fill = false)
+                                )
+                            }
+                            TextButton(onClick = { pickPdfLauncher.launch(arrayOf("application/pdf")) }) {
+                                Text(text = stringResource(R.string.library_change_pdf_action))
+                            }
+                            IconButton(
+                                onClick = {
+                                    pdfUri = null
+                                    pdfFileName = null
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Close,
+                                    contentDescription = stringResource(R.string.library_remove_pdf_action)
+                                )
+                            }
                         }
                     }
                 }
@@ -954,6 +990,7 @@ private fun LibraryItemDialog(
         },
         confirmButton = {
             Button(
+                enabled = !isSaving && canSave && !invalidYardage,
                 onClick = {
                     if (title.isBlank()) {
                         titleIsBlank = true
@@ -978,11 +1015,11 @@ private fun LibraryItemDialog(
                     }
                 }
             ) {
-                Text(text = stringResource(R.string.save_library_item))
+                Text(text = stringResource(if (isSaving) R.string.pattern_pdf_saving else R.string.save_library_item))
             }
         },
         dismissButton = {
-            OutlinedButton(onClick = onDismiss) {
+            OutlinedButton(onClick = onDismiss, enabled = !isSaving) {
                 Text(text = stringResource(R.string.cancel))
             }
         }
@@ -993,15 +1030,17 @@ private fun LibraryItemDialog(
 @Composable
 private fun CraftDropdown(
     selected: Craft,
-    onSelected: (Craft) -> Unit
+    onSelected: (Craft) -> Unit,
+    enabled: Boolean = true
 ) {
     var expanded by remember { mutableStateOf(false) }
 
     ExposedDropdownMenuBox(
         expanded = expanded,
-        onExpandedChange = { expanded = !expanded }
+        onExpandedChange = { if (enabled) expanded = !expanded }
     ) {
         OutlinedTextField(
+            enabled = enabled,
             value = stringResource(selected.labelResource()),
             onValueChange = {},
             readOnly = true,

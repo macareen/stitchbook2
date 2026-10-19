@@ -1,5 +1,10 @@
 package com.macareen.stitchbook2.feature.library
 
+import com.macareen.stitchbook2.domain.model.normalizedLibraryItemTags
+import com.macareen.stitchbook2.domain.model.normalizedLibraryItemTitle
+import com.macareen.stitchbook2.domain.model.Craft
+import com.macareen.stitchbook2.domain.model.PatternPdfChangeResult
+import com.macareen.stitchbook2.domain.model.PickedDocument
 import com.macareen.stitchbook2.domain.library.completedProjectCount
 import kotlinx.coroutines.flow.flowOf
 import com.macareen.stitchbook2.domain.model.PatternNames
@@ -35,6 +40,24 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+
+enum class PatternEditProblem { FAILED, CHANGED, MISSING }
+data class PatternEditReview(
+    val expected: LibraryItem,
+    val requestId: String = UUID.randomUUID().toString(),
+    val isSaving: Boolean = false,
+    val problem: PatternEditProblem? = null
+)
+
+enum class PdfChangeProblem { FAILED, CHANGED, MISSING }
+
+data class PatternPdfReview(
+    val expected: LibraryItem,
+    val document: PickedDocument?,
+    val requestId: String = UUID.randomUUID().toString(),
+    val isSaving: Boolean = false,
+    val problem: PdfChangeProblem? = null
+)
 
 enum class PatternPdfProblem { UNREADABLE, NO_TEXT, ATTACH_FAILED }
 
@@ -94,6 +117,10 @@ class PatternGuidesViewModel(
     private val scope: CoroutineScope = externalScope ?: viewModelScope
     private val creation = MutableStateFlow(CreationState())
     private val created = MutableStateFlow<String?>(null)
+    private val editReview = MutableStateFlow<PatternEditReview?>(null)
+    val patternEditReview: StateFlow<PatternEditReview?> = editReview.asStateFlow()
+    private val pdfReview = MutableStateFlow<PatternPdfReview?>(null)
+    val pdfChangeReview: StateFlow<PatternPdfReview?> = pdfReview.asStateFlow()
 
     /** The new guide's id once created; the screen opens it in the Draft editor. */
     val createdGuideId: StateFlow<String?> = created.asStateFlow()
@@ -132,27 +159,94 @@ class PatternGuidesViewModel(
     /** Saves the pattern's Ravelry PDF into the pattern folder and links it here. */
     fun getRavelryPdf() {
         val download = downloadRavelryPdf ?: return
-        if (ravelryPdf.value.isDownloading) return
+        if (ravelryPdf.value.isDownloading || creation.value.isCreating || pdfReview.value != null || editReview.value != null) return
         ravelryPdf.value = RavelryPdfState(isDownloading = true)
         scope.launch {
             ravelryPdf.value = RavelryPdfState(result = download(libraryItemId))
         }
     }
 
-    /** Link a user-selected original document without copying or changing its contents. */
-    fun attachPdf(document: com.macareen.stitchbook2.domain.model.PickedDocument) {
-        if (creation.value.isCreating || ravelryPdf.value.isDownloading) return
-        creation.value = CreationState(isCreating = true)
+    fun editPattern() {
+        if (creation.value.isCreating || ravelryPdf.value.isDownloading || pdfReview.value != null || editReview.value != null) return
+        val pattern = (uiState.value as? PatternGuidesUiState.Content)?.pattern ?: return
+        editReview.value = PatternEditReview(pattern)
+    }
+
+    fun dismissPatternEdit() {
+        if (editReview.value?.isSaving != true) editReview.value = null
+    }
+
+    /** Explicitly discards this form only after the user chooses Reload saved details. */
+    fun reloadPatternEdit(review: PatternEditReview) {
+        if (editReview.value != review || review.isSaving) return
+        editReview.value = review.copy(isSaving = true)
         scope.launch {
             try {
-                val latest = libraryRepository.observeLibraryItem(libraryItemId).first() ?: return@launch
-                libraryRepository.saveLibraryItem(latest.copy(pdfUri = document.uri, pdfFileName = document.displayName,
-                    pdfLastViewedPage = if (latest.pdfUri == document.uri) latest.pdfLastViewedPage else null, updatedAt = clock()))
-                ravelryPdf.value = RavelryPdfState()
-                creation.value = CreationState()
-            } catch (error: CancellationException) { throw error
-            } catch (_: Exception) { creation.value = CreationState(pdfProblem = PatternPdfProblem.ATTACH_FAILED) }
-            finally { if (creation.value.isCreating) creation.value = CreationState() }
+                val latest = libraryRepository.observeLibraryItem(libraryItemId).first()
+                editReview.value = if (latest == null) review.copy(problem = PatternEditProblem.MISSING)
+                    else PatternEditReview(latest)
+            } catch (error: CancellationException) { throw error }
+            catch (_: Exception) { editReview.value = review.copy(problem = PatternEditProblem.FAILED) }
+        }
+    }
+
+    fun savePatternEdit(review: PatternEditReview, title: String, craft: Craft,
+        author: String, sourceUrl: String, tags: List<String>, notes: String, metadata: PatternMetadataInput) {
+        if (editReview.value != review || review.isSaving || review.problem == PatternEditProblem.CHANGED ||
+            review.problem == PatternEditProblem.MISSING) return
+        val normalizedTitle = normalizedLibraryItemTitle(title) ?: return
+        val yardageText = metadata.yardageRequiredText.trim().replace(',', '.')
+        val yardage = yardageText.toDoubleOrNull()
+        if (yardageText.isNotEmpty() && (yardage == null || !yardage.isFinite() || yardage <= 0.0)) return
+        val replacement = review.expected.copy(title = normalizedTitle, craft = craft,
+            author = author.trim().ifEmpty { null }, sourceUrl = sourceUrl.trim().ifEmpty { null },
+            tags = normalizedLibraryItemTags(tags), notes = notes.trim().ifEmpty { null },
+            gauge = metadata.gauge.trim().ifEmpty { null }, sizes = metadata.sizes.trim().ifEmpty { null },
+            yardageRequired = yardage, recommendedTools = metadata.recommendedTools.trim().ifEmpty { null },
+            ravelryPatternId = metadata.ravelryPatternId.trim().ifEmpty { null }, updatedAt = clock())
+        editReview.value = review.copy(isSaving = true)
+        scope.launch {
+            try {
+                val saved = libraryRepository.saveIfUnchanged(review.expected, replacement)
+                editReview.value = if (saved) null else review.copy(problem = PatternEditProblem.CHANGED)
+            } catch (error: CancellationException) { throw error }
+            catch (_: Exception) { editReview.value = review.copy(problem = PatternEditProblem.FAILED) }
+        }
+    }
+
+    /** Prepare a review after the user picks an original; no database write yet. */
+    fun attachPdf(document: PickedDocument) = requestPdfChange(document)
+
+    fun requestPdfChange(document: PickedDocument?) {
+        if (creation.value.isCreating || ravelryPdf.value.isDownloading || pdfReview.value != null || editReview.value != null) return
+        val pattern = (uiState.value as? PatternGuidesUiState.Content)?.pattern ?: return
+        if (document == null && pattern.pdfUri == null) return
+        pdfReview.value = PatternPdfReview(pattern, document)
+    }
+
+    fun dismissPdfChange() {
+        if (pdfReview.value?.isSaving != true) pdfReview.value = null
+    }
+
+    fun confirmPdfChange(review: PatternPdfReview) {
+        if (pdfReview.value != review || review.isSaving || review.problem == PdfChangeProblem.MISSING ||
+            creation.value.isCreating || ravelryPdf.value.isDownloading) return
+        pdfReview.value = review.copy(isSaving = true)
+        scope.launch {
+            try {
+                when (val result = libraryRepository.changePdfReviewed(review.expected, review.document, clock())) {
+                    PatternPdfChangeResult.Applied -> {
+                        pdfReview.value = null
+                        creation.value = CreationState()
+                        ravelryPdf.value = RavelryPdfState()
+                    }
+                    PatternPdfChangeResult.Missing ->
+                        pdfReview.value = review.copy(problem = PdfChangeProblem.MISSING)
+                    is PatternPdfChangeResult.Changed ->
+                        pdfReview.value = review.copy(expected = result.current, problem = PdfChangeProblem.CHANGED)
+                }
+            } catch (error: CancellationException) { throw error }
+            catch (_: Exception) { pdfReview.value = review.copy(problem = PdfChangeProblem.FAILED) }
         }
     }
 
@@ -227,7 +321,7 @@ class PatternGuidesViewModel(
     /** Creates the guide for [sizeLabel]; with [fromPattern], filled from the pattern's PDF for that size. */
     fun createGuide(sizeLabel: String, fromPattern: Boolean = false) {
         val content = uiState.value as? PatternGuidesUiState.Content ?: return
-        if (content.isCreating || sizeLabel.isBlank()) return
+        if (content.isCreating || pdfReview.value != null || editReview.value != null || sizeLabel.isBlank()) return
         creation.value = CreationState(isCreating = true)
         scope.launch {
             try {
@@ -253,7 +347,7 @@ class PatternGuidesViewModel(
     }
 
     fun setGuideArchived(guideId: String, archived: Boolean) {
-        if (creation.value.isCreating) return
+        if (creation.value.isCreating || pdfReview.value != null || editReview.value != null) return
         creation.value = CreationState(isCreating = true)
         scope.launch {
             try {
@@ -266,7 +360,7 @@ class PatternGuidesViewModel(
     }
 
     fun removeUnusedGuide(guideId: String) {
-        if (creation.value.isCreating) return
+        if (creation.value.isCreating || pdfReview.value != null || editReview.value != null) return
         creation.value = CreationState(isCreating = true)
         scope.launch {
             try {
@@ -280,7 +374,7 @@ class PatternGuidesViewModel(
 
     fun copyGuideToSize(sourceGuideId: String, targetSize: String) {
         val content = uiState.value as? PatternGuidesUiState.Content ?: return
-        if (creation.value.isCreating || targetSize.isBlank()) return
+        if (creation.value.isCreating || pdfReview.value != null || editReview.value != null || targetSize.isBlank()) return
         val source = content.guides.firstOrNull { it.guide.id.value == sourceGuideId && it.isPublished } ?: return
         creation.value = CreationState(isCreating = true)
         scope.launch {
