@@ -2,6 +2,22 @@
 
 This roadmap sequences product work; it is not a promise of dates. Each phase should leave the application buildable, tested in proportion to risk, and documented. Later-phase data should not be modeled prematurely unless an earlier feature requires it.
 
+## Current priority: reliable PDF-to-guide execution
+
+Confirmed by the user on 2026-10-19: PDF parsing, reviewed size-specific guides and accurate step tracking remain the highest product priority. The core outcome is that someone can import their own pattern, review a faithful guide for their size, and reliably follow, pause, resume, go back and jump through the work without losing their place. This applies to every supported craft.
+
+Choose the next feature batches to improve that chain. Calculators, photo-assisted gauge, inventory conveniences, tutorials, unrelated page actions and cosmetic expansion are secondary. Recent supporting features do not mean the parser or execution model is finished.
+
+Next steps, in order:
+
+1. Audit the complete native PDF → selected size → draft → publication → Focus workflow using permissioned real-pattern inputs kept outside Git. Prioritize incorrect size numbers, missed or merged actions, front matter leaking into steps, broken row/repeat context and long instructions. Add small original regression fixtures for confirmed defects; retain source pages and unresolved wording for review. Existing published guides need an explicit reviewed rebuild/revision update, never a silent rewrite.
+2. Implement real manual measurement/stitch-count target loops: typed targets, independently scoped cycles and observations, explicit target-reached confirmation, and coherent Previous/Jump/restart behavior per project/piece. Extend persistence, exports and migrations together. A large fixed repeat count is not a substitute for unknown-length work.
+3. Extend parser recognition into those structures only once execution semantics work. Preserve ambiguous and simultaneous instructions visibly instead of inventing counts, losing scope or presenting partial understanding as a complete executable guide.
+4. Verify actual crafting continuity: current instruction and row within repeats, Complete/Previous/Jump, restart, saved places, reviewed revision carryover and independent pieces. Keep long text and grouped instructions readable with reachable controls at large text sizes.
+5. Add manual charts, piece subsection selection and explicit mirroring as extensions of the same guide/tracking model, with portable records and conservative parsing afterward.
+
+Batch a couple of coherent changes before broader verification. Use narrow unit checks while implementing, then one combined relevant test/lint/build/device pass for the batch; repeat only failed or directly affected checks after a fix.
+
 Every phase that adds durable user records must also extend the current versioned, user-accessible safety export and its compatibility tests. This incremental export is intentionally smaller than Phase 10's complete library backup/restore. Every UI phase must also meet the existing accessibility baseline—scalable text, meaningful semantics, usable focus order, adequate contrast, and appropriate touch targets—rather than deferring accessibility to Phase 14.
 
 ## Core flow: pattern → size guide → project → knitting view
