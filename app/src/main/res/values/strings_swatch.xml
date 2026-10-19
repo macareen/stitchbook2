@@ -1,0 +1,21 @@
+<resources>
+    <string name="swatch_title">Measure swatch gauge</string>
+    <string name="swatch_hint">Use a ruler to measure a span inside your swatch, then count over that same span. Width and height can be measured independently. Results are calculated from your measurements.</string>
+    <string name="swatch_centimetres">Centimetres</string>
+    <string name="swatch_inches">Inches</string>
+    <string name="swatch_cm">cm</string>
+    <string name="swatch_in">in</string>
+    <string name="swatch_unit_change_hint">Changing units clears measured spans; counts stay.</string>
+    <string name="swatch_stitches">Stitches counted</string>
+    <string name="swatch_width">Measured width (%1$s)</string>
+    <string name="swatch_height_hint">For height, count rows, rounds, passes or motifs as appropriate for your craft.</string>
+    <string name="swatch_height_count">Height count</string>
+    <string name="swatch_height">Measured height (%1$s)</string>
+    <string name="swatch_across">Across</string>
+    <string name="swatch_vertical">Height</string>
+    <string name="swatch_result_cm">%1$s: %2$.1f per 10 cm</string>
+    <string name="swatch_result_in">%1$s: %2$.1f per 4 in</string>
+    <string name="swatch_small_result_cm">%1$s: less than 0.1 per 10 cm</string>
+    <string name="swatch_small_result_in">%1$s: less than 0.1 per 4 in</string>
+    <string name="swatch_missing">%1$s: enter a positive count and measured span.</string>
+</resources>

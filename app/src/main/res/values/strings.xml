@@ -533,6 +533,7 @@
 
     <string name="home_resume_project_progress">%1$s · %2$d%% done</string>
     <string name="focus_overview_action">Overview</string>
+    <string name="focus_read_more_action">More below ↓</string>
     <string name="focus_overview_title">The whole guide</string>
     <string name="focus_overview_done">Done</string>
     <string name="focus_overview_current">You are here</string>

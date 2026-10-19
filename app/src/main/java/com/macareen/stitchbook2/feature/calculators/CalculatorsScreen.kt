@@ -3,6 +3,7 @@ package com.macareen.stitchbook2.feature.calculators
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -27,14 +28,17 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.testTag
 import com.macareen.stitchbook2.R
 import com.macareen.stitchbook2.domain.model.CraftCalculators
 import com.macareen.stitchbook2.domain.model.CraftCalculators.YarnUnit
 import com.macareen.stitchbook2.domain.model.ShapingPlan
+import com.macareen.stitchbook2.domain.model.SwatchGauge
+import com.macareen.stitchbook2.domain.model.SwatchLengthUnit
 import com.macareen.stitchbook2.ui.components.QuietText
 import com.macareen.stitchbook2.ui.theme.StitchbookSpacing
 
-/** Three small offline helpers: even shaping, yarn amounts, and gauge. Nothing is stored. */
+/** Offline helpers for shaping, yarn and gauge. Inputs are temporary calculator state. */
 @Composable
 fun CalculatorsScreen(modifier: Modifier = Modifier) {
     Column(
@@ -48,6 +52,63 @@ fun CalculatorsScreen(modifier: Modifier = Modifier) {
         ShapingCard()
         YarnCard()
         GaugeCard()
+        SwatchCard()
+    }
+}
+
+@Composable
+private fun SwatchCard() {
+    var stitches by rememberSaveable { mutableStateOf("") }
+    var width by rememberSaveable { mutableStateOf("") }
+    var heightCount by rememberSaveable { mutableStateOf("") }
+    var height by rememberSaveable { mutableStateOf("") }
+    var unit by rememberSaveable { mutableStateOf(SwatchLengthUnit.CENTIMETRES) }
+    CalculatorCard(stringResource(R.string.swatch_title)) {
+        QuietText(stringResource(R.string.swatch_hint))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
+            SwatchLengthUnit.entries.forEach { choice ->
+                FilterChip(selected = unit == choice, onClick = {
+                    if (unit != choice) {
+                        // Clear measured lengths rather than silently reinterpret the same number.
+                        width = ""
+                        height = ""
+                        unit = choice
+                    }
+                }, label = { Text(stringResource(if (choice == SwatchLengthUnit.CENTIMETRES)
+                    R.string.swatch_centimetres else R.string.swatch_inches)) })
+            }
+        }
+        QuietText(stringResource(R.string.swatch_unit_change_hint))
+        val unitLabel = stringResource(if (unit == SwatchLengthUnit.CENTIMETRES) R.string.swatch_cm else R.string.swatch_in)
+        NumberField(stringResource(R.string.swatch_stitches), stitches, { stitches = it },
+            Modifier.fillMaxWidth().testTag("swatch_stitches"))
+        NumberField(stringResource(R.string.swatch_width, unitLabel), width, { width = it },
+            Modifier.fillMaxWidth().testTag("swatch_width"))
+        SwatchAnswer(stitches, width, unit, R.string.swatch_across)
+        QuietText(stringResource(R.string.swatch_height_hint))
+        NumberField(stringResource(R.string.swatch_height_count), heightCount, { heightCount = it },
+            Modifier.fillMaxWidth().testTag("swatch_height_count"))
+        NumberField(stringResource(R.string.swatch_height, unitLabel), height, { height = it },
+            Modifier.fillMaxWidth().testTag("swatch_height"))
+        SwatchAnswer(heightCount, height, unit, R.string.swatch_vertical)
+    }
+}
+
+@Composable
+private fun SwatchAnswer(count: String, span: String, unit: SwatchLengthUnit, axis: Int) {
+    val countValue = count.number()
+    val spanValue = span.number()
+    val gauge = if (countValue != null && spanValue != null)
+        SwatchGauge.fromMeasurement(countValue, spanValue, unit) else null
+    when {
+        gauge != null -> {
+            Answer(if (gauge.perTenCentimetres < 0.1) stringResource(R.string.swatch_small_result_cm, stringResource(axis))
+                else stringResource(R.string.swatch_result_cm, stringResource(axis), gauge.perTenCentimetres))
+            Answer(if (gauge.perFourInches < 0.1) stringResource(R.string.swatch_small_result_in, stringResource(axis))
+                else stringResource(R.string.swatch_result_in, stringResource(axis), gauge.perFourInches))
+        }
+        countValue != null && spanValue != null -> QuietText(stringResource(R.string.calculators_values_too_large))
+        else -> QuietText(stringResource(R.string.swatch_missing, stringResource(axis)))
     }
 }
 

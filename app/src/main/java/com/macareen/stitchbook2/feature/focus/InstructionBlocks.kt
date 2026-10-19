@@ -33,9 +33,9 @@ private fun BlockList(blocks: List<FocusInstructionLayout.Block>, style: TextSty
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                         contentColor = MaterialTheme.colorScheme.onSurface)) {
                     Column(Modifier.padding(StitchbookSpacing.small), verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
-                        Text(block.text, style = MaterialTheme.typography.bodyLarge)
+                        Text(block.text, style = style)
                         BlockList(block.children, style, Modifier.padding(start = StitchbookSpacing.small))
-                        block.suffix?.let { Text(it, style = MaterialTheme.typography.bodyLarge) }
+                        block.suffix?.let { Text(it, style = style) }
                     }
                 }
             }

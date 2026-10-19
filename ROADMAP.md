@@ -62,6 +62,14 @@ The standalone [pattern/project layout preview](docs/mockups/pattern-project-pre
 
 2026-10-13 additions from the reference audit: configurable long-running timer review, automatic completion finalization, finished manual time entries with overlap/DST review and portable source, atomic timer starts and stale-write protection, independent review of recovered running sessions, atomic guide/pattern attachment, reviewed copy-to-size drafts and access to kept guides after Library removal. These are independently implemented; reference runtime and remote-parser parity remain unverified.
 
+### Phone feedback and new tool inspiration (2026-10-19)
+
+- Focus reading: smaller regular-weight instruction text, consistent typography inside stitch groups, a visible More below scrolling control, and reset to the top for each occurrence. Stored guide text, size resolution and execution counts are unchanged. Existing guides retain their published text; size/parser corrections require an explicit reviewed rebuild or revision update.
+- User-supplied KnitHub screenshots suggest a photo-assisted swatch gauge tool, counter reminders/repeats, shaping calculators and saved technique/tutorial references. These are capability ideas only; use original design and copy. Existing shaping, yarn and gauge-conversion calculators cover part of this scope.
+- Manual gauge measurement is implemented in Home > Calculators: count stitches and height units (rows, rounds, passes or motifs) over independently measured spans, with fractional counts and centimetre/inch input. Results distinguish per 10 cm from per 4 inches. Changing units explicitly clears spans while retaining counts, so old measurements are not silently reinterpreted. Inputs are temporary calculator state, not durable swatch history. A later local photo overlay needs user calibration against a ruler or known length, separate horizontal/vertical scales and clear perspective/measurement limitations. Screen pixels or an uncalibrated photo cannot establish physical gauge. Preserve original photos through SAF references.
+- Planned counter reminders: explicit intervals and repeat cycles using the existing reliable persisted increment path, with visible in-app feedback and optional Focus-scoped notifications. Do not add background scheduling for a row-count reminder.
+- Planned techniques: user-owned notes and optional external tutorial references, available offline for local content and included in portable exports. No bundled proprietary tutorials or essential online dependency.
+
 ## Phase 0 — Working Compose app and repository setup
 
 **Status:** Complete.
