@@ -137,7 +137,7 @@ val Typography.sectionLabel: TextStyle
     get() = labelLarge
 
 val Typography.instruction: TextStyle
-    get() = headlineMedium.copy(fontSize = 22.sp, lineHeight = 30.sp)
+    get() = headlineMedium.copy(fontWeight = FontWeight.Normal, fontSize = 20.sp, lineHeight = 28.sp)
 
 val Typography.metadata: TextStyle
     get() = bodyMedium

@@ -22,6 +22,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -48,6 +49,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Remove
@@ -73,6 +76,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.macareen.stitchbook2.R
@@ -315,6 +319,19 @@ private fun InProgressContent(
     modifier: Modifier = Modifier
 ) {
     var showOverview by rememberSaveable { mutableStateOf(false) }
+    val instructionScroll = rememberScrollState()
+    val readingScope = rememberCoroutineScope()
+    var readingExecutionId by rememberSaveable { mutableStateOf(state.executionId.value) }
+    var readingVersion by rememberSaveable { mutableLongStateOf(state.version) }
+    // Advancing (including an identical repeated row) starts at the top again.
+    // Recreating the same screen keeps its saved reading position.
+    LaunchedEffect(state.executionId, state.version) {
+        if (readingExecutionId != state.executionId.value || readingVersion != state.version) {
+            instructionScroll.scrollTo(0)
+            readingExecutionId = state.executionId.value
+            readingVersion = state.version
+        }
+    }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -384,7 +401,7 @@ private fun InProgressContent(
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .verticalScroll(rememberScrollState()),
+                        .verticalScroll(instructionScroll),
                     verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.medium)
                 ) {
                     if (state.positions.isNotEmpty()) {
@@ -398,6 +415,16 @@ private fun InProgressContent(
                     InstructionBlocks(state.instructionText, MaterialTheme.typography.instruction)
                     state.feedback?.let { feedback ->
                         QuietText(text = focusFeedbackText(feedback))
+                    }
+                }
+                if (instructionScroll.canScrollForward) {
+                    TextButton(
+                        onClick = { readingScope.launch {
+                            instructionScroll.animateScrollBy(instructionScroll.viewportSize * 0.8f)
+                        } },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(stringResource(R.string.focus_read_more_action))
                     }
                 }
                 if (state.overview.isNotEmpty() || state.pattern != null) {
