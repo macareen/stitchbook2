@@ -1,5 +1,8 @@
 package com.macareen.stitchbook2.data.database
 
+import com.macareen.stitchbook2.domain.model.PatternPdfChangeResult
+import com.macareen.stitchbook2.domain.model.PickedDocument
+import com.macareen.stitchbook2.domain.model.LibraryItem
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Query
@@ -33,6 +36,29 @@ abstract class LibraryDao {
 
     @Query("SELECT * FROM library_items WHERE id = :id")
     protected abstract suspend fun getItem(id: String): LibraryItemEntity?
+
+    @Transaction
+    open suspend fun saveIfUnchanged(expected: LibraryItem, replacement: LibraryItem): Boolean {
+        require(replacement.id == expected.id)
+        if (getItem(expected.id)?.toDomain() != expected) return false
+        upsert(replacement.toEntity())
+        return true
+    }
+
+    @Transaction
+    open suspend fun changePdfReviewed(
+        expected: LibraryItem,
+        document: PickedDocument?,
+        now: Long
+    ): PatternPdfChangeResult {
+        val current = getItem(expected.id)?.toDomain()
+            ?: return PatternPdfChangeResult.Missing
+        if (current != expected) return PatternPdfChangeResult.Changed(current)
+        upsert(current.copy(pdfUri = document?.uri, pdfFileName = document?.displayName,
+            pdfLastViewedPage = if (document != null && document.uri == current.pdfUri) current.pdfLastViewedPage else null,
+            updatedAt = now).toEntity())
+        return PatternPdfChangeResult.Applied
+    }
 
     @Query("SELECT id FROM guides WHERE library_item_id = :id ORDER BY id")
     protected abstract suspend fun getGuideIds(id: String): List<String>

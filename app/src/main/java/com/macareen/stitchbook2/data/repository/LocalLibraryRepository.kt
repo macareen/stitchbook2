@@ -1,5 +1,6 @@
 package com.macareen.stitchbook2.data.repository
 
+import com.macareen.stitchbook2.domain.model.PickedDocument
 import com.macareen.stitchbook2.data.database.LibraryDao
 import com.macareen.stitchbook2.data.database.toDomain
 import com.macareen.stitchbook2.data.database.toEntity
@@ -27,9 +28,16 @@ class LocalLibraryRepository(
         libraryDao.upsert(item.toEntity())
     }
 
+    override suspend fun saveIfUnchanged(expected: LibraryItem, replacement: LibraryItem) =
+        libraryDao.saveIfUnchanged(expected, replacement)
+
     override suspend fun deleteLibraryItem(item: LibraryItem) {
         libraryDao.delete(item.toEntity())
     }
+
+    override suspend fun changePdfReviewed(expected: LibraryItem,
+        document: PickedDocument?, now: Long) =
+        libraryDao.changePdfReviewed(expected, document, now)
 
     override suspend fun previewRemoval(id: String) = libraryDao.previewRemoval(id)
 
