@@ -122,6 +122,15 @@ class ParsedPatternMapperTest {
         assertTrue(issueNode.instructionText!!.contains("(p.1 l.4)"))
     }
 
+    @Test fun reviewFirstMappingPutsWarningsBeforeInstructions() {
+        val pattern = ParsedPattern(listOf(ParsedInstruction("Work a pass.", source(1))),
+            listOf(ParsingIssue("Check page two.", SourceReference(2, 1))))
+        val mapped = ParsedPatternMapper.toDraftNodes(pattern, newIdGenerator(), reviewIssuesFirst = true)
+        val texts = mapped.rootNodeIds.map { id -> mapped.nodes.first { it.id == id }.instructionText!! }
+        assertTrue(texts.first().startsWith("Review needed:"))
+        assertEquals("Work a pass. (p.1)", texts.last())
+    }
+
     @Test
     fun `every generated node id is unique`() {
         val pattern = ParsedPattern(
@@ -151,7 +160,7 @@ class ParsedPatternMapperTest {
     }
 
     @Test
-    fun `steps note their page only where it changes`() {
+    fun `every step retains its own page even when the page repeats`() {
         val pattern = ParsedPattern(
             rootNodes = listOf(
                 ParsedInstruction("Cast on.", SourceReference(1, 1)),
@@ -164,7 +173,7 @@ class ParsedPatternMapperTest {
 
         val texts = ParsedPatternMapper.toDraftNodes(pattern) { "n${next++}" }.nodes.map { it.instructionText }
 
-        assertEquals(listOf("Cast on. (p.1)", "Knit.", "Purl. (p.2)"), texts)
+        assertEquals(listOf("Cast on. (p.1)", "Knit. (p.1)", "Purl. (p.2)"), texts)
     }
 
     @Test

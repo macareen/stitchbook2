@@ -1,11 +1,12 @@
 package com.macareen.stitchbook2.data.library
 
+import androidx.core.graphics.createBitmap
+import androidx.core.net.toUri
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
-import android.net.Uri
 import java.io.File
 import java.security.MessageDigest
 import kotlinx.coroutines.CancellationException
@@ -51,13 +52,13 @@ class PdfCoverCache private constructor(context: Context) {
     }
 
     private fun render(pdfUri: String, widthPx: Int): Bitmap? {
-        val descriptor = appContext.contentResolver.openFileDescriptor(Uri.parse(pdfUri), "r") ?: return null
+        val descriptor = appContext.contentResolver.openFileDescriptor(pdfUri.toUri(), "r") ?: return null
         return descriptor.use { pfd ->
             PdfRenderer(pfd).use { renderer ->
                 if (renderer.pageCount == 0) return null
                 renderer.openPage(0).use { page ->
                     val heightPx = (widthPx.toFloat() * page.height / page.width).toInt().coerceAtLeast(1)
-                    Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888).also { bitmap ->
+                    createBitmap(widthPx, heightPx).also { bitmap ->
                         // PDF pages are transparent; paper is white.
                         bitmap.eraseColor(Color.WHITE)
                         page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)

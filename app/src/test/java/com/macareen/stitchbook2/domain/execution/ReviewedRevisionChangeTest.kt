@@ -44,6 +44,32 @@ class ReviewedRevisionChangeTest {
         assertEquals(ExecutionStatus.COMPLETED, seed.status)
         assertNull(seed.currentAddress)
     }
+    @Test fun explicitPositionKeepsReviewedMatchesButDoesNotInventEarlierCompletion() {
+        val value = review().copy(resumeAt = address(target, b))
+        val seed = revisionChangeSeed(value, setOf(address(target, a)), ExecutionId("new"))
+        assertEquals(address(target, b), seed.currentAddress)
+        assertEquals(setOf(address(target, a)), seed.completedAddresses)
+        assertEquals(address(source, b), value.source.state.currentAddress)
+    }
+    @Test fun confirmedEarlierStepsIncludeChangedOrInsertedWorkButCurrentStepStaysIncomplete() {
+        val value = review().copy(resumeAt = address(target, b), confirmEarlierStepsDone = true)
+        val seed = revisionChangeSeed(value, emptySet(), ExecutionId("new"))
+        assertEquals(setOf(address(target, a), address(target, c)), seed.completedAddresses)
+        assertEquals(address(target, b), seed.currentAddress)
+        assertEquals(1, value.source.state.completedAddresses.size)
+    }
+    @Test fun foreignOrMissingPositionAndUnpositionedCompletionConfirmationAreRejected() {
+        listOf(review().copy(resumeAt = address(source, b)), review().copy(resumeAt = address(target, NodeId("missing"))),
+            review().copy(confirmEarlierStepsDone = true)).forEach { value ->
+            assertThrows(IllegalArgumentException::class.java) { revisionChangeSeed(value, emptySet(), ExecutionId("new")) }
+        }
+    }
+    @Test fun selectingPreviouslyCompletedStepMakesItTheNextStepWithoutDroppingOtherWork() {
+        val value = review().copy(resumeAt = address(target, a))
+        val seed = revisionChangeSeed(value, setOf(address(target, a)), ExecutionId("new"))
+        assertTrue(seed.completedAddresses.isEmpty())
+        assertEquals(address(target, a), seed.currentAddress)
+    }
     @Test fun contentComparisonIgnoresFlatStorageOrderButKeepsRootOrderAndText() {
         assertTrue(source.hasSameContentAs(GuideDefinition(source.guideId, source.revisionId, source.rootNodeIds, source.nodes.reversed())))
         assertFalse(source.hasSameContentAs(GuideDefinition(source.guideId, source.revisionId, source.rootNodeIds.reversed(), source.nodes)))

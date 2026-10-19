@@ -1,11 +1,12 @@
 package com.macareen.stitchbook2.feature.library
 
+import androidx.core.graphics.createBitmap
+import androidx.core.net.toUri
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor
 import android.graphics.pdf.PdfRenderer
-import android.net.Uri
 import android.os.ParcelFileDescriptor
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
@@ -121,7 +122,7 @@ private fun PdfPageViewer(
     DisposableEffect(item.pdfUri) {
         var pfd: ParcelFileDescriptor? = null
         var opened: PdfRenderer? = null
-        val uri = item.pdfUri?.let { Uri.parse(it) }
+        val uri = item.pdfUri?.let { it.toUri() }
         if (uri == null) {
             loadState = PageLoadState.AccessError
         } else {
@@ -153,7 +154,7 @@ private fun PdfPageViewer(
         val activeRenderer = renderer ?: return@LaunchedEffect
         if (readyState == null || currentPage !in 0 until readyState.pageCount) return@LaunchedEffect
         val page = activeRenderer.openPage(currentPage)
-        val rendered = Bitmap.createBitmap(page.width, page.height, Bitmap.Config.ARGB_8888)
+        val rendered = createBitmap(page.width, page.height)
         rendered.eraseColor(AndroidColor.WHITE)
         page.render(rendered, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
         page.close()
@@ -257,7 +258,7 @@ private fun PdfViewerControls(
 
             IconButton(
                 onClick = {
-                    val uri = item.pdfUri?.let { Uri.parse(it) }
+                    val uri = item.pdfUri?.let { it.toUri() }
                     if (uri == null) {
                         openFailed = true
                         return@IconButton

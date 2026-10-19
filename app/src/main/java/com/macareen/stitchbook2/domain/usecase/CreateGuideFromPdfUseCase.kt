@@ -6,6 +6,7 @@ import com.macareen.stitchbook2.domain.library.PatternFolderPlanner
 import com.macareen.stitchbook2.domain.parsing.PatternDocumentTitle
 import com.macareen.stitchbook2.domain.parsing.ExtractedDocument
 import com.macareen.stitchbook2.domain.parsing.ExtractedLine
+import com.macareen.stitchbook2.domain.parsing.SourceReference
 import com.macareen.stitchbook2.domain.parsing.ParsedPatternMapper
 import com.macareen.stitchbook2.domain.parsing.ParsingIssue
 import com.macareen.stitchbook2.domain.parsing.PatternDetails
@@ -59,7 +60,7 @@ class CreateGuideFromPdfUseCase(
         if (document is Extraction.Failed) return Result.ExtractionFailed(document.cause)
         val extracted = (document as Extraction.Read).document
         val title = PatternDocumentTitle.find(extracted)
-        return createDraft(extracted, emptyList(), patternTitle = title ?: guideName) {
+        return createDraft(extracted, extractionIssues(extracted), patternTitle = title ?: guideName) {
             guideRepository.createGuide(projectId, if (preferDocumentTitle) title ?: guideName else guideName)
         }
     }
@@ -112,7 +113,7 @@ class CreateGuideFromPdfUseCase(
         }
         return createDraft(
             document = sized,
-            extraIssues = issues,
+            extraIssues = extractionIssues(document) + issues,
             patternTitle = title,
             onDetails = { fillPatternDetails(libraryItemId, details, fromPdf?.second?.text, detectedTitle.takeIf { automaticTitle }) }
         ) {
@@ -145,6 +146,12 @@ class CreateGuideFromPdfUseCase(
         if (filled != item) repository.saveLibraryItem(filled.copy(updatedAt = System.currentTimeMillis()))
     }
 
+    // Check the original extraction, before size selection or cleanup removes intentional text.
+    private fun extractionIssues(document: ExtractedDocument): List<ParsingIssue> = document.pagesWithoutText().map { page ->
+        ParsingIssue("No readable text was found on PDF page $page. Check the original page for images, charts or missing instructions before following this guide.",
+            SourceReference(page, 1))
+    }
+
     private fun ExtractedDocument.withoutLine(line: ExtractedLine?): ExtractedDocument =
         if (line == null) this else copy(lines = lines - line)
 
@@ -175,7 +182,7 @@ class CreateGuideFromPdfUseCase(
     ): Result {
         val (steps, details) = PatternTextParser.parseWithDetails(document, patternTitle)
         val parsed = steps.copy(issues = extraIssues + steps.issues)
-        val mapped = ParsedPatternMapper.toDraftNodes(parsed, newNodeId)
+        val mapped = ParsedPatternMapper.toDraftNodes(parsed, newNodeId, reviewIssuesFirst = true)
 
         val guide = createGuide()
         val emptyDraft = requireNotNull(guideRepository.loadDraft(guide.id)) {

@@ -6,10 +6,13 @@ import android.net.Uri
 object DraftEditorDestination {
     const val GUIDE_ID_ARGUMENT = "guideId"
     const val PROJECT_ID_ARGUMENT = "projectId"
-    const val ROUTE = "guides/{$GUIDE_ID_ARGUMENT}/draft?$PROJECT_ID_ARGUMENT={$PROJECT_ID_ARGUMENT}"
+    const val FROM_FOCUS_ARGUMENT = "fromFocus"
+    const val ROUTE = "guides/{$GUIDE_ID_ARGUMENT}/draft?$PROJECT_ID_ARGUMENT={$PROJECT_ID_ARGUMENT}&$FROM_FOCUS_ARGUMENT={$FROM_FOCUS_ARGUMENT}"
 
-    fun route(guideId: String, projectId: String? = null): String {
+    fun route(guideId: String, projectId: String? = null, fromFocus: Boolean = false): String {
         val base = "guides/${Uri.encode(guideId)}/draft"
-        return if (projectId == null) base else "$base?$PROJECT_ID_ARGUMENT=${Uri.encode(projectId)}"
+        val query = listOfNotNull(projectId?.let { "$PROJECT_ID_ARGUMENT=${Uri.encode(it)}" },
+            if (fromFocus) "$FROM_FOCUS_ARGUMENT=true" else null).joinToString("&")
+        return if (query.isEmpty()) base else "$base?$query"
     }
 }

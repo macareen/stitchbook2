@@ -59,6 +59,45 @@ class CreateGuideFromPdfUseCaseTest {
         }
     }
 
+    @Test fun unreadablePagesBecomeLeadingReviewStepsWithoutLosingReadableWork() = runBlocking {
+        val document = ExtractedDocument(3, listOf(ExtractedLine("Cast on 20 sts.", SourceReference(1, 1)),
+            ExtractedLine("Bind off.", SourceReference(3, 1))))
+        val repository = FakeGuideRepository()
+        val result = CreateGuideFromPdfUseCase(FakePdfTextExtractor(document), repository, idGenerator())(
+            "project", "Sample", ByteArrayInputStream(ByteArray(0))) as CreateGuideFromPdfUseCase.Result.Success
+        assertEquals(1, result.issueCount)
+        val draft = repository.lastSavedDraft!!
+        val first = draft.nodes.first { it.id == draft.rootNodeIds.first() }.instructionText!!
+        assertTrue(first.startsWith("Review needed: No readable text was found on PDF page 2."))
+        assertTrue(first.endsWith("(p.2 l.1)"))
+        assertTrue(draft.nodes.any { it.instructionText == "Cast on 20 sts. (p.1)" })
+        assertTrue(draft.nodes.any { it.instructionText == "Bind off. (p.3)" })
+    }
+
+    @Test fun sizeFilteringDoesNotMistakeAnIntentionallyExcludedPageForExtractionLoss() = runBlocking {
+        val document = ExtractedDocument(3, listOf(ExtractedLine("Sizes: S, M", SourceReference(1, 1)),
+            ExtractedLine("Size S only: Cast on 20 sts.", SourceReference(2, 1)),
+            ExtractedLine("Size M only: Cast on 24 sts.", SourceReference(3, 1))))
+        val repository = FakeGuideRepository()
+        val result = CreateGuideFromPdfUseCase(FakePdfTextExtractor(document), repository, idGenerator()).forPattern(
+            "pattern", "M", null, "Sample", ByteArrayInputStream(ByteArray(0))) as CreateGuideFromPdfUseCase.Result.Success
+        assertEquals(0, result.issueCount)
+        assertTrue(repository.lastSavedDraft!!.nodes.none { it.instructionText?.startsWith("Review needed:") == true })
+        assertTrue(repository.lastSavedDraft!!.nodes.any { it.instructionText?.contains("24 sts.") == true })
+    }
+
+    @Test fun patternGuideAlsoWarnsWhenAnOriginalPageHasNoText() = runBlocking {
+        val document = ExtractedDocument(2, listOf(ExtractedLine("Sizes: S, M", SourceReference(1, 1)),
+            ExtractedLine("Cast on 20 (24) sts.", SourceReference(1, 2))))
+        val repository = FakeGuideRepository()
+        val result = CreateGuideFromPdfUseCase(FakePdfTextExtractor(document), repository, idGenerator()).forPattern(
+            "pattern", "M", null, "Sample", ByteArrayInputStream(ByteArray(0))) as CreateGuideFromPdfUseCase.Result.Success
+        assertEquals(1, result.issueCount)
+        val draft = repository.lastSavedDraft!!
+        assertTrue(draft.nodes.first { it.id == draft.rootNodeIds.first() }.instructionText!!.contains("page 2"))
+        assertTrue(draft.nodes.any { it.instructionText?.startsWith("Cast on 24 sts.") == true })
+    }
+
     private fun idGenerator(): () -> String {
         var counter = 0
         return { "node-${counter++}" }

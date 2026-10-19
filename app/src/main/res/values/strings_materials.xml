@@ -27,7 +27,6 @@
     <string name="project_section_materials_description">Yarn reserved and used, and linked patterns</string>
     <string name="stash_field_weight_per_unit">Grams / unit</string>
     <string name="stash_field_remaining_weight">Weighed remaining (g)</string>
-    <string name="stash_measured_remaining">%1$s g left (weighed)</string>
     <string name="stash_estimated_remaining_yards">≈ %1$s yds left (estimated)</string>
     <string name="stash_estimated_remaining_meters">≈ %1$s m left (estimated)</string>
     <string name="stash_reserved_summary">%1$s reserved · %2$s free %3$s</string>

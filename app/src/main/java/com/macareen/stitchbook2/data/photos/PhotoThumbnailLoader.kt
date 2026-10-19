@@ -1,10 +1,11 @@
 package com.macareen.stitchbook2.data.photos
 
+import androidx.core.net.toUri
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
-import android.media.ExifInterface
+import androidx.exifinterface.media.ExifInterface
 import android.net.Uri
 import android.util.LruCache
 import kotlinx.coroutines.CancellationException
@@ -17,7 +18,7 @@ import kotlinx.coroutines.withContext
  * in memory; imported Ravelry thumbnails also have a bounded cacheDir copy
  * (screens never fetch them). AGENTS.md: "internal cache may hold reproducible
  * thumbnails"; the original is opened read-only and never copied.
- * Uses platform APIs only, so no image-loading library is needed.
+ * Uses bounded platform bitmap decoding and AndroidX EXIF parsing; no image-loading framework is needed.
  */
 object PhotoThumbnailLoader {
 
@@ -31,7 +32,7 @@ object PhotoThumbnailLoader {
         cache.get(key)?.let { return it }
         return withContext(Dispatchers.IO) {
             try {
-                val parsed = Uri.parse(uri)
+                val parsed = uri.toUri()
                 val bitmap = if (parsed.scheme.equals("https", ignoreCase = true)) {
                     RavelryThumbnailCache.file(context, uri)?.takeIf { it.exists() }
                         ?.let { BitmapFactory.decodeFile(it.absolutePath) }

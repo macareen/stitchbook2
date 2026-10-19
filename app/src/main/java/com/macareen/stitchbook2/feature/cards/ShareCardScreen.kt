@@ -46,6 +46,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -92,13 +94,15 @@ fun ShareCardScreen(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val cardText = remember(context) { CardText(context.resources) }
+    val resources = LocalResources.current
+    val configuration = LocalConfiguration.current
+    val cardText = remember(resources, configuration) { CardText(resources) }
     var preview by remember { mutableStateOf<Bitmap?>(null) }
     var message by remember { mutableStateOf<Int?>(null) }
 
     val content = uiState.content
     // The preview *is* the exported bitmap, so what you see is exactly what is saved or shared.
-    LaunchedEffect(content) {
+    LaunchedEffect(content, cardText) {
         preview = content?.let { render(context, it, cardText) }
     }
 

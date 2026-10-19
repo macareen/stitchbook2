@@ -3,7 +3,10 @@ package com.macareen.stitchbook2.domain.execution
 /** Frozen facts reviewed by the user; apply must recheck these inside its transaction. */
 data class ReviewedRevisionChange(val projectId: String?, val source: PersistedExecution,
     val sourceDefinition: GuideDefinition, val sourceRevisionNumber: Int,
-    val targetDefinition: GuideDefinition, val targetRevisionNumber: Int)
+    val targetDefinition: GuideDefinition, val targetRevisionNumber: Int,
+    /** Explicitly reviewed position in the corrected publication; null keeps first-incomplete behavior. */
+    val resumeAt: ExecutionAddress? = null,
+    val confirmEarlierStepsDone: Boolean = false)
 
 data class ReviewedSavedPlace(val projectId: String?, val current: PersistedExecution,
     val currentDefinition: GuideDefinition, val saved: PersistedExecution, val savedDefinition: GuideDefinition)
@@ -21,7 +24,16 @@ fun revisionChangeSeed(review: ReviewedRevisionChange, selected: Set<ExecutionAd
     val allowed = comparison.candidates.map { it.target }.toSet()
     require(selected.all { it in allowed }) { "Only reviewed matching occurrences may be carried over." }
     val target = GuideDefinitionValidator.validate(review.targetDefinition)
-    val first = GuideTraversal(target).occurrences().firstOrNull { it.address !in selected }?.address
+    val traversal = GuideTraversal(target)
+    val resumeAt = review.resumeAt
+    require(!review.confirmEarlierStepsDone || resumeAt != null)
+    require(resumeAt == null || traversal.occurrences().any { it.address == resumeAt }) { "Choose a step in the target publication." }
+    val completed = if (resumeAt == null) selected else {
+        val earlier = if (review.confirmEarlierStepsDone) traversal.occurrences()
+            .takeWhile { it.address != resumeAt }.map { it.address }.toSet() else emptySet()
+        (selected + earlier) - resumeAt
+    }
+    val first = resumeAt ?: traversal.occurrences().firstOrNull { it.address !in completed }?.address
     return ExecutionState(id, review.targetDefinition.guideId, review.targetDefinition.revisionId,
-        first, selected, if (first == null) ExecutionStatus.COMPLETED else ExecutionStatus.ACTIVE)
+        first, completed, if (first == null) ExecutionStatus.COMPLETED else ExecutionStatus.ACTIVE)
 }

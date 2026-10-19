@@ -8,6 +8,16 @@ import org.junit.Test
 
 class StructuredGuideMapperTest {
 
+    @Test fun assistantTextExplicitlyMarksUnreadablePagesBetweenReadablePages() {
+        val document = ExtractedDocument(3, listOf(ExtractedLine("Work a pass.", SourceReference(1, 1)),
+            ExtractedLine("Fasten off.", SourceReference(3, 1))))
+        val text = StructuredGuidePrompt.patternText(document)
+        assertTrue(text.contains("[page 2]\n[No readable text extracted."))
+        assertTrue(text.indexOf("[page 1]") < text.indexOf("[page 2]"))
+        assertTrue(text.indexOf("[page 2]") < text.indexOf("[page 3]"))
+        assertTrue(text.contains("do not invent missing instructions"))
+    }
+
     @Test
     fun stepsBecomeTheMatchingDraftNodes() {
         val guide = StructuredGuide(

@@ -37,7 +37,6 @@
     <string name="library_empty_title">No patterns yet</string>
     <string name="library_empty_description">Choose a pattern folder above, or add one by hand.</string>
     <string name="library_item_author">By %1$s</string>
-    <string name="library_item_source_link">Source ↗</string>
     <string name="library_toggle_bookmark">Toggle bookmark</string>
     <string name="edit_library_item">Edit pattern reference</string>
     <string name="delete_library_item">Delete pattern reference</string>
@@ -84,7 +83,6 @@
     <string name="stash_filter_all_categories">All Categories</string>
     <string name="stash_empty_title">Your stash is empty</string>
     <string name="stash_empty_description">Add a yarn or notion to see what you have at a glance.</string>
-    <string name="stash_yardage_per_unit">%1$s yds / unit</string>
     <string name="edit_stash_item">Edit stash item</string>
     <string name="delete_stash_item">Delete stash item</string>
     <string name="stash_form_title_add">Add to stash</string>
@@ -136,7 +134,6 @@
     <string name="tools_category_end_stopper">End Stopper</string>
     <string name="tools_category_tightening_key">Tightening Key</string>
     <string name="tools_category_other_notion">Other Notion</string>
-    <string name="tools_header_title">Tools</string>
     <string name="tools_header_subtitle">Your needles, hooks and notions.</string>
     <string name="add_tool_item">Add tool</string>
     <string name="tools_search_placeholder">Search by name, brand, or material</string>
@@ -184,7 +181,7 @@
     <string name="edit_tool_set">Edit set</string>
     <string name="delete_tool_set">Delete set</string>
     <string name="delete_tool_set_title">Delete this set?</string>
-    <string name="delete_tool_set_confirmation">"%1$s will be deleted. Its tools are not deleted -- they just stop belonging to a set."</string>
+    <string name="delete_tool_set_confirmation">"%1$s will be deleted. Its tools are not deleted — they just stop belonging to a set."</string>
     <string name="tool_set_form_title_edit">Edit Tool Set</string>
     <string name="tool_set_field_name">Set Name</string>
     <string name="tool_set_field_name_required">Enter a set name.</string>
@@ -388,7 +385,6 @@
     <string name="pattern_folder_not_allowed">That folder\'s app doesn\'t allow folder access. Choose a folder on this phone, or keep a synced copy of your cloud folder on the phone.</string>
     <string name="pattern_folder_unreadable">Couldn\'t read the pattern folder. It may have been moved or access removed; choose it again.</string>
     <string name="home_continue_label">Where you left off</string>
-    <string name="home_keep_going">Keep going</string>
     <string name="home_percent">%1$d%%</string>
     <string name="home_title">Happy making</string>
     <string name="home_greeting_morning">Good morning</string>
@@ -488,9 +484,6 @@
     <string name="add_guide_error">This guide could not be created. Please try again.</string>
 
     <string name="create_guide_from_pdf_action">Create from PDF</string>
-    <string name="create_guide_from_pdf_dialog_title">New guide from PDF</string>
-    <string name="create_guide_from_pdf_dialog_description">Name the guide, then choose a PDF. Its text is extracted and turned into a draft for you to review -- nothing is published automatically.</string>
-    <string name="create_guide_from_pdf_confirm_action">Choose PDF</string>
     <string name="create_guide_from_pdf_importing">Importing…</string>
     <string name="create_guide_from_pdf_no_text_error">No readable text could be found in this PDF, even after attempting on-device text recognition. It may be a blank or very low-quality scan.</string>
     <string name="create_guide_from_pdf_extraction_error">This PDF could not be read. Please try a different file.</string>
@@ -531,7 +524,6 @@
     <string name="focus_starting_action">Starting…</string>
     <string name="focus_start_error">This guide could not be started. Please try again.</string>
 
-    <string name="home_resume_project_progress">%1$s · %2$d%% done</string>
     <string name="focus_overview_action">Overview</string>
     <string name="focus_read_more_action">More below ↓</string>
     <string name="focus_overview_title">The whole guide</string>
@@ -544,11 +536,8 @@
     <string name="focus_progress_stitches">%1$d%% done, by stitches</string>
     <string name="focus_progress_stitches_estimated">About %1$d%% done, by stitches (some rows estimated)</string>
     <string name="focus_progress_steps">%1$d%% done · %2$d of %3$d steps</string>
-    <string name="focus_time">%1$s in total · %2$s on this step</string>
-    <string name="focus_time_estimated">%1$s in total · about %2$s on this step</string>
     <string name="focus_time_under_minute">Now</string>
     <string name="focus_time_minutes">%1$d min</string>
-    <string name="focus_time_hours">%1$dh %2$02dm</string>
     <string name="focus_timer_start">Start timer</string>
     <string name="focus_timer_pause">Pause timer</string>
     <string name="focus_timer_resume">Resume timer</string>
@@ -718,4 +707,15 @@
     <string name="revision_review_failed">Could not change versions. Your work is kept.</string>
     <string name="revision_review_choose">Compare a publication</string>
     <string name="revision_review_publication">Revision %1$d</string>
+    <string name="focus_edit_guide">Edit guide</string>
+    <string name="draft_work_preserved">Edits change the shared draft. Publish a correction, then return to review your place. Existing publications and project or piece progress stay saved.</string>
+    <string name="draft_repeat_instruction">Repeat this instruction</string>
+    <string name="draft_repeat_instruction_help">Repeat only this instruction. Following instructions stay separate. For seven plain rows then one decrease row, repeat the plain-row instruction seven times.</string>
+    <string name="draft_repeat_count">Repetitions (1–1000)</string>
+    <string name="revision_position_title">Where are you now?</string>
+    <string name="revision_position_help">Choose the next step you will work in the corrected guide. Without a choice, continue at the first incomplete step. Matching checked work carries over; your old saved place remains available.</string>
+    <string name="revision_position_choose">Choose my current step</string>
+    <string name="revision_position_earlier">I confirm all steps before this one are already done</string>
+    <string name="revision_position_automatic">Use first incomplete step</string>
+    <string name="draft_return_to_work">Return to my work</string>
 </resources>

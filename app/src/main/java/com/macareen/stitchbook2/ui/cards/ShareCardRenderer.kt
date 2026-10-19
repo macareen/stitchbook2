@@ -1,5 +1,8 @@
 package com.macareen.stitchbook2.ui.cards
 
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.withTranslation
+import androidx.core.graphics.withSave
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -38,7 +41,7 @@ object ShareCardRenderer {
     private val TILE = Color.rgb(0xF2, 0xEA, 0xE2)
 
     fun render(content: CardContent, photos: List<Bitmap>, text: CardText): Bitmap {
-        val bitmap = Bitmap.createBitmap(WIDTH, HEIGHT, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(WIDTH, HEIGHT)
         val canvas = Canvas(bitmap)
         canvas.drawColor(BACKGROUND)
 
@@ -113,10 +116,7 @@ object ShareCardRenderer {
             .setMaxLines(maxLines)
             .setEllipsize(TextUtils.TruncateAt.END)
             .build()
-        canvas.save()
-        canvas.translate(left, top)
-        layout.draw(canvas)
-        canvas.restore()
+        canvas.withTranslation(left, top) { layout.draw(this) }
         return top + layout.height
     }
 
@@ -133,9 +133,9 @@ object ShareCardRenderer {
             val yOffset = (photo.height - cropHeight) / 2
             Rect(0, yOffset, photo.width, yOffset + cropHeight)
         }
-        canvas.save()
-        canvas.clipPath(Path().apply { addRoundRect(target, radius, radius, Path.Direction.CW) })
-        canvas.drawBitmap(photo, source, target, Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
-        canvas.restore()
+        canvas.withSave {
+            clipPath(Path().apply { addRoundRect(target, radius, radius, Path.Direction.CW) })
+            drawBitmap(photo, source, target, Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
+        }
     }
 }

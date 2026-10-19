@@ -61,6 +61,7 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.room.runtime)
     implementation(libs.pdfbox.android)
+    implementation(libs.androidx.exifinterface)
     implementation(libs.mlkit.text.recognition)
     ksp(libs.androidx.room.compiler)
     testImplementation(libs.junit)
