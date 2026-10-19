@@ -32,6 +32,7 @@ See [PRODUCT_SPEC.md](PRODUCT_SPEC.md) for structured requirements and [ROADMAP.
 
 ## Currently implemented
 
+- Library removal reviews named affected projects and retained guides, rechecks references atomically before removing the index entry, and retains failed selections for retry. Original files and guide/progress history are kept.
 - Offline calculators for shaping, yarn requirements, gauge conversion and measured swatch gauge. Count stitches and height units over independently measured spans in centimetres or inches; results show both per 10 cm and per 4 inches. Calculator inputs are temporary, not saved swatch records.
 - Focus reading uses smaller regular-weight text throughout grouped instructions, an explicit More below scrolling control, and a fresh reading position for each occurrence.
 - A cozy pastel Material 3 light/dark theme (blush cream, rose, sky and sage; Fraunces and Nunito fonts bundled offline) with a floating pill bottom bar and an adaptive heart yarn-ball launcher icon (themed-icon ready) -- see [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)

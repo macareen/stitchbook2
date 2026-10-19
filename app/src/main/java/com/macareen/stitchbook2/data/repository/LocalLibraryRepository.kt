@@ -4,6 +4,7 @@ import com.macareen.stitchbook2.data.database.LibraryDao
 import com.macareen.stitchbook2.data.database.toDomain
 import com.macareen.stitchbook2.data.database.toEntity
 import com.macareen.stitchbook2.domain.model.LibraryItem
+import com.macareen.stitchbook2.domain.model.PatternRemovalPreview
 import com.macareen.stitchbook2.domain.repository.LibraryRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -29,4 +30,8 @@ class LocalLibraryRepository(
     override suspend fun deleteLibraryItem(item: LibraryItem) {
         libraryDao.delete(item.toEntity())
     }
+
+    override suspend fun previewRemoval(id: String) = libraryDao.previewRemoval(id)
+
+    override suspend fun removeReviewed(preview: PatternRemovalPreview) = libraryDao.removeReviewed(preview)
 }

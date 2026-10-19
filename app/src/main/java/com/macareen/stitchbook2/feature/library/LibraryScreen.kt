@@ -126,6 +126,7 @@ fun LibraryRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val importReport by viewModel.importReport.collectAsStateWithLifecycle()
     val folderState by viewModel.folderState.collectAsStateWithLifecycle()
+    val removalReview by viewModel.removalReview.collectAsStateWithLifecycle()
 
     LibraryScreen(
         uiState = uiState,
@@ -134,7 +135,7 @@ fun LibraryRoute(
         onBookmarksOnlyChanged = viewModel::updateBookmarksOnly,
         onToggleBookmark = viewModel::toggleBookmark,
         onSaveItem = viewModel::saveItem,
-        onDeleteItem = viewModel::deleteItem,
+        onDeleteItem = viewModel::requestRemoval,
         onOpenPdf = onOpenPdf,
         onExportCsv = viewModel::exportCsv,
         onImportCsv = viewModel::importCsv,
@@ -146,6 +147,11 @@ fun LibraryRoute(
         onForgetFolder = viewModel::forgetFolder,
         onOpenGuides = onOpenGuides
     )
+    removalReview?.let { review ->
+        PatternRemovalDialog(review, viewModel::dismissRemoval, {
+            if (review.preview == null) viewModel.requestRemoval(review.item) else viewModel.confirmRemoval(review.preview)
+        })
+    }
 }
 
 @Composable
@@ -171,7 +177,6 @@ fun LibraryScreen(
 ) {
     var editingItem by remember { mutableStateOf<LibraryItem?>(null) }
     var isAddingItem by remember { mutableStateOf(false) }
-    var deletingItem by remember { mutableStateOf<LibraryItem?>(null) }
 
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -249,7 +254,7 @@ fun LibraryScreen(
                     onBookmarksOnlyChanged = onBookmarksOnlyChanged,
                     onToggleBookmark = onToggleBookmark,
                     onEditItem = { editingItem = it },
-                    onDeleteRequested = { deletingItem = it },
+                    onDeleteRequested = onDeleteItem,
                     onOpenPdf = onOpenPdf,
                     onExportCsvClick = { exportCsvLauncher.launch(libraryCsvFileName()) },
                     onImportCsvClick = {
@@ -298,32 +303,6 @@ fun LibraryScreen(
             onSave = { title, craft, author, sourceUrl, tags, notes, pdfUri, pdfFileName, metadata ->
                 onSaveItem(item, title, craft, author, sourceUrl, tags, notes, pdfUri, pdfFileName, metadata)
                 editingItem = null
-            }
-        )
-    }
-
-    deletingItem?.let { item ->
-        AlertDialog(
-            onDismissRequest = { deletingItem = null },
-            title = { Text(text = stringResource(R.string.delete_library_item_title)) },
-            text = {
-                Text(text = stringResource(R.string.delete_library_item_confirmation, item.title),
-                    modifier = Modifier.verticalScroll(rememberScrollState()))
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onDeleteItem(item)
-                        deletingItem = null
-                    }
-                ) {
-                    Text(text = stringResource(R.string.pattern_remove_reference))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { deletingItem = null }) {
-                    Text(text = stringResource(R.string.cancel))
-                }
             }
         )
     }
