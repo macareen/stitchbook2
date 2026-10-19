@@ -57,7 +57,9 @@ class ProjectPiecesScreenTest {
                     onName = { state = state.copy(editor = state.editor?.copy(name = it, error = false)) },
                     onGuide = {},
                     onSave = { saves++; state = state.copy(editor = state.editor?.copy(error = true, busy = saves > 1)) },
-                    onDismiss = { state = state.copy(editor = null) }, onRetry = {})
+                    onDismiss = { state = state.copy(editor = null) }, onRetry = {},
+                    onQuantity = { state = state.copy(editor = state.editor?.copy(quantity = it)) },
+                    onCopy = { state = state.copy(editor = PieceEditor(guideId = it.guideId, copySource = it)) })
                 } }
             } }
             compose.onNodeWithTag("pieces_list").performScrollToNode(hasText("Left sleeve"))
@@ -77,11 +79,26 @@ class ProjectPiecesScreenTest {
             compose.onNodeWithTag("pieces_list").performScrollToNode(hasText("Restore"))
             compose.onNodeWithText("Restore").performClick()
             compose.runOnIdle { assertEquals(false, state.entries.last().piece.isArchived) }
+            compose.onNodeWithTag("pieces_list").performScrollToIndex(0)
+            compose.onNodeWithTag("pieces_list").performScrollToNode(hasText("Make fresh copy"))
+            compose.onAllNodesWithText("Make fresh copy").onFirst().performClick()
+            compose.onNodeWithText("Save").assertIsNotEnabled()
+            compose.onNodeWithText("Piece name").performTextReplacement("Other sleeve")
+            compose.onNodeWithText("Piece name").performImeAction()
+            compose.onNodeWithText("Choose a name for the new piece. It uses the same guide and starts unworked on its latest published version. Progress, saved places and archived status are not copied. Instructions are not mirrored.")
+                .performScrollTo().assertIsDisplayed()
+            compose.onNodeWithText("Quantity").assertDoesNotExist()
+            compose.onNodeWithText("Save").assertIsEnabled()
+            compose.onNodeWithText("Cancel").performClick()
             compose.onNodeWithTag("pieces_list").performScrollToNode(hasText("Add piece"))
             compose.onNodeWithText("Add piece").performClick()
             compose.onNodeWithText("Piece name").performTextReplacement("Sleeve kept after failure")
             compose.onNodeWithText("Piece name").performImeAction()
             compose.onNodeWithText("Piece name").assertIsNotFocused()
+            compose.onNodeWithText("Quantity").performScrollTo().performTextReplacement("2")
+            compose.onNodeWithText("Quantity").performImeAction()
+            compose.onNodeWithText("2 pieces will be created:").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithText("Sleeve kept after failure 1\nSleeve kept after failure 2").performScrollTo().assertIsDisplayed()
             compose.onNodeWithText("Save").performClick()
             compose.onNodeWithText("Sleeve kept after failure").assertExists()
             compose.onNodeWithText("Could not save. Your work is kept. Close and reopen this form to review any changes.").assertIsDisplayed()

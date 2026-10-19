@@ -236,6 +236,27 @@ abstract class ExecutionDao {
         insertPiece(piece)
     }
 
+    @Query("SELECT EXISTS(SELECT 1 FROM definition_revisions WHERE guide_id = :guideId)")
+    protected abstract suspend fun hasPublishedPieceGuide(guideId: String): Boolean
+
+    @Transaction
+    open suspend fun createPieces(pieces: List<ProjectPieceEntity>) {
+        require(pieces.size in 1..com.macareen.stitchbook2.domain.model.MAX_PIECES_PER_BATCH)
+        require(pieces.map { it.id }.distinct().size == pieces.size)
+        require(pieces.map { it.name }.distinct().size == pieces.size)
+        require(pieces.all { it.projectId == pieces.first().projectId && it.guideId == pieces.first().guideId && !it.isArchived })
+        require(hasPublishedPieceGuide(pieces.first().guideId)) { "Publish a guide before adding pieces." }
+        pieces.forEach { createPiece(it) }
+    }
+
+    @Transaction
+    open suspend fun copyPiece(expected: com.macareen.stitchbook2.domain.model.ProjectPiece, fresh: ProjectPieceEntity) {
+        check(getPiece(expected.id)?.toDomain() == expected) { "The source piece changed. Reopen the form." }
+        require(fresh.id != expected.id && fresh.projectId == expected.projectId && fresh.guideId == expected.guideId && !fresh.isArchived)
+        require(hasPublishedPieceGuide(fresh.guideId)) { "Publish a guide before adding pieces." }
+        createPiece(fresh)
+    }
+
     @Query("""UPDATE project_pieces SET name = :name, is_archived = :archived, updated_at = :now
         WHERE id = :id AND project_id = :projectId AND guide_id = :guideId
         AND name = :oldName AND is_archived = :oldArchived AND updated_at = :oldUpdatedAt""")

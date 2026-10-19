@@ -45,6 +45,10 @@ interface ExecutionRepository {
     fun observePieces(projectId: String): kotlinx.coroutines.flow.Flow<List<com.macareen.stitchbook2.domain.model.ProjectPiece>> = kotlinx.coroutines.flow.flowOf(emptyList())
     suspend fun loadPiece(pieceId: String): com.macareen.stitchbook2.domain.model.ProjectPiece? = null
     suspend fun createPiece(projectId: String, guideId: GuideId, name: String): com.macareen.stitchbook2.domain.model.ProjectPiece = throw UnsupportedOperationException()
+    /** Creates all named pieces in one transaction, or none. No executions are copied or started. */
+    suspend fun createPieces(projectId: String, guideId: GuideId, names: List<String>): List<com.macareen.stitchbook2.domain.model.ProjectPiece> = throw UnsupportedOperationException()
+    /** Rechecks the source metadata and guide eligibility; creates a fresh, unstarted piece. */
+    suspend fun copyPiece(expected: com.macareen.stitchbook2.domain.model.ProjectPiece, name: String): com.macareen.stitchbook2.domain.model.ProjectPiece = throw UnsupportedOperationException()
     suspend fun updatePiece(expected: com.macareen.stitchbook2.domain.model.ProjectPiece, name: String, archived: Boolean): Boolean = throw UnsupportedOperationException()
     suspend fun createPieceExecution(pieceId: String, revisionId: DefinitionRevisionId): PersistedExecution = throw UnsupportedOperationException()
     suspend fun getActivePieceExecution(pieceId: String): PersistedExecution? = null

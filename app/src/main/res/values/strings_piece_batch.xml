@@ -1,0 +1,12 @@
+<resources>
+    <string name="pieces_quantity">Quantity</string>
+    <string name="pieces_quantity_help">Create 1–100 separate pieces. Each keeps its own progress; you can rename them later.</string>
+    <plurals name="pieces_quantity_preview">
+        <item quantity="one">%1$d piece will be created:</item>
+        <item quantity="other">%1$d pieces will be created:</item>
+    </plurals>
+    <string name="pieces_numbered_name_error">Use a name short enough for every numbered piece name to fit within 100 characters.</string>
+    <string name="pieces_fresh_copy">Make fresh copy</string>
+    <string name="pieces_copy_source">From: %1$s</string>
+    <string name="pieces_copy_explanation">Choose a name for the new piece. It uses the same guide and starts unworked on its latest published version. Progress, saved places and archived status are not copied. Instructions are not mirrored.</string>
+</resources>
