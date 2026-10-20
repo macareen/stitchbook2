@@ -20,24 +20,21 @@ data class DraftMappingResult(val rootNodeIds: List<NodeId>, val nodes: List<Dra
  * Draft editor, per PRODUCT_SPEC.md 6.6's "show source references for
  * generated steps" -- no separate review UI or schema change is needed for
  * that. Each [ParsingIssue] similarly becomes its own plain, clearly marked
- * Instruction appended at the root, so ambiguity is explicit and directly
+ * Instruction at the root (optionally before the parsed work), so ambiguity is explicit and directly
  * editable/deletable like any other node, rather than hidden or silently
  * resolved (PRODUCT_SPEC.md 6.6's "require user review rather than
  * silently trusting generated output").
  */
 object ParsedPatternMapper {
 
-    fun toDraftNodes(pattern: ParsedPattern, newNodeId: () -> String): DraftMappingResult {
+    fun toDraftNodes(pattern: ParsedPattern, newNodeId: () -> String): DraftMappingResult =
+        toDraftNodes(pattern, newNodeId, reviewIssuesFirst = false)
+
+    fun toDraftNodes(pattern: ParsedPattern, newNodeId: () -> String, reviewIssuesFirst: Boolean): DraftMappingResult {
         val nodes = mutableListOf<DraftNode>()
         val rootIds = mutableListOf<NodeId>()
-        var lastPage = 0
-
-        // Steps note their page only where it changes, so the text stays readable.
-        fun withProvenance(text: String, source: SourceReference): String {
-            if (source.pageNumber == lastPage) return text
-            lastPage = source.pageNumber
-            return "$text (p.${source.pageNumber})"
-        }
+        // Each leaf keeps its page: traversal can return to it inside later repeat cycles.
+        fun withProvenance(text: String, source: SourceReference): String = "$text (p.${source.pageNumber})"
 
         // A heading, range, or repeat with nothing under it is dropped: it would
         // only block publishing, and its words carry no step to work.
@@ -86,6 +83,7 @@ object ParsedPatternMapper {
         }
 
         pattern.rootNodes.forEach { node -> mapNode(node)?.let { rootIds += it } }
+        val reviewIds = mutableListOf<NodeId>()
         pattern.issues.forEach { issue ->
             val id = NodeId(newNodeId())
             nodes += DraftNode(
@@ -93,8 +91,9 @@ object ParsedPatternMapper {
                 type = DraftNodeType.INSTRUCTION,
                 instructionText = "Review needed: ${issue.message} ${formatSource(issue.source)}"
             )
-            rootIds += id
+            reviewIds += id
         }
+        if (reviewIssuesFirst) rootIds.addAll(0, reviewIds) else rootIds.addAll(reviewIds)
 
         return DraftMappingResult(rootNodeIds = rootIds.toList(), nodes = nodes.toList())
     }

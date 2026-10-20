@@ -58,6 +58,11 @@ internal object PdfFixtures {
         }
     }
 
+    fun buildSyntheticPages(pages: List<List<String>>): ByteArray = PDDocument().use { document ->
+        pages.forEach { addPage(document, it) }
+        ByteArrayOutputStream().also { document.save(it) }.toByteArray()
+    }
+
     /** The word [buildImageOnlyPagePdf] draws onto its page as a picture, not text. */
     const val IMAGE_ONLY_PAGE_WORD = "STITCHBOOK"
 

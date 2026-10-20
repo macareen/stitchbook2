@@ -2,6 +2,7 @@ package com.macareen.stitchbook2
 
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
@@ -10,6 +11,9 @@ import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performScrollToNode
+import kotlinx.coroutines.flow.first
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.macareen.stitchbook2.domain.execution.NodeId
@@ -154,6 +158,40 @@ class ExecutionEntryResumeTest {
         nodeWithText("Cast on 40 stitches").awaitDisplayed()
     }
 
+    @Test fun correctingAnActiveGuideReturnsDirectlyToProgressReview() {
+        openProject(); openGuides()
+        nodeWithText("Executable guide").performScrollTo().performClick()
+        node(hasText("Start") and hasClickAction()).performClick()
+        nodeWithText("Complete").performClick()
+        nodeWithText("Row 2 of 2").awaitDisplayed()
+        nodeWithText("Edit guide").performClick()
+        nodeWithText("Repeat this instruction").performScrollTo().performClick()
+        nodeWithText("Repetitions (1–1000)").assertIsDisplayed()
+        nodeWithText("Save").performClick()
+        composeTestRule.waitUntil(10_000) { runCatching { nodeWithText("Publish").assertIsEnabled(); true }.getOrDefault(false) }
+        nodeWithText("Publish").performClick()
+        composeTestRule.waitUntil(10_000) { runCatching { nodeWithText("Publish").assertIsEnabled(); true }.getOrDefault(false) }
+        nodeWithText("Return to my work").performClick()
+        nodeWithText("Where are you now?").awaitDisplayed()
+        nodeWithText("Choose my current step").performScrollTo().performClick()
+        composeTestRule.onNodeWithTag("revision_review_list").performScrollToNode(androidx.compose.ui.test.hasTestTag("revision_position_4"))
+        composeTestRule.onNodeWithTag("revision_position_4").performClick()
+        nodeWithText("I confirm all steps before this one are already done").performScrollTo().performClick()
+        nodeWithText("Use revision 2").performClick()
+        nodeWithText("Row 1 of 2").awaitDisplayed()
+        composeTestRule.activityRule.scenario.recreate()
+        nodeWithText("Row 1 of 2").awaitDisplayed()
+        runBlocking {
+            val container = (composeTestRule.activity.applicationContext as StitchbookApplication).container
+            val guide = container.guideRepository.observeGuides(projectId).first().first { it.name == "Executable guide" }
+            val active = requireNotNull(container.executionRepository.getActiveExecution(guide.id, projectId))
+            assertEquals(4, active.state.completedAddresses.size)
+            val saved = container.executionRepository.listExecutionsForScope(guide.id, projectId, null)
+                .first { it.state.executionId != active.state.executionId }
+            assertEquals(1, saved.state.completedAddresses.size)
+        }
+    }
+
     @Test
     fun completingAndRewindingPersistThroughRealNavigationAndSurviveRecreation() {
         openProject()
@@ -262,9 +300,9 @@ class ExecutionEntryResumeTest {
         nodeWithText(projectName).performClick()
     }
 
-    /** Guides live in a sheet behind the project's Guides node. */
+    /** Guides are an inline section of the current project page. */
     private fun openGuides() {
-        node(hasContentDescription("Guides", substring = true) and hasClickAction()).performClick()
+        nodeWithText("Guides").performScrollTo().assertIsDisplayed()
     }
 
     /**

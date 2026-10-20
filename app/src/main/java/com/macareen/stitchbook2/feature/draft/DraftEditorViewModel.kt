@@ -111,6 +111,20 @@ class DraftEditorViewModel(
         }
     }
 
+    /** Wraps only this instruction; its identity/text and all siblings stay intact. */
+    fun repeatInstruction(nodeId: NodeId, count: Int) {
+        val current = draft ?: return
+        if (isSaving()) return
+        val node = current.nodes.firstOrNull { it.id == nodeId && it.type == DraftNodeType.INSTRUCTION } ?: return
+        if (count !in 1..1000) { showError("Choose between 1 and 1000 repetitions."); return }
+        val repeatId = NodeId(newNodeId())
+        val wrapper = DraftNode(id = repeatId, type = DraftNodeType.REPEAT, repeatCount = count, children = listOf(node.id))
+        val nodes = current.nodes.map { existing ->
+            existing.copy(children = existing.children.map { if (it == nodeId) repeatId else it })
+        } + wrapper
+        persist(current.copy(nodes = nodes, rootNodeIds = current.rootNodeIds.map { if (it == nodeId) repeatId else it }))
+    }
+
     /**
      * Adds a new node either as a root node ([parentId] null) or as the last
      * child of an existing container node.

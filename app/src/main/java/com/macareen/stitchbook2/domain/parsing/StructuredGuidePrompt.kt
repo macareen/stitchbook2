@@ -39,14 +39,13 @@ object StructuredGuidePrompt {
 
     /** Pattern lines with page breaks marked, so the assistant can tell pages apart. */
     fun patternText(document: ExtractedDocument): String = buildString {
-        var page = 0
-        for (line in document.lines) {
-            if (line.source.pageNumber != page) {
-                page = line.source.pageNumber
-                if (isNotEmpty()) appendLine()
-                appendLine("[page $page]")
-            }
-            appendLine(line.text)
+        val linesByPage = document.lines.groupBy { it.source.pageNumber }
+        for (page in 1..document.pageCount) {
+            if (isNotEmpty()) appendLine()
+            appendLine("[page $page]")
+            val lines = linesByPage[page].orEmpty()
+            if (lines.isEmpty()) appendLine("[No readable text extracted. Review this page in the original PDF; do not invent missing instructions.]")
+            else lines.forEach { appendLine(it.text) }
         }
     }.trimEnd()
 

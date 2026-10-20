@@ -83,6 +83,29 @@ class DraftEditorViewModelTest {
         assertFalse(content.hasActiveExecution)
     }
 
+    @Test fun repeatShortcutWrapsOnlyChosenInstructionAndPreservesItsIdentity() {
+        val repository = FakeGuideRepository(guide = guide, draft = emptyDraft())
+        val model = viewModel(repository)
+        model.addNode(DraftNodeType.SECTION, null, title = "Sleeve")
+        val section = contentState(model).rows.first().node.id
+        model.addNode(DraftNodeType.INSTRUCTION, section, instructionText = "Plain row.")
+        val plain = contentState(model).rows.last().node.id
+        model.addNode(DraftNodeType.INSTRUCTION, section, instructionText = "Decrease row.")
+        val decrease = contentState(model).rows.last().node.id
+        model.repeatInstruction(plain, 7)
+        val rows = contentState(model).rows
+        val wrapper = rows.first { it.node.type == DraftNodeType.REPEAT }.node
+        assertEquals(7, wrapper.repeatCount)
+        assertEquals(listOf(plain), wrapper.children)
+        assertEquals(listOf(wrapper.id, decrease), rows.first().node.children)
+        assertEquals("Plain row.", rows.first { it.node.id == plain }.node.instructionText)
+        assertEquals("Decrease row.", rows.last().node.instructionText)
+        val saves = repository.savedDrafts.size
+        model.repeatInstruction(plain, 0)
+        assertEquals(saves, repository.savedDrafts.size)
+        assertTrue(contentState(model).errorMessage != null)
+    }
+
     @Test
     fun addingARootInstructionAppendsItAndPersists() {
         val repository = FakeGuideRepository(guide = guide, draft = emptyDraft())

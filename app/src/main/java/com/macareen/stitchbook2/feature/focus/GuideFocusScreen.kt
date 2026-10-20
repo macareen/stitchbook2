@@ -96,7 +96,8 @@ import com.macareen.stitchbook2.ui.theme.screenTitle
 import com.macareen.stitchbook2.ui.theme.sectionLabel
 
 @Composable
-fun GuideFocusRoute(viewModel: GuideFocusViewModel, onOpenPattern: (PatternPage) -> Unit = {}) {
+fun GuideFocusRoute(viewModel: GuideFocusViewModel, onOpenPattern: (PatternPage) -> Unit = {},
+    onEditGuide: () -> Unit = {}) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val revisionReview by viewModel.revisionReview.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -144,10 +145,12 @@ fun GuideFocusRoute(viewModel: GuideFocusViewModel, onOpenPattern: (PatternPage)
         onJumpTo = viewModel::onJumpTo,
         onOpenPattern = onOpenPattern,
         onToggleTimer = viewModel::onToggleTimer,
-        onReviewVersions = viewModel.revisionReview::open
+        onReviewVersions = viewModel.revisionReview::open,
+        onEditGuide = onEditGuide
     )
     revisionReview?.let { GuideRevisionReviewDialog(it, viewModel.revisionReview::select,
-        viewModel.revisionReview::selectAll, viewModel.revisionReview::apply, viewModel.revisionReview::resume, viewModel.revisionReview::close, viewModel.revisionReview::choosePublication) }
+        viewModel.revisionReview::selectAll, viewModel.revisionReview::apply, viewModel.revisionReview::resume, viewModel.revisionReview::close, viewModel.revisionReview::choosePublication,
+        viewModel.revisionReview::choosePosition, viewModel.revisionReview::confirmEarlierSteps) }
 }
 
 @Composable
@@ -164,7 +167,8 @@ fun GuideFocusScreen(
     onJumpTo: (ExecutionAddress) -> Unit = {},
     onOpenPattern: (PatternPage) -> Unit = {},
     onToggleTimer: () -> Unit = {},
-    onReviewVersions: () -> Unit = {}
+    onReviewVersions: () -> Unit = {},
+    onEditGuide: () -> Unit = {}
 ) {
     when (uiState) {
         GuideFocusUiState.Loading -> LoadingState(modifier)
@@ -204,6 +208,7 @@ fun GuideFocusScreen(
             onOpenPattern = onOpenPattern,
             onToggleTimer = onToggleTimer,
             onReviewVersions = onReviewVersions,
+            onEditGuide = onEditGuide,
             modifier = modifier
         )
 
@@ -316,6 +321,7 @@ private fun InProgressContent(
     onOpenPattern: (PatternPage) -> Unit,
     onToggleTimer: () -> Unit,
     onReviewVersions: () -> Unit,
+    onEditGuide: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showOverview by rememberSaveable { mutableStateOf(false) }
@@ -338,6 +344,9 @@ private fun InProgressContent(
             .padding(horizontal = StitchbookSpacing.large, vertical = StitchbookSpacing.small),
         verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.medium)
     ) {
+        TextButton(onClick = onEditGuide, enabled = !state.isBusy) {
+            Text(stringResource(R.string.focus_edit_guide))
+        }
         // Where you are: guide, part, and how far through.
         Column(
             modifier = Modifier.semantics(mergeDescendants = true) {},

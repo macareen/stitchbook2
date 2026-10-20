@@ -19,8 +19,10 @@ import com.macareen.stitchbook2.domain.execution.*
 @Composable
 fun GuideRevisionReviewDialog(state: GuideRevisionReviewState, onSelect: (ExecutionAddress) -> Unit,
     onSelectAll: (Boolean) -> Unit, onApply: () -> Unit, onResume: (SavedGuidePlace) -> Unit, onClose: () -> Unit,
-    onChoosePublication: (DefinitionRevisionId) -> Unit = {}) {
+    onChoosePublication: (DefinitionRevisionId) -> Unit = {},
+    onChoosePosition: (ExecutionAddress?) -> Unit = {}, onConfirmEarlierSteps: (Boolean) -> Unit = {}) {
     val scroll = rememberLazyListState()
+    var choosingPosition by remember { mutableStateOf(false) }
     var choosing by remember { mutableStateOf(false) }
     LaunchedEffect(state.failed) { if (state.failed) scroll.animateScrollToItem(0) }
     AlertDialog(onDismissRequest = { if (!state.busy) onClose() },
@@ -49,6 +51,38 @@ fun GuideRevisionReviewDialog(state: GuideRevisionReviewState, onSelect: (Execut
                     if (change == null) item { Text(stringResource(R.string.revision_review_latest)) }
                     else {
                         item { Text(stringResource(R.string.revision_review_target, change.targetRevisionNumber), style = MaterialTheme.typography.titleMedium) }
+                        item {
+                            Text(stringResource(R.string.revision_position_title), style = MaterialTheme.typography.titleMedium)
+                            Text(stringResource(R.string.revision_position_help))
+                            val position = panel.positions.firstOrNull { it.address == state.resumeAt }
+                            position?.let {
+                                Text(it.context, style = MaterialTheme.typography.labelLarge)
+                                InstructionBlocks(it.instruction, style = MaterialTheme.typography.bodyMedium)
+                            }
+                            TextButton(onClick = { choosingPosition = !choosingPosition }, enabled = !state.busy && !state.stale) {
+                                Text(stringResource(R.string.revision_position_choose))
+                            }
+                            if (state.resumeAt != null) {
+                                Row(Modifier.fillMaxWidth().toggleable(state.confirmEarlierStepsDone, enabled = !state.busy,
+                                    onValueChange = onConfirmEarlierSteps)) {
+                                    Checkbox(state.confirmEarlierStepsDone, onCheckedChange = null)
+                                    Text(stringResource(R.string.revision_position_earlier), Modifier.weight(1f))
+                                }
+                                TextButton(onClick = { onChoosePosition(null) }, enabled = !state.busy) {
+                                    Text(stringResource(R.string.revision_position_automatic))
+                                }
+                            }
+                        }
+                        if (choosingPosition) itemsIndexed(panel.positions, key = { i, _ -> "position-$i" }) { index, position ->
+                            OutlinedCard(Modifier.fillMaxWidth().testTag("revision_position_$index").toggleable(
+                                value = position.address == state.resumeAt, enabled = !state.busy && !state.stale,
+                                onValueChange = { onChoosePosition(position.address); choosingPosition = false })) {
+                                Column(Modifier.padding(12.dp)) {
+                                    Text(position.context, style = MaterialTheme.typography.labelLarge)
+                                    InstructionBlocks(position.instruction, style = MaterialTheme.typography.bodyMedium)
+                                }
+                            }
+                        }
                         item { Text(stringResource(R.string.revision_review_summary, state.selected.size, panel.matches.size, panel.unmatched.size)) }
                         item { Row {
                             TextButton(onClick = { onSelectAll(true) }, enabled = !state.busy) { Text(stringResource(R.string.revision_review_all)) }

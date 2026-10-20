@@ -102,6 +102,37 @@ class GuideFocusViewModelTest {
         assertEquals(listOf(StructuralPosition.RangePosition("round", 4, 1, 4)), moved.positions)
     }
 
+    @Test fun pageReferencesFollowRepeatedCyclesPreviousAndJump() {
+        val definition = ExecutionEngineFixtures.definition(roots = listOf(NodeId("setup"), NodeId("repeat")),
+            Instruction(NodeId("setup"), "Setup. (p.1)"),
+            com.macareen.stitchbook2.domain.execution.Repeat(NodeId("repeat"), 2, children = listOf(NodeId("first"), NodeId("second"))),
+            Instruction(NodeId("first"), "First pass. (p.1)"), Instruction(NodeId("second"), "Second pass. (p.2)"), revisionId = revisionId)
+        val guides = FakeGuideRepository().withGuide(libraryItemId = "pattern").withRevision(definition)
+        val executions = FakeExecutionRepository(guides)
+        create(executions)
+        val model = viewModel(guides, executions)
+        fun page() = (model.uiState.value as GuideFocusUiState.InProgress).pattern!!.page
+        assertEquals(1, page())
+        model.onComplete(); assertEquals(1, page())
+        model.onComplete(); assertEquals(2, page())
+        model.onComplete(); assertEquals(1, page())
+        model.onPrevious(); assertEquals(2, page())
+        val validated = com.macareen.stitchbook2.domain.execution.GuideDefinitionValidator.validate(definition)
+        val last = com.macareen.stitchbook2.domain.execution.GuideTraversal(validated).occurrences().last().address
+        model.onJumpTo(last); assertEquals(2, page())
+    }
+
+    @Test fun reviewInstructionsOpenTheirOwnSourcePageIncludingLineAnnotations() {
+        val definition = ExecutionEngineFixtures.definition(roots = listOf(NodeId("review")),
+            Instruction(NodeId("review"), "Review needed: Check unreadable page. (p.2 l.1)"), revisionId = revisionId)
+        val guides = FakeGuideRepository().withGuide(libraryItemId = "pattern").withRevision(definition)
+        val executions = FakeExecutionRepository(guides)
+        create(executions)
+        val state = viewModel(guides, executions).uiState.value as GuideFocusUiState.InProgress
+        assertEquals(PatternPage("pattern", 2), state.pattern)
+        assertEquals("Review needed: Check unreadable page.", state.instructionText)
+    }
+
     @Test
     fun completingAStepStartsAnIdleTimerAndTheTimerCanBePaused() {
         val guides = FakeGuideRepository().withGuide(projectId = "project-1").withRevision(simpleFourRoundDefinition())

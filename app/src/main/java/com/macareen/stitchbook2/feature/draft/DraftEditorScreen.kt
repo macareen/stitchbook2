@@ -31,6 +31,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -53,7 +54,8 @@ import com.macareen.stitchbook2.ui.theme.StitchbookTheme
 fun DraftEditorRoute(
     viewModel: DraftEditorViewModel,
     onDone: () -> Unit,
-    onStartOrContinue: () -> Unit
+    onStartOrContinue: () -> Unit,
+    returningToWork: Boolean = false
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -67,7 +69,9 @@ fun DraftEditorRoute(
         onPublish = viewModel::publish,
         onDismissError = viewModel::dismissError,
         onDone = onDone,
-        onStartOrContinue = onStartOrContinue
+        onStartOrContinue = onStartOrContinue,
+        onRepeatInstruction = viewModel::repeatInstruction,
+        returningToWork = returningToWork
     )
 }
 
@@ -102,7 +106,9 @@ fun DraftEditorScreen(
     onDismissError: () -> Unit,
     onDone: () -> Unit,
     onStartOrContinue: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onRepeatInstruction: (NodeId, Int) -> Unit = { _, _ -> },
+    returningToWork: Boolean = false
 ) {
     when (uiState) {
         DraftEditorUiState.Loading -> {
@@ -143,6 +149,8 @@ fun DraftEditorScreen(
                 onDismissError = onDismissError,
                 onDone = onDone,
                 onStartOrContinue = onStartOrContinue,
+                onRepeatInstruction = onRepeatInstruction,
+                returningToWork = returningToWork,
                 modifier = modifier
             )
         }
@@ -180,14 +188,19 @@ private fun DraftEditorContent(
     onDismissError: () -> Unit,
     onDone: () -> Unit,
     onStartOrContinue: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onRepeatInstruction: (NodeId, Int) -> Unit,
+    returningToWork: Boolean
 ) {
+    var repeatNodeId by rememberSaveable { mutableStateOf<String?>(null) }
+    var repeatCount by rememberSaveable { mutableStateOf("7") }
     var dialogState by remember { mutableStateOf<EditorDialogState?>(null) }
     var pendingDelete by remember { mutableStateOf<DraftNode?>(null) }
 
     Column(modifier = modifier.fillMaxSize().padding(StitchbookSpacing.large)) {
         Text(text = state.guideName, style = MaterialTheme.typography.headlineMedium)
         Spacer(modifier = Modifier.height(StitchbookSpacing.small))
+        if (state.isPublished) QuietText(stringResource(R.string.draft_work_preserved))
 
         state.errorMessage?.let { message ->
             Card(modifier = Modifier.fillMaxWidth().padding(bottom = StitchbookSpacing.small)) {
@@ -223,7 +236,8 @@ private fun DraftEditorContent(
                         onDelete = { pendingDelete = row.node },
                         onMoveUp = { onMoveUp(row.node.id) },
                         onMoveDown = { onMoveDown(row.node.id) },
-                        onAddInside = { dialogState = EditorDialogState.ChoosingType(row.node.id) }
+                        onAddInside = { dialogState = EditorDialogState.ChoosingType(row.node.id) },
+                        onRepeat = { repeatNodeId = row.node.id.value; repeatCount = "7" }
                     )
                 }
             }
@@ -266,22 +280,41 @@ private fun DraftEditorContent(
         if (state.isPublished) {
             Spacer(modifier = Modifier.height(StitchbookSpacing.small))
             PrimaryActionButton(
-                text = if (state.hasActiveExecution) {
+                text = if (returningToWork) {
+                    stringResource(R.string.draft_return_to_work)
+                } else if (state.hasActiveExecution) {
                     stringResource(R.string.draft_continue_knitting_action)
                 } else {
                     stringResource(R.string.draft_start_knitting_action)
                 },
                 onClick = onStartOrContinue,
+                enabled = !state.isSaving,
                 modifier = Modifier.fillMaxWidth()
             )
         }
 
         Spacer(modifier = Modifier.height(StitchbookSpacing.extraSmall))
-        TextButton(onClick = onDone, modifier = Modifier.fillMaxWidth()) {
+        TextButton(onClick = onDone, enabled = !state.isSaving, modifier = Modifier.fillMaxWidth()) {
             Text(text = stringResource(R.string.draft_editor_done_action))
         }
     }
 
+    repeatNodeId?.let { id ->
+        AlertDialog(onDismissRequest = { repeatNodeId = null },
+            title = { Text(stringResource(R.string.draft_repeat_instruction)) },
+            text = { Column(verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
+                Text(stringResource(R.string.draft_repeat_instruction_help))
+                OutlinedTextField(value = repeatCount, onValueChange = { repeatCount = it },
+                    label = { Text(stringResource(R.string.draft_repeat_count)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = repeatCount.toIntOrNull() !in 1..1000)
+            } },
+            confirmButton = { TextButton(enabled = !state.isSaving && repeatCount.toIntOrNull() in 1..1000,
+                onClick = { onRepeatInstruction(NodeId(id), repeatCount.toInt()); repeatNodeId = null }) {
+                Text(stringResource(R.string.draft_action_save))
+            } },
+            dismissButton = { TextButton(onClick = { repeatNodeId = null }) { Text(stringResource(R.string.cancel)) } })
+    }
     dialogState?.let { current ->
         when (current) {
             is EditorDialogState.ChoosingType -> ChooseTypeDialog(
@@ -363,7 +396,8 @@ private fun DraftOutlineRowItem(
     onDelete: () -> Unit,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
-    onAddInside: () -> Unit
+    onAddInside: () -> Unit,
+    onRepeat: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -393,6 +427,9 @@ private fun DraftOutlineRowItem(
             }
             com.macareen.stitchbook2.feature.focus.InstructionBlocks(row.node.summary(), MaterialTheme.typography.bodyLarge)
             Spacer(modifier = Modifier.height(StitchbookSpacing.extraSmall))
+            if (row.node.type == DraftNodeType.INSTRUCTION) {
+                TextButton(onClick = onRepeat, enabled = !isSaving) { Text(stringResource(R.string.draft_repeat_instruction)) }
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onMoveUp, enabled = !isSaving && row.canMoveUp) {
                     Icon(imageVector = Icons.Outlined.ArrowUpward, contentDescription = stringResource(R.string.draft_move_up_action))

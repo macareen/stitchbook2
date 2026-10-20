@@ -1,8 +1,12 @@
 package com.macareen.stitchbook2.navigation
 
+import androidx.core.net.toUri
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
-import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -23,6 +27,7 @@ import com.macareen.stitchbook2.feature.counters.CountersRoute
 import com.macareen.stitchbook2.feature.counters.CountersViewModel
 import com.macareen.stitchbook2.feature.draft.DraftEditorRoute
 import com.macareen.stitchbook2.feature.draft.DraftEditorViewModel
+import com.macareen.stitchbook2.feature.focus.GuideFocusUiState
 import com.macareen.stitchbook2.feature.focus.GuideFocusRoute
 import com.macareen.stitchbook2.feature.focus.GuideFocusViewModel
 import com.macareen.stitchbook2.feature.home.HomeRoute
@@ -284,7 +289,7 @@ fun StitchbookNavHost(
                     readPatternFile = { uri ->
                         withContext(Dispatchers.IO) {
                             runCatching {
-                                application.contentResolver.openInputStream(Uri.parse(uri))?.use { it.readBytes() }
+                                application.contentResolver.openInputStream(uri.toUri())?.use { it.readBytes() }
                             }.getOrNull()
                         }
                     },
@@ -508,6 +513,10 @@ fun StitchbookNavHost(
                     type = NavType.StringType
                     nullable = true
                     defaultValue = null
+                },
+                navArgument(DraftEditorDestination.FROM_FOCUS_ARGUMENT) {
+                    type = NavType.BoolType
+                    defaultValue = false
                 }
             )
         ) { backStackEntry ->
@@ -524,11 +533,18 @@ fun StitchbookNavHost(
                     projectId = projectId
                 )
             )
+            val fromFocus = backStackEntry.arguments?.getBoolean(DraftEditorDestination.FROM_FOCUS_ARGUMENT) == true
+            val returnToFocus: () -> Unit = {
+                navController.previousBackStackEntry?.savedStateHandle?.set("reviewEditedGuide", true)
+                navController.popBackStack()
+            }
             DraftEditorRoute(
                 viewModel = viewModel,
-                onDone = navController::popBackStack,
+                returningToWork = fromFocus,
+                onDone = { if (fromFocus) returnToFocus() else navController.popBackStack() },
                 onStartOrContinue = {
-                    navController.navigate(GuideFocusDestination.route(guideId, projectId))
+                    if (fromFocus) returnToFocus()
+                    else navController.navigate(GuideFocusDestination.route(guideId, projectId))
                 }
             )
         }
@@ -568,8 +584,22 @@ fun StitchbookNavHost(
                     projectRepository = projectRepository
                 )
             )
+            val reviewEdited by backStackEntry.savedStateHandle.getStateFlow("reviewEditedGuide", false).collectAsStateWithLifecycle()
+            val focusState by viewModel.uiState.collectAsStateWithLifecycle()
+            val canReview = when (val state = focusState) {
+                is GuideFocusUiState.InProgress -> !state.isBusy
+                is GuideFocusUiState.Completed -> !state.isBusy
+                else -> false
+            }
+            LaunchedEffect(reviewEdited, canReview) {
+                if (reviewEdited && canReview) {
+                    viewModel.revisionReview.open()
+                    backStackEntry.savedStateHandle["reviewEditedGuide"] = false
+                }
+            }
             GuideFocusRoute(
                 viewModel = viewModel,
+                onEditGuide = { navController.navigate(DraftEditorDestination.route(guideId, projectId, fromFocus = true)) },
                 onOpenPattern = { pattern ->
                     navController.navigate(PdfViewerDestination.route(pattern.libraryItemId, pattern.page))
                 }

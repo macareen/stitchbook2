@@ -2,7 +2,7 @@
 <resources>
     <string name="settings_timer_review_label">Check running timers</string>
     <string name="settings_timer_review_minutes">Minutes</string>
-    <string name="settings_timer_review_help">Choose 1-1440 minutes. A timer running longer without a pause or review asks whether to count all its time.</string>
+    <string name="settings_timer_review_help">Choose 1–1440 minutes. A timer running longer without a pause or review asks whether to count all its time.</string>
     <string name="settings_timer_review_save">Save timer check</string>
     <string name="timer_review_title">Check your timer</string>
     <string name="timer_review_body">This session currently counts %1$d min. Do you want all of that time in your stats?</string>

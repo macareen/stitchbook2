@@ -8,5 +8,4 @@
     <string name="settings_measurement_metric">Metres</string>
     <string name="settings_measurement_imperial">Yards</string>
     <string name="settings_measurement_description">Only changes how yarn lengths are shown. Your records keep their original units.</string>
-    <string name="stash_meterage_per_unit">%1$s m / unit</string>
 </resources>

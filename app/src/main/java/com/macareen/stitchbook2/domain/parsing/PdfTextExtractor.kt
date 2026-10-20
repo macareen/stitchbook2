@@ -13,8 +13,8 @@ import java.io.InputStream
  *
  * This step never invents text: a page with no extractable text layer simply
  * contributes no lines (see [ExtractedDocument.pagesWithoutText]) rather than
- * failing the whole document, since OCR fallback for those pages is separate,
- * later work.
+ * failing the whole document. Production extraction attempts on-device OCR
+ * first; guide creation must surface any remaining unreadable pages for review.
  */
 interface PdfTextExtractor {
     /** @throws PdfTextExtractionException if [input] is not a readable PDF. */

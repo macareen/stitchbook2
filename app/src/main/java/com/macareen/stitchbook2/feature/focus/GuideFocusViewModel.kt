@@ -587,7 +587,7 @@ class GuideFocusViewModel(
             overview = OverviewEntry.overviewOf(validated, execution.state.completedAddresses, currentAddress)
                 .map { it.copy(text = withoutSourcePage(it.text)) },
             pattern = patternLibraryItemId?.let { id ->
-                // Imported steps name their page only where it changes, so look back to the last one that does.
+                // Current imports tag every instruction. Look back for older publications with sparse page tags.
                 val page = traversal.occurrences()
                     .takeWhile { it.address != currentAddress }
                     .plus(traversal.resolve(currentAddress))
@@ -637,7 +637,7 @@ class GuideFocusViewModel(
 
     companion object {
         /** The "(p.N)" an imported step ends with, naming its page in the original PDF. */
-        private val SOURCE_PAGE = Regex("""\(p\.(\d+)\)\s*$""")
+        private val SOURCE_PAGE = Regex("""\(p\.(\d+)(?:\s+l\.\d+)?\)\s*$""")
 
         fun factory(
             guideId: GuideId,

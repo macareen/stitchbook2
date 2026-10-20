@@ -9,16 +9,20 @@ import kotlinx.coroutines.flow.*
 data class GuideRevisionContext(val guideName: String, val projectId: String, val executionId: ExecutionId,
     val version: Long, val isBusy: Boolean = false)
 
+data class ReviewPosition(val address: ExecutionAddress, val context: String, val instruction: String)
+
 data class ReviewMatch(val candidate: ProgressCarryCandidate, val context: String)
 data class ReviewUnmatched(val occurrence: UnmatchedProgress, val context: String, val targetText: String?)
 data class SavedGuidePlace(val work: PersistedExecution, val revision: DefinitionRevision,
     val context: String, val currentInstruction: String?)
 data class GuideRevisionPanel(val current: PersistedExecution, val revision: DefinitionRevision,
     val change: ReviewedRevisionChange?, val matches: List<ReviewMatch>, val unmatched: List<ReviewUnmatched>,
-    val saved: List<SavedGuidePlace>, val publications: List<DefinitionRevision> = emptyList())
+    val saved: List<SavedGuidePlace>, val publications: List<DefinitionRevision> = emptyList(),
+    val positions: List<ReviewPosition> = emptyList())
 data class GuideRevisionReviewState(val loading: Boolean = true, val panel: GuideRevisionPanel? = null,
     val selected: Set<ExecutionAddress> = emptySet(), val busy: Boolean = false,
-    val failed: Boolean = false, val stale: Boolean = false)
+    val failed: Boolean = false, val stale: Boolean = false,
+    val resumeAt: ExecutionAddress? = null, val confirmEarlierStepsDone: Boolean = false)
 
 /** Owns review choices only; durable changes are guarded repository transactions. */
 class GuideRevisionReviewController(private val guideId: GuideId, private val expectedPieceId: String?,
@@ -68,7 +72,10 @@ class GuideRevisionReviewController(private val guideId: GuideId, private val ex
             GuideRevisionPanel(work, revision, change,
                 comparison?.candidates.orEmpty().map { ReviewMatch(it, requireNotNull(targetLabels).at(it.target)) },
                 comparison?.unmatched.orEmpty().map { ReviewUnmatched(it, sourceLabels.at(it.source),
-                    target?.definition?.nodes?.filterIsInstance<Instruction>()?.firstOrNull { n -> n.id == it.source.instructionNodeId }?.text) }, saved, publications)
+                    target?.definition?.nodes?.filterIsInstance<Instruction>()?.firstOrNull { n -> n.id == it.source.instructionNodeId }?.text) }, saved, publications,
+                target?.let { t -> GuideTraversal(GuideDefinitionValidator.validate(t.definition)).occurrences().map {
+                    ReviewPosition(it.address, requireNotNull(targetLabels).at(it.address), it.instruction.text)
+                }.toList() }.orEmpty())
         }
 
     fun choosePublication(id: DefinitionRevisionId) {
@@ -97,6 +104,16 @@ class GuideRevisionReviewController(private val guideId: GuideId, private val ex
     }
     fun selectAll(all: Boolean) { mutable.update { value -> value?.takeUnless { it.busy }?.copy(
         selected = if (all) value.panel?.matches.orEmpty().map { it.candidate.target }.toSet() else emptySet()) ?: value } }
+    fun choosePosition(address: ExecutionAddress?) {
+        mutable.update { value -> value?.takeUnless { it.busy || it.stale }?.let {
+            if (address != null && it.panel?.positions?.none { position -> position.address == address } != false) it
+            else it.copy(resumeAt = address, confirmEarlierStepsDone = false)
+        } ?: value }
+    }
+    fun confirmEarlierSteps(done: Boolean) {
+        mutable.update { value -> value?.takeUnless { it.busy || it.stale || it.resumeAt == null }
+            ?.copy(confirmEarlierStepsDone = done) ?: value }
+    }
     fun close() {
         if (state.value?.busy == true) return
         operation?.cancel(); mutable.value = null; setBusy(false); refresh()
@@ -104,7 +121,8 @@ class GuideRevisionReviewController(private val guideId: GuideId, private val ex
     fun apply() {
         val value = state.value?.takeUnless { it.busy || it.stale } ?: return
         val change = value.panel?.change ?: return
-        commit { executions.applyReviewedRevision(change, value.selected) }
+        commit { executions.applyReviewedRevision(change.copy(resumeAt = value.resumeAt,
+            confirmEarlierStepsDone = value.confirmEarlierStepsDone), value.selected) }
     }
     fun resume(place: SavedGuidePlace) {
         val value = state.value?.takeUnless { it.busy || it.stale } ?: return
