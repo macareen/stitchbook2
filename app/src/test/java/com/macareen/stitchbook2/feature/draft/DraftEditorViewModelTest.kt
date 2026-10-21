@@ -39,6 +39,85 @@ import org.junit.Test
  */
 class DraftEditorViewModelTest {
 
+    @Test fun reviewedSectionReplayCopiesActualWorkAndDoesNotPublishOrTouchActiveWork() {
+        val repository = FakeGuideRepository(guide, emptyDraft()).apply { hasPublishedRevision = true }
+        val executions = FakeExecutionRepository().apply { setActiveExecution(guideId) }
+        val model = viewModel(repository, executions)
+        model.addNode(DraftNodeType.SECTION, null, title = "Sleeve")
+        val source = contentState(model).rows.first().node.id
+        model.addNode(DraftNodeType.INSTRUCTION, source, instructionText = "Cast on 20 sts.")
+        model.addNode(DraftNodeType.INSTRUCTION, source, instructionText = "Bind off.")
+        model.addNode(DraftNodeType.INSTRUCTION, source, instructionText = "Repeat for second sleeve.")
+        val target = contentState(model).rows.last().node.id
+        model.requestSectionReplay(target)
+        val review = model.sectionReplayReview.value!!
+        assertEquals(listOf("Cast on 20 sts.", "Bind off."), review.choices.single().nodes.map { it.instructionText })
+        val saves = repository.saveCallCount
+        model.confirmSectionReplay(review, source)
+        assertEquals(saves + 1, repository.saveCallCount)
+        assertNull(model.sectionReplayReview.value)
+        assertEquals(2, contentState(model).rows.count { it.node.instructionText == "Cast on 20 sts." })
+        assertEquals(0, repository.publishCallCount)
+        assertTrue(contentState(model).hasActiveExecution)
+    }
+
+    @Test fun sourceReviewRefusesLocalEditsSinceItsSnapshot() {
+        val repository = FakeGuideRepository(guide, emptyDraft())
+        val model = viewModel(repository)
+        model.addNode(DraftNodeType.SECTION, null, title = "Sleeve")
+        val source = contentState(model).rows.first().node.id
+        model.addNode(DraftNodeType.INSTRUCTION, source, instructionText = "Cast on 20 sts.")
+        model.addNode(DraftNodeType.INSTRUCTION, null, instructionText = "Repeat for second sleeve.")
+        val target = contentState(model).rows.last().node.id
+        model.requestSectionReplay(target)
+        val review = model.sectionReplayReview.value!!
+        model.updateNode(target, instructionText = "Changed reminder")
+        val saves = repository.saveCallCount
+        model.confirmSectionReplay(review, source)
+        assertEquals(saves, repository.saveCallCount)
+        assertNull(model.sectionReplayReview.value)
+        assertTrue(contentState(model).errorMessage!!.contains("draft changed"))
+    }
+
+    @Test fun failedCopyRetainsReviewForRetryAndBusySaveRejectsAnotherConfirmation() {
+        val repository = FakeGuideRepository(guide, emptyDraft())
+        val model = viewModel(repository)
+        model.addNode(DraftNodeType.SECTION, null, title = "Sleeve")
+        val source = contentState(model).rows.first().node.id
+        model.addNode(DraftNodeType.INSTRUCTION, source, instructionText = "Cast on 20 sts.")
+        model.addNode(DraftNodeType.INSTRUCTION, null, instructionText = "Repeat for second sleeve.")
+        model.requestSectionReplay(contentState(model).rows.last().node.id)
+        val review = model.sectionReplayReview.value!!
+        repository.nextSaveError = IllegalStateException("Synthetic failure")
+        model.confirmSectionReplay(review, source)
+        assertEquals(review, model.sectionReplayReview.value)
+        assertTrue(contentState(model).errorMessage != null)
+        repository.saveGate = CompletableDeferred()
+        model.confirmSectionReplay(review, source)
+        val calls = repository.saveCallCount
+        model.confirmSectionReplay(review, source)
+        model.dismissSectionReplay()
+        assertEquals(calls, repository.saveCallCount)
+        assertEquals(review, model.sectionReplayReview.value)
+        repository.saveGate!!.complete(Unit)
+        assertNull(model.sectionReplayReview.value)
+    }
+
+    @Test fun repositoryConflictDiscardsTheStaleReplayReviewAndReloads() {
+        val repository = FakeGuideRepository(guide, emptyDraft())
+        val model = viewModel(repository)
+        model.addNode(DraftNodeType.SECTION, null, title = "Sleeve")
+        val source = contentState(model).rows.first().node.id
+        model.addNode(DraftNodeType.INSTRUCTION, source, instructionText = "Cast on 20 sts.")
+        model.addNode(DraftNodeType.INSTRUCTION, null, instructionText = "Repeat for second sleeve.")
+        model.requestSectionReplay(contentState(model).rows.last().node.id)
+        val review = model.sectionReplayReview.value!!
+        repository.nextSaveError = DraftVersionConflictException(guideId)
+        model.confirmSectionReplay(review, source)
+        assertNull(model.sectionReplayReview.value)
+        assertTrue(contentState(model).errorMessage!!.contains("changed elsewhere"))
+    }
+
     // Dispatchers.Unconfined runs launched coroutines synchronously up to
     // their first real suspension point, matching the convention already
     // established for GuideFocusViewModelTest/ProjectDetailViewModelTest.

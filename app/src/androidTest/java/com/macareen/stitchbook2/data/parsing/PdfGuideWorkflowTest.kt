@@ -21,6 +21,97 @@ class PdfGuideWorkflowTest {
     private val noTextOcr = object : PdfPageOcr {
         override suspend fun recognizeText(page: Bitmap): List<String> = emptyList()
     }
+    @Test fun secondSleeveReplaysEveryStepWithIndependentCastOnProgressAndSavedPlace() = runBlocking<Unit> {
+        val db = Room.inMemoryDatabaseBuilder(context, StitchbookDatabase::class.java).build()
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        try {
+            db.projectDao().upsert(ProjectEntity("project", "Sample", "KNITTING", "OTHER", "ACTIVE", null, 0, 0))
+            db.libraryDao().upsert(LibraryItemEntity("pattern", "Sample sleeves", "KNITTING", null, null, "", null, false, 0, 0, pdfUri = "content://synthetic/sleeves.pdf"))
+            val guides = LocalGuideRepository(db.guideDao())
+            val executions = LocalExecutionRepository(db.executionDao())
+            val useCase = CreateGuideFromPdfUseCase(PdfBoxTextExtractor(context, noTextOcr), guides,
+                { java.util.UUID.randomUUID().toString() }, LocalLibraryRepository(db.libraryDao()))
+            val bytes = PdfFixtures.buildSyntheticPages(listOf(listOf("Sizes: S, M", "Sleeve:", "Cast on 20 (24) sts.",
+                "Row 1: Knit.", "Row 2: Purl.", "Work rows 1 and 2 a total of 3 times.", "Bind off."),
+                listOf("Repeat for the second sleeve.", "Finishing:", "Sew seams.")))
+            val result = useCase.forPattern("pattern", "M", null, "Sample M", ByteArrayInputStream(bytes)) as CreateGuideFromPdfUseCase.Result.Success
+            assertEquals(0, result.issueCount)
+            val revision = guides.publishDraft(result.guideId)
+            val occurrences = GuideTraversal(GuideDefinitionValidator.validate(revision.definition)).occurrences().toList()
+            assertEquals(17, occurrences.size)
+            assertEquals(2, revision.definition.nodes.filterIsInstance<Instruction>().count { it.text.startsWith("Cast on 24 sts.") })
+            guides.useGuideInProject("project", result.guideId)
+            val work = executions.createExecution(result.guideId, revision.id, "project")
+            fun model() = GuideFocusViewModel(result.guideId, guides, executions, LocalCounterRepository(db.counterDao()), externalScope = scope, projectId = "project")
+            var focus = model()
+            suspend fun state(version: Long = -1) = withTimeout(10_000) {
+                focus.uiState.first { it is GuideFocusUiState.InProgress && !it.isBusy && it.version > version } as GuideFocusUiState.InProgress
+            }
+            var current = state()
+            assertEquals("Cast on 24 sts.", current.instructionText)
+            val firstAddress = occurrences.first().address
+            focus.onAdjustCastOn(1); current = state(current.version)
+            assertEquals(1, current.castOnCount)
+            repeat(8) { focus.onComplete(); current = state(current.version) }
+            val secondAddress = occurrences[8].address
+            assertNotEquals(firstAddress, secondAddress)
+            assertEquals("Cast on 24 sts.", current.instructionText)
+            assertEquals(0, current.castOnCount)
+            assertEquals(1, current.pattern!!.page)
+            focus.onAdjustCastOn(1); current = state(current.version)
+            focus.onAdjustCastOn(1); current = state(current.version)
+            assertEquals(2, current.castOnCount)
+            focus.onPrevious(); current = state(current.version)
+            assertEquals("Bind off.", current.instructionText)
+            focus.onJumpTo(firstAddress); current = state(current.version)
+            assertEquals(1, current.castOnCount)
+            focus.onJumpTo(secondAddress); current = state(current.version)
+            assertEquals(2, current.castOnCount)
+            val saved = executions.loadExecution(work.state.executionId)!!
+            focus = model(); val restored = state()
+            assertEquals(current.castOnCount, restored.castOnCount)
+            assertEquals(secondAddress, saved.state.currentAddress)
+            assertEquals(7, saved.state.completedAddresses.size) // Previous explicitly undoes the first sleeve's last step.
+        } finally { scope.cancel(); db.close() }
+    }
+
+    @Test fun reviewedSectionReplacementPreservesPublishedDefinitionsAndPinnedExecution() = runBlocking<Unit> {
+        val db = Room.inMemoryDatabaseBuilder(context, StitchbookDatabase::class.java).build()
+        try {
+            db.projectDao().upsert(ProjectEntity("project", "Sample", "KNITTING", "OTHER", "ACTIVE", null, 0, 0))
+            val guides = LocalGuideRepository(db.guideDao())
+            val executions = LocalExecutionRepository(db.executionDao())
+            val useCase = CreateGuideFromPdfUseCase(PdfBoxTextExtractor(context, noTextOcr), guides, { java.util.UUID.randomUUID().toString() })
+            val result = useCase("project", "Sample", ByteArrayInputStream(PdfFixtures.buildSyntheticPages(listOf(listOf(
+                "Sleeve:", "Cast on 24 sts.", "Rows 1-2: Knit.", "Bind off."))))) as CreateGuideFromPdfUseCase.Result.Success
+            val draft = guides.loadDraft(result.guideId)!!
+            val target = com.macareen.stitchbook2.domain.guide.DraftNode(NodeId("reminder"), com.macareen.stitchbook2.domain.guide.DraftNodeType.INSTRUCTION,
+                instructionText = "Repeat for second sleeve. (p.2)")
+            val marker = com.macareen.stitchbook2.domain.guide.DraftNode(NodeId("old-heading"), com.macareen.stitchbook2.domain.guide.DraftNodeType.INSTRUCTION,
+                instructionText = "Sleeves (p.1)")
+            val body = com.macareen.stitchbook2.domain.guide.DraftNode(NodeId("body"), com.macareen.stitchbook2.domain.guide.DraftNodeType.INSTRUCTION,
+                instructionText = "Work body.")
+            val section = draft.nodes.single { it.type == com.macareen.stitchbook2.domain.guide.DraftNodeType.SECTION }
+            guides.saveDraft(draft.copy(nodes = draft.nodes.filterNot { it.id == section.id } + listOf(body, marker, target),
+                rootNodeIds = listOf(body.id, marker.id) + section.children + target.id))
+            val originalRevision = guides.publishDraft(result.guideId)
+            val work = executions.createExecution(result.guideId, originalRevision.id, "project")
+            executions.applyComplete(work.state.executionId, work.version)
+            val saved = executions.loadExecution(work.state.executionId)!!
+            val current = guides.loadDraft(result.guideId)!!
+            val source = marker.id
+            val updated = com.macareen.stitchbook2.domain.guide.DraftSectionReplay.replace(current, target.id, source) { java.util.UUID.randomUUID().toString() }!!
+            guides.saveDraft(updated)
+            val newRevision = guides.publishDraft(result.guideId)
+            assertEquals(originalRevision, guides.loadRevision(originalRevision.id))
+            assertEquals(saved, executions.loadExecution(work.state.executionId))
+            assertEquals(originalRevision.id, saved.state.definitionRevisionId)
+            assertEquals(10, GuideTraversal(GuideDefinitionValidator.validate(newRevision.definition)).occurrences().count())
+            assertEquals(2, newRevision.definition.nodes.filterIsInstance<Instruction>().count { it.text.startsWith("Cast on 24 sts.") })
+            assertEquals(1, newRevision.definition.nodes.filterIsInstance<Instruction>().count { it.text == "Work body." })
+            assertTrue(newRevision.definition.nodes.filterIsInstance<Section>().any { it.title.contains("Repeat for second sleeve.") })
+        } finally { db.close() }
+    }
     @Test fun reviewedColumnsUseCoverSizesAndPublishOnlySelectedWork() = runBlocking<Unit> {
         val db = Room.inMemoryDatabaseBuilder(context, StitchbookDatabase::class.java).build()
         try {

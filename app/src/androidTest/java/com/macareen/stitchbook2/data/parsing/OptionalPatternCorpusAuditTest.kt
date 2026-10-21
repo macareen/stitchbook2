@@ -31,6 +31,18 @@ class OptionalPatternCorpusAuditTest {
                         .map { it.text }).toString())
                 })
             }
+            // Private diagnostic only; never enable in ordinary CI or repository test reports.
+            if (InstrumentationRegistry.getArguments().getString("auditPieceReferences") == "true") {
+                val selected = document.lines.withIndex().filter { (_, line) -> Regex(
+                    """\b(?:second|2nd|other|another|opposite)\s+(?:sleeve|sock|mitten|glove|bootie|cuff|panel|leg|arm|ear)|\bmake\s+(?:2|two)\b""",
+                    RegexOption.IGNORE_CASE).containsMatchIn(line.text) }.flatMap { (index, _) ->
+                        document.lines.subList((index - 1).coerceAtLeast(0), (index + 3).coerceAtMost(document.lines.size))
+                    }.distinct()
+                instrumentation.sendStatus(0, Bundle().apply {
+                    putString("auditPieceReferenceLines", JSONArray(selected.map { line -> JSONObject()
+                        .put("page", line.source.pageNumber).put("line", line.source.lineNumber).put("text", line.text) }).toString())
+                })
+            }
             result.put("pages", document.pageCount).put("lines", document.lines.size)
                 .put("unreadablePages", JSONArray(document.pagesWithoutText()))
             val lowText = (1..document.pageCount).filter { page -> document.lines.filter { it.source.pageNumber == page }.sumOf { it.text.length } < 50 }
@@ -51,6 +63,12 @@ class OptionalPatternCorpusAuditTest {
                     is ParsedRepeat -> leaves(it.children)
                 }
             }
+            fun allNodes(nodes: List<ParsedNode>): List<ParsedNode> = nodes.flatMap { node -> listOf(node) + when (node) {
+                is ParsedSection -> allNodes(node.children)
+                is ParsedRange -> allNodes(node.children)
+                is ParsedRepeat -> allNodes(node.children)
+                is ParsedInstruction -> emptyList()
+            } }
             val sizes = JSONArray()
             val indices = if (labels.size >= 2) labels.indices.take(50) else listOf(-1)
             indices.forEach { index ->
@@ -58,6 +76,9 @@ class OptionalPatternCorpusAuditTest {
                 val (parsed, details) = PatternTextParser.parseWithDetails(selection?.document ?: document, title)
                 val steps = leaves(parsed.rootNodes)
                 val metric = JSONObject().put("sizeIndex", index).put("instructions", steps.size)
+                    .put("pieceReplaySections", allNodes(parsed.rootNodes).filterIsInstance<ParsedSection>().count { Regex("""\b(?:repeat|work|make)\b""", RegexOption.IGNORE_CASE).containsMatchIn(it.title) && Regex("""\b(?:second|other)\b""", RegexOption.IGNORE_CASE).containsMatchIn(it.title) })
+                    .put("pieceQuantityRepeats", allNodes(parsed.rootNodes).filterIsInstance<ParsedRepeat>().count { it.label == "Piece" })
+                    .put("pieceReferenceReviews", parsed.issues.count { it.message.startsWith("This piece refers") })
                     .put("reviewIssues", parsed.issues.size + selection?.issues.orEmpty().size + (if (index >= 0) PatternSizes.unresolvedIssues(parsed, labels.size).size else 0))
                     .put("reference", !details.isEmpty).put("gauge", !details.gauge.isNullOrBlank())
                     .put("tools", !details.tools.isNullOrBlank()).put("yarn", !details.yarn.isNullOrBlank())

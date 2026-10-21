@@ -67,6 +67,7 @@ object ParsedPatternMapper {
                         id = id,
                         type = DraftNodeType.REPEAT,
                         repeatCount = node.count,
+                        repeatLabel = node.label,
                         children = childIds
                     )
                 }

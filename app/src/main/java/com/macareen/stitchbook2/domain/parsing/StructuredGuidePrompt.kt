@@ -24,6 +24,7 @@ object StructuredGuidePrompt {
         appendLine("- Step types: \"section\" (title + steps), \"rows\" (unit is \"row\" or \"round\" or the pattern's own unit, from, to, text), \"repeat\" (times, optional label, steps), \"instruction\" (text).")
         appendLine("- One numbered row or round is a \"rows\" step with from equal to to. A span worked the same way (\"Rounds 4-10\") is one \"rows\" step.")
         appendLine("- When the pattern says to repeat earlier rows, wrap those rows in a \"repeat\" step with the number of times.")
+        appendLine("- For identical pieces (for example two sleeves), include the complete instructions for each piece, including its setup and nested repeats. A 'make 2' section can use a repeat with times 2 and label 'Piece'. Never leave only a reminder such as 'repeat for the second sleeve'. If the second piece differs in shaping, side or length, preserve those differences; put unresolved changes in review rather than inventing mirrored instructions.")
         appendLine("- Keep stitch counts at the end of the text, like \"(24 sts)\".")
         appendLine("- Put sizes, gauge, and finishing notes in \"notes\". Put yarn, hooks, needles, and notions in \"materials\".")
         appendLine("- If something is unclear, missing, or depends on a chart or photo, add a short sentence to \"review\" instead of guessing.")

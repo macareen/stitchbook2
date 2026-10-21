@@ -1,4 +1,11 @@
 <resources>
+    <string name="draft_replay_section">Use section instructions</string>
+    <string name="draft_replay_help">Replace this reminder with a fresh copy of a section’s actual steps, including ranges and repeats. Choose the source and check every instruction. Original steps and existing published progress are preserved. Publish and review the revision to use the change in current work.</string>
+    <string name="draft_replay_no_sections">No section can be copied here yet. Organize the first piece’s instructions into a section, then open this review again.</string>
+    <string name="draft_replay_prefix">Only the steps between the source heading and this reminder will be copied; later instructions are excluded.</string>
+    <string name="draft_replay_preview">Instructions to copy</string>
+    <string name="draft_replay_confirm">I checked the source and any differences in side, shaping, length or repeats. I will review the copied steps before publishing.</string>
+    <string name="draft_replay_apply">Replace reminder</string>
     <string name="pdf_source_title">Review PDF for size %1$s</string>
     <string name="pdf_source_help">Keep the pages and areas needed for this guide. Read each column as its own region, in order. Trim ads, comments or margins only after checking the original. Charts and partial text may still need manual instructions. Size choices and pattern reference come from the full PDF.</string>
     <string name="pdf_source_page">Page %1$d of %2$d</string>

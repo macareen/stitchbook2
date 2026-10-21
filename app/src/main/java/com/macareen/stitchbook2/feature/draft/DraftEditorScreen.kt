@@ -3,6 +3,7 @@ package com.macareen.stitchbook2.feature.draft
 import androidx.compose.material3.CardDefaults
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.Arrangement
@@ -24,6 +25,8 @@ import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
@@ -40,6 +43,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
@@ -62,6 +66,7 @@ fun DraftEditorRoute(
     returningToWork: Boolean = false
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val replayReview by viewModel.sectionReplayReview.collectAsStateWithLifecycle()
 
     DraftEditorScreen(
         uiState = uiState,
@@ -76,8 +81,14 @@ fun DraftEditorRoute(
         onStartOrContinue = onStartOrContinue,
         onRepeatInstruction = viewModel::repeatInstruction,
         returningToWork = returningToWork,
-        onMoveReferences = viewModel::moveReferences
+        onMoveReferences = viewModel::moveReferences,
+        onReplaySection = viewModel::requestSectionReplay
     )
+    replayReview?.let { review ->
+        SectionReplayDialog(review, (uiState as? DraftEditorUiState.Content)?.isSaving == true,
+            (uiState as? DraftEditorUiState.Content)?.errorMessage,
+            { source -> viewModel.confirmSectionReplay(review, source) }, viewModel::dismissSectionReplay)
+    }
 }
 
 @Composable
@@ -114,7 +125,8 @@ fun DraftEditorScreen(
     modifier: Modifier = Modifier,
     onRepeatInstruction: (NodeId, Int) -> Unit = { _, _ -> },
     returningToWork: Boolean = false,
-    onMoveReferences: () -> Unit = {}
+    onMoveReferences: () -> Unit = {},
+    onReplaySection: (NodeId) -> Unit = {}
 ) {
     when (uiState) {
         DraftEditorUiState.Loading -> {
@@ -158,6 +170,7 @@ fun DraftEditorScreen(
                 onRepeatInstruction = onRepeatInstruction,
                 returningToWork = returningToWork,
                 onMoveReferences = onMoveReferences,
+                onReplaySection = onReplaySection,
                 modifier = modifier
             )
         }
@@ -198,7 +211,8 @@ private fun DraftEditorContent(
     modifier: Modifier = Modifier,
     onRepeatInstruction: (NodeId, Int) -> Unit,
     returningToWork: Boolean,
-    onMoveReferences: () -> Unit
+    onMoveReferences: () -> Unit,
+    onReplaySection: (NodeId) -> Unit
 ) {
     var repeatNodeId by rememberSaveable { mutableStateOf<String?>(null) }
     var repeatCount by rememberSaveable { mutableStateOf("7") }
@@ -253,7 +267,8 @@ private fun DraftEditorContent(
                         onMoveUp = { onMoveUp(row.node.id) },
                         onMoveDown = { onMoveDown(row.node.id) },
                         onAddInside = { dialogState = EditorDialogState.ChoosingType(row.node.id) },
-                        onRepeat = { repeatNodeId = row.node.id.value; repeatCount = "7" }
+                        onRepeat = { repeatNodeId = row.node.id.value; repeatCount = "7" },
+                        onReplaySection = { onReplaySection(row.node.id) }
                     )
                 }
             }
@@ -423,7 +438,8 @@ private fun DraftOutlineRowItem(
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
     onAddInside: () -> Unit,
-    onRepeat: () -> Unit
+    onRepeat: () -> Unit,
+    onReplaySection: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -454,7 +470,10 @@ private fun DraftOutlineRowItem(
             com.macareen.stitchbook2.feature.focus.InstructionBlocks(row.node.summary(), MaterialTheme.typography.bodyLarge)
             Spacer(modifier = Modifier.height(StitchbookSpacing.extraSmall))
             if (row.node.type == DraftNodeType.INSTRUCTION) {
-                TextButton(onClick = onRepeat, enabled = !isSaving) { Text(stringResource(R.string.draft_repeat_instruction)) }
+                androidx.compose.foundation.layout.FlowRow {
+                    TextButton(onClick = onRepeat, enabled = !isSaving) { Text(stringResource(R.string.draft_repeat_instruction)) }
+                    TextButton(onClick = onReplaySection, enabled = !isSaving) { Text(stringResource(R.string.draft_replay_section)) }
+                }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onMoveUp, enabled = !isSaving && row.canMoveUp) {
@@ -478,6 +497,45 @@ private fun DraftOutlineRowItem(
             }
         }
     }
+}
+
+@Composable
+internal fun SectionReplayDialog(review: SectionReplayReview, busy: Boolean, error: String?,
+    onConfirm: (NodeId) -> Unit, onDismiss: () -> Unit) {
+    var selectedId by rememberSaveable(review.targetId.value, review.expected.version) { mutableStateOf<String?>(null) }
+    var checked by rememberSaveable(selectedId) { mutableStateOf(false) }
+    val selected = review.choices.firstOrNull { it.sourceId.value == selectedId }
+    AlertDialog(onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text(stringResource(R.string.draft_replay_section)) },
+        text = { Column(Modifier.heightIn(max = 450.dp).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
+            Text(stringResource(R.string.draft_replay_help))
+            Text(review.expected.nodes.firstOrNull { it.id == review.targetId }?.instructionText.orEmpty(), style = MaterialTheme.typography.bodyMedium)
+            if (review.choices.isEmpty()) Text(stringResource(R.string.draft_replay_no_sections))
+            review.choices.forEach { choice ->
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().selectable(
+                    selected = selectedId == choice.sourceId.value, enabled = !busy, role = Role.RadioButton,
+                    onClick = { selectedId = choice.sourceId.value })) {
+                    RadioButton(selectedId == choice.sourceId.value, null, enabled = !busy)
+                    Text(choice.title, style = MaterialTheme.typography.titleSmall)
+                }
+            }
+            selected?.let { choice ->
+                if (choice.prefixOnly) Text(stringResource(R.string.draft_replay_prefix))
+                Text(stringResource(R.string.draft_replay_preview), style = MaterialTheme.typography.titleMedium)
+                choice.nodes.forEach { node -> Text(node.summary(), style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(start = StitchbookSpacing.medium * (choice.depths[node.id] ?: 0).coerceAtMost(3))) }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked, { checked = it }, enabled = !busy)
+                    Text(stringResource(R.string.draft_replay_confirm), style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        } },
+        confirmButton = { TextButton(onClick = { selected?.let { onConfirm(it.sourceId) } }, enabled = !busy && selected != null && checked) {
+            Text(stringResource(R.string.draft_replay_apply))
+        } },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text(stringResource(R.string.cancel)) } })
 }
 
 @Composable
