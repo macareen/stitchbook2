@@ -10,6 +10,30 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class GuideBackupJsonCodecTest {
+    @Test fun castOnBackupValidationRejectsWrongOccurrenceAndOldFormat() {
+        val counts = """[{"nodeId":"step","count":3,"frames":[{"containerId":"repeat","type":"repeat","value":2}]}]"""
+        val graph = GuideBackupFixtures.graph.copy(revisions = GuideBackupFixtures.graph.revisions.map { revision -> revision.copy(nodes = revision.nodes.map { if (it.type == "INSTRUCTION") it.copy(instructionText = "Cast on 6 sts.") else it }) },
+            executions = listOf(GuideBackupFixtures.execution.copy(castOnCountsJson = counts)))
+        val incoming = BackupSnapshot(CURRENT_BACKUP_FORMAT_VERSION).withGuideGraph(graph)
+        fun problems(value: BackupSnapshot) = com.macareen.stitchbook2.domain.backup.validateBackup(value, BackupSnapshot(CURRENT_BACKUP_FORMAT_VERSION), com.macareen.stitchbook2.domain.backup.RestoreMode.MERGE)
+        org.junit.Assert.assertTrue(problems(incoming).isEmpty())
+        org.junit.Assert.assertTrue(problems(incoming.copy(formatVersion = 4)).isNotEmpty())
+        val bad = graph.copy(executions = graph.executions.map { it.copy(castOnCountsJson = counts.replace("\"value\":2", "\"value\":9")) })
+        org.junit.Assert.assertTrue(problems(BackupSnapshot(CURRENT_BACKUP_FORMAT_VERSION).withGuideGraph(bad)).isNotEmpty())
+    }
+
+    @Test fun castOnCountsAreStructuredJsonAndLegacyMissingFieldDefaultsToEmpty() {
+        val revision = com.macareen.stitchbook2.domain.execution.DefinitionRevisionId("revision-1")
+        val address = com.macareen.stitchbook2.domain.execution.ExecutionAddress(revision,
+            com.macareen.stitchbook2.domain.execution.NodeId("step"), listOf(com.macareen.stitchbook2.domain.execution.AncestryFrame.RepeatIteration(com.macareen.stitchbook2.domain.execution.NodeId("repeat"), 2)))
+        val record = GuideBackupFixtures.execution.copy(castOnCountsJson = com.macareen.stitchbook2.domain.execution.CastOnCounts.encode(mapOf(address to 3)))
+        val json = record.toJson()
+        assertEquals(3, json.getJSONArray("castOnCounts").getJSONObject(0).getInt("count"))
+        assertEquals(record, json.toExecutionRecord())
+        json.remove("castOnCounts")
+        assertEquals("[]", json.toExecutionRecord().castOnCountsJson)
+    }
+
     @Test fun archiveVisibilityRoundTripsAndLegacyRecordsDefaultToActive() {
         val record = GuideBackupFixtures.graph.guides.first().copy(isArchived = true)
         val json = record.toJson()

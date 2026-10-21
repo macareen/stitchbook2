@@ -114,7 +114,8 @@ fun PatternGuidesRoute(
         onRemoveGuide = viewModel::removeUnusedGuide,
         onArchiveGuide = viewModel::setGuideArchived,
         onUnlinkPdf = { viewModel.requestPdfChange(null) },
-        onEditPattern = viewModel::editPattern
+        onEditPattern = viewModel::editPattern,
+        onReadDetails = viewModel::readPatternDetails
     )
     editReview?.let { review ->
         androidx.compose.runtime.key(review.requestId) {
@@ -144,7 +145,8 @@ fun PatternGuidesScreen(
     onRemoveGuide: (String) -> Unit = {},
     onArchiveGuide: (String, Boolean) -> Unit = { _, _ -> },
     onUnlinkPdf: () -> Unit = {},
-    onEditPattern: () -> Unit = {}
+    onEditPattern: () -> Unit = {},
+    onReadDetails: () -> Unit = {}
 ) {
     when (uiState) {
         PatternGuidesUiState.Loading -> Box(modifier.fillMaxSize()) {
@@ -156,7 +158,7 @@ fun PatternGuidesScreen(
         }
 
         is PatternGuidesUiState.Content ->
-            Content(uiState, onOpenPdf, onEditGuide, onCreateGuide, onStartProject, onGetRavelryPdf, onAttachPdf, onCopyGuide, onRemoveGuide, onArchiveGuide, onUnlinkPdf, onEditPattern, modifier)
+            Content(uiState, onOpenPdf, onEditGuide, onCreateGuide, onStartProject, onGetRavelryPdf, onAttachPdf, onCopyGuide, onRemoveGuide, onArchiveGuide, onUnlinkPdf, onEditPattern, onReadDetails, modifier)
     }
 }
 
@@ -174,6 +176,7 @@ private fun Content(
     onArchiveGuide: (String, Boolean) -> Unit,
     onUnlinkPdf: () -> Unit,
     onEditPattern: () -> Unit,
+    onReadDetails: () -> Unit,
     modifier: Modifier
 ) {
     val context = LocalContext.current
@@ -305,6 +308,10 @@ private fun Content(
             style = MaterialTheme.typography.bodyMedium)
         if (state.guideRemovalFailed) Text(stringResource(R.string.guide_remove_failed),
             color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+        if (state.pattern.pdfUri != null) TextButton(onClick = onReadDetails, enabled = !state.isReadingDetails && !state.isCreating) {
+            Text(stringResource(if (state.isReadingDetails) R.string.pattern_details_reading else R.string.pattern_details_read))
+        }
+        if (state.detailsReadFailed) QuietText(stringResource(R.string.pattern_details_read_failed))
         PatternDetailsCard(state.pattern)
         val problem = when {
             attachFailed || state.pdfProblem == PatternPdfProblem.ATTACH_FAILED -> R.string.pattern_pdf_attach_failed
@@ -595,7 +602,8 @@ private fun PatternPageHeader(pattern: LibraryItem, completedProjects: Int) {
 @Composable
 private fun PatternOverview(pattern: LibraryItem) {
     var expanded by rememberSaveable(pattern.id) { mutableStateOf(false) }
-    val notes = pattern.notes?.takeIf(String::isNotBlank)
+    val notes = com.macareen.stitchbook2.domain.library.PatternSuggestions.description(pattern)?.takeIf(String::isNotBlank)
+    var showReference by rememberSaveable { mutableStateOf(false) }
     var notesOverflow by rememberSaveable(pattern.id, notes) { mutableStateOf(false) }
     Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainerLowest,
         modifier = Modifier.fillMaxWidth()) {
@@ -608,7 +616,7 @@ private fun PatternOverview(pattern: LibraryItem) {
             }
             val details: @Composable () -> Unit = {
                 Column(verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
-                    Text(stringResource(R.string.pattern_page_notes), style = MaterialTheme.typography.titleMedium)
+                    TextButton(onClick = { showReference = true }) { Text(stringResource(R.string.pattern_reference_title)) }
                     if (notes != null) {
                         Text(notes, style = MaterialTheme.typography.bodyMedium,
                             maxLines = if (expanded) Int.MAX_VALUE else 5, overflow = TextOverflow.Ellipsis,
@@ -628,6 +636,7 @@ private fun PatternOverview(pattern: LibraryItem) {
             }
         }
     }
+    if (showReference) com.macareen.stitchbook2.feature.focus.GuideReferenceDialog(com.macareen.stitchbook2.domain.library.PatternSuggestions.reference(pattern)) { showReference = false }
 }
 
 @Composable
@@ -649,10 +658,12 @@ private fun SizeGuideRow(size: String, enabled: Boolean, onBuild: () -> Unit) {
 /** Keep the pattern's actual wording in separate, readable detail cards. */
 @Composable
 private fun PatternDetailsCard(pattern: LibraryItem) {
+    val suggestedYarn = com.macareen.stitchbook2.domain.library.PatternSuggestions.sections(pattern.notes).firstOrNull { it.first == "Suggested yarn" }?.second
     val details = listOfNotNull(
         pattern.gauge?.let { stringResource(R.string.pattern_page_gauge) to it },
         pattern.recommendedTools?.let { stringResource(R.string.pattern_page_tools) to it },
-        pattern.yardageRequired?.let { stringResource(R.string.pattern_page_yarn) to stringResource(R.string.pattern_details_yardage, it.toInt()) }
+        suggestedYarn?.let { stringResource(R.string.pattern_page_yarn) to it }
+            ?: pattern.yardageRequired?.let { stringResource(R.string.pattern_page_yarn) to stringResource(R.string.pattern_details_yardage, it.toInt()) }
     )
     details.forEach { (label, value) ->
         Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainerLowest,

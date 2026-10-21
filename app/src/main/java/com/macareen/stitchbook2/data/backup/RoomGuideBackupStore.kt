@@ -69,6 +69,7 @@ internal fun GuideGraphRows.toGraph(): GuideBackupGraph {
         executions = executions.map { execution ->
             ExecutionRecord(
                 id = execution.id,
+                castOnCountsJson = execution.castOnCountsJson,
                 guideId = execution.guideId,
                 definitionRevisionId = execution.definitionRevisionId,
                 projectId = execution.projectId,
@@ -163,7 +164,8 @@ internal fun GuideBackupGraph.toRows(): GuideGraphRows = GuideGraphRows(
             completedAt = it.completedAt,
             version = it.version,
             projectId = it.projectId,
-            pieceId = it.pieceId
+            pieceId = it.pieceId,
+            castOnCountsJson = it.castOnCountsJson
         )
     },
     currentFrames = executions.flatMap { execution ->

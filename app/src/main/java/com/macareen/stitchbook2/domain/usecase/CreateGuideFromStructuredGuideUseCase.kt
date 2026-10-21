@@ -16,7 +16,7 @@ class CreateGuideFromStructuredGuideUseCase(
 ) {
     suspend operator fun invoke(projectId: String, guideName: String, guide: StructuredGuide): GuideId {
         val mapped = StructuredGuideMapper.toDraftNodes(guide, newNodeId)
-        val created = guideRepository.createGuide(projectId, guideName)
+        val created = guideRepository.createGuide(projectId, guideName, com.macareen.stitchbook2.domain.guide.GuideReference.notes(guide))
         val emptyDraft = requireNotNull(guideRepository.loadDraft(created.id)) {
             "Newly created guide ${created.id.value} is missing its draft."
         }

@@ -1,6 +1,10 @@
 package com.macareen.stitchbook2.feature.draft
 
 import androidx.compose.material3.CardDefaults
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -71,7 +75,8 @@ fun DraftEditorRoute(
         onDone = onDone,
         onStartOrContinue = onStartOrContinue,
         onRepeatInstruction = viewModel::repeatInstruction,
-        returningToWork = returningToWork
+        returningToWork = returningToWork,
+        onMoveReferences = viewModel::moveReferences
     )
 }
 
@@ -108,7 +113,8 @@ fun DraftEditorScreen(
     onStartOrContinue: () -> Unit,
     modifier: Modifier = Modifier,
     onRepeatInstruction: (NodeId, Int) -> Unit = { _, _ -> },
-    returningToWork: Boolean = false
+    returningToWork: Boolean = false,
+    onMoveReferences: () -> Unit = {}
 ) {
     when (uiState) {
         DraftEditorUiState.Loading -> {
@@ -151,6 +157,7 @@ fun DraftEditorScreen(
                 onStartOrContinue = onStartOrContinue,
                 onRepeatInstruction = onRepeatInstruction,
                 returningToWork = returningToWork,
+                onMoveReferences = onMoveReferences,
                 modifier = modifier
             )
         }
@@ -190,10 +197,13 @@ private fun DraftEditorContent(
     onStartOrContinue: () -> Unit,
     modifier: Modifier = Modifier,
     onRepeatInstruction: (NodeId, Int) -> Unit,
-    returningToWork: Boolean
+    returningToWork: Boolean,
+    onMoveReferences: () -> Unit
 ) {
     var repeatNodeId by rememberSaveable { mutableStateOf<String?>(null) }
     var repeatCount by rememberSaveable { mutableStateOf("7") }
+    var showReference by rememberSaveable { mutableStateOf(false) }
+    var reviewReferences by rememberSaveable { mutableStateOf(false) }
     var dialogState by remember { mutableStateOf<EditorDialogState?>(null) }
     var pendingDelete by remember { mutableStateOf<DraftNode?>(null) }
 
@@ -201,6 +211,12 @@ private fun DraftEditorContent(
         Text(text = state.guideName, style = MaterialTheme.typography.headlineMedium)
         Spacer(modifier = Modifier.height(StitchbookSpacing.small))
         if (state.isPublished) QuietText(stringResource(R.string.draft_work_preserved))
+        androidx.compose.foundation.layout.FlowRow {
+            TextButton(onClick = { showReference = true }) { Text(stringResource(R.string.reference_title)) }
+            if (state.referenceCandidates.isNotEmpty()) TextButton(onClick = { reviewReferences = true }, enabled = !state.isSaving) {
+                Text(stringResource(R.string.reference_move_action))
+            }
+        }
 
         state.errorMessage?.let { message ->
             Card(modifier = Modifier.fillMaxWidth().padding(bottom = StitchbookSpacing.small)) {
@@ -299,6 +315,16 @@ private fun DraftEditorContent(
         }
     }
 
+    if (showReference) com.macareen.stitchbook2.feature.focus.GuideReferenceDialog(state.referenceNotes) { showReference = false }
+    if (reviewReferences) AlertDialog(onDismissRequest = { reviewReferences = false },
+        title = { Text(stringResource(R.string.reference_move_title)) },
+        text = { Column(Modifier.heightIn(max = 400.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
+            Text(stringResource(R.string.reference_move_help))
+            state.referenceCandidates.forEach { Text(it, style = MaterialTheme.typography.bodyMedium) }
+        } },
+        confirmButton = { TextButton(enabled = !state.isSaving, onClick = { onMoveReferences(); reviewReferences = false }) {
+            Text(stringResource(R.string.reference_move_action))
+        } }, dismissButton = { TextButton(onClick = { reviewReferences = false }) { Text(stringResource(R.string.cancel)) } })
     repeatNodeId?.let { id ->
         AlertDialog(onDismissRequest = { repeatNodeId = null },
             title = { Text(stringResource(R.string.draft_repeat_instruction)) },

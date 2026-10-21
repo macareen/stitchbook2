@@ -71,6 +71,31 @@ class ExecutionRepositoryTest {
         database.close()
     }
 
+    @Test fun castOnCountsPersistPerPieceAndOccurrenceWithoutRestartingStepTiming() = runBlocking<Unit> {
+        val guide = createGuideWithSimpleRevision("g", "d", "r1")
+        enqueueIds("new-draft")
+        val draft = guideRepository.createDraftFromLatestRevision(guide)
+        guideRepository.saveDraft(draft.withInstruction("Cast on 6 sts."))
+        enqueueIds("r2")
+        val revision = guideRepository.publishDraft(guide)
+        enqueueIds("left", "right")
+        val left = executionRepository.createPiece("project-g", guide, "Left")
+        val right = executionRepository.createPiece("project-g", guide, "Right")
+        enqueueIds("left-work", "right-work")
+        val initial = executionRepository.createPieceExecution(left.id, revision.id)
+        val other = executionRepository.createPieceExecution(right.id, revision.id)
+        val counted = executionRepository.adjustCastOn(initial.state.executionId, initial.version, 1).execution
+        assertEquals(initial.updatedAt, counted.updatedAt)
+        assertEquals(1, counted.state.castOnCounts[initial.state.currentAddress])
+        assertSuspendThrows<ExecutionVersionConflictException> { executionRepository.adjustCastOn(initial.state.executionId, initial.version, 1) }
+        assertTrue(executionRepository.loadExecution(other.state.executionId)!!.state.castOnCounts.isEmpty())
+        val second = executionRepository.applyComplete(counted.state.executionId, counted.version).execution
+        assertNull(second.state.castOnCounts[second.state.currentAddress])
+        val returned = executionRepository.applyPrevious(second.state.executionId, second.version).execution
+        assertEquals(counted.state.castOnCounts, returned.state.castOnCounts)
+        assertEquals(returned, executionRepository.loadExecution(returned.state.executionId))
+    }
+
     @Test fun publicationChoiceReviewsAndAppliesAnOlderRevisionWithoutChangingCurrentWorkEarly() = runBlocking<Unit> {
         val guide = createGuideWithSimpleRevision("g", "d", "r1")
         enqueueIds("w1")

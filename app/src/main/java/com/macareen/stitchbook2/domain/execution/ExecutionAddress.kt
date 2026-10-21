@@ -75,9 +75,11 @@ class ExecutionState(
         ExecutionStatus.COMPLETED
     } else {
         ExecutionStatus.ACTIVE
-    }
+    },
+    castOnCounts: Map<ExecutionAddress, Int> = emptyMap()
 ) {
     val completedAddresses: Set<ExecutionAddress> = completedAddresses.toSet()
+    val castOnCounts: Map<ExecutionAddress, Int> = castOnCounts.toMap()
 
     val isComplete: Boolean
         get() = status == ExecutionStatus.COMPLETED
@@ -88,14 +90,16 @@ class ExecutionState(
         definitionRevisionId: DefinitionRevisionId = this.definitionRevisionId,
         currentAddress: ExecutionAddress? = this.currentAddress,
         completedAddresses: Set<ExecutionAddress> = this.completedAddresses,
-        status: ExecutionStatus = this.status
+        status: ExecutionStatus = this.status,
+        castOnCounts: Map<ExecutionAddress, Int> = this.castOnCounts
     ) = ExecutionState(
         executionId = executionId,
         guideId = guideId,
         definitionRevisionId = definitionRevisionId,
         currentAddress = currentAddress,
         completedAddresses = completedAddresses,
-        status = status
+        status = status,
+        castOnCounts = castOnCounts
     )
 
     override fun equals(other: Any?): Boolean {
@@ -105,7 +109,7 @@ class ExecutionState(
             definitionRevisionId == other.definitionRevisionId &&
             currentAddress == other.currentAddress &&
             completedAddresses == other.completedAddresses &&
-            status == other.status
+            status == other.status && castOnCounts == other.castOnCounts
     }
 
     override fun hashCode(): Int {
@@ -115,6 +119,7 @@ class ExecutionState(
         result = 31 * result + (currentAddress?.hashCode() ?: 0)
         result = 31 * result + completedAddresses.hashCode()
         result = 31 * result + status.hashCode()
+        result = 31 * result + castOnCounts.hashCode()
         return result
     }
 }

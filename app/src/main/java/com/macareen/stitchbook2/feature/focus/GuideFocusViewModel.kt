@@ -125,7 +125,10 @@ sealed interface GuideFocusUiState {
         val timeSessions: List<CraftingSession> = emptyList(),
         /** When the current step became current; null when time isn't tracked (no project). */
         val stepStartedAt: Long? = null,
-        val timer: FocusTimer = FocusTimer.NOT_RUNNING
+        val timer: FocusTimer = FocusTimer.NOT_RUNNING,
+        val referenceNotes: String? = null,
+        val castOnCount: Int = 0,
+        val occurrenceKey: String = ""
     ) : GuideFocusUiState
 
     data class Completed(
@@ -176,6 +179,7 @@ class GuideFocusViewModel(
 
     /** The Library pattern to open from Focus, decided once per load. */
     private var patternLibraryItemId: String? = null
+    private var referenceNotes: String? = null
 
     private val scope: CoroutineScope = externalScope ?: viewModelScope
     private val incrementCounter = IncrementCounterUseCase(counterRepository)
@@ -251,6 +255,20 @@ class GuideFocusViewModel(
                 _uiState.value = current.copy(isStartingNext = false, startNextFailed = true)
             }
         )
+    }
+
+    fun onAdjustCastOn(amount: Int) {
+        val current = _uiState.value as? GuideFocusUiState.InProgress ?: return
+        if (current.isBusy || amount !in setOf(-1, 1) || amount < 0 && current.castOnCount == 0) return
+        _uiState.value = current.copy(isBusy = true)
+        scope.launch {
+            try {
+                val changed = executionRepository.adjustCastOn(current.executionId, current.version, amount)
+                applyExecutionResult(current.guideName, current.projectId, changed.execution, current.projectCounters)
+            } catch (error: CancellationException) { throw error }
+            catch (_: ExecutionVersionConflictException) { loadFromRepositories(FocusFeedback.STALE_EXECUTION_STATE) }
+            catch (_: Exception) { _uiState.value = current.copy(isBusy = false, feedback = FocusFeedback.UNKNOWN_ERROR) }
+        }
     }
 
     fun onIncrementCounter(counter: Counter) {
@@ -476,6 +494,7 @@ class GuideFocusViewModel(
             val projectId = contextProjectId.orEmpty()
             val piece = pieceId?.let { id -> requireNotNull(executionRepository.loadPiece(id)) }
             require(piece == null || (piece.projectId == contextProjectId && piece.guideId == guideId.value && !piece.isArchived))
+            referenceNotes = guideRepository.getReferenceNotes(guideId)
             val displayName = piece?.let { "${guide.name} · ${it.name}" } ?: guide.name
             patternLibraryItemId = guide.libraryItemId ?: contextProjectId?.let { id ->
                 // Only a project with exactly one pattern file says which pattern to open.
@@ -578,6 +597,9 @@ class GuideFocusViewModel(
             version = execution.version,
             // The page shows on the Pattern button, so steps read without their "(p.N)".
             instructionText = withoutSourcePage(instruction.text),
+            referenceNotes = referenceNotes,
+            castOnCount = execution.state.castOnCounts[currentAddress] ?: 0,
+            occurrenceKey = currentAddress.toString(),
             breadcrumbs = breadcrumbs,
             positions = displayPositions,
             projectCounters = projectCounters,

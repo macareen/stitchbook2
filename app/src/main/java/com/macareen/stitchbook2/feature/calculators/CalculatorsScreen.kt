@@ -41,6 +41,8 @@ import com.macareen.stitchbook2.ui.theme.StitchbookSpacing
 /** Offline helpers for shaping, yarn and gauge. Inputs are temporary calculator state. */
 @Composable
 fun CalculatorsScreen(modifier: Modifier = Modifier) {
+    var photoGauge by rememberSaveable { mutableStateOf(false) }
+    if (photoGauge) { PhotoGaugeScreen(onBack = { photoGauge = false }); return }
     Column(
         verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.medium),
         modifier = modifier
@@ -52,6 +54,7 @@ fun CalculatorsScreen(modifier: Modifier = Modifier) {
         ShapingCard()
         YarnCard()
         GaugeCard()
+        androidx.compose.material3.OutlinedButton(onClick = { photoGauge = true }) { Text(stringResource(R.string.photo_gauge_title)) }
         SwatchCard()
     }
 }

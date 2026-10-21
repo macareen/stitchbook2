@@ -13,6 +13,28 @@ class PatternMetadataSplitterTest {
         lines = lines.mapIndexed { index, text -> ExtractedLine(text, SourceReference(pageNumber = 1, lineNumber = index + 1)) }
     )
 
+    @Test fun inlineMaterialsAndSuggestedHeadingsFillPatternRecommendations() {
+        val (_, details) = PatternTextParser.parseWithDetails(documentOf("Materials: 250 g of DK wool", "Recommended needles: 4 mm circular", "Suggested gauge", "20 stitches over 10 cm", "PATTERN", "Cast on 30 sts."))
+        assertEquals("250 g of DK wool", details.yarn)
+        assertEquals("4 mm circular", details.tools)
+        assertEquals("20 stitches over 10 cm", details.gauge)
+    }
+
+    @Test fun anActionLabelIsNotMistakenForAGlossaryTerm() {
+        val (_, details) = PatternTextParser.parseWithDetails(documentOf("PATTERN", "Cast on 6 sts.", "Decrease: Knit two together."))
+        assertNull(details.abbreviations)
+    }
+
+    @Test fun mixedCaseGlossaryAndWrappedDefinitionsStayOutsideWorkingRows() {
+        val document = documentOf("Abbreviations", "kfb: Knit front and back; knit into the front", "and then the back of the same stitch.",
+            "skp: Slip 1 stitch knit-wise, k1, pass slipped stitch over.", "PATTERN", "Cast on 6 sts.", "R1: Kfb, knit to end.")
+        val (parsed, details) = PatternTextParser.parseWithDetails(document)
+        assertTrue(details.abbreviations.orEmpty().contains("same stitch"))
+        assertTrue(com.macareen.stitchbook2.domain.guide.GuideReference.glossary(com.macareen.stitchbook2.domain.guide.GuideReference.notes(details)).any { it.term == "kfb" })
+        assertFalse(parsed.rootNodes.toString().contains("knit-wise"))
+        assertTrue(parsed.rootNodes.toString().contains("Kfb, knit to end"))
+    }
+
     /** A typical first page: title, byline, intro, materials, then the knitting. */
     private val fluffyPattern = documentOf(
         "Meadow Cardigan",

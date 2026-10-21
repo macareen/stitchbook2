@@ -25,6 +25,9 @@ class LocalExecutionRepository(
     private val currentTimeMillis: () -> Long = System::currentTimeMillis
 ) : ExecutionRepository {
 
+    override suspend fun adjustCastOn(executionId: ExecutionId, expectedVersion: Long, amount: Int): PersistedExecutionTransitionResult =
+        translatingVersionConflict(executionId) { executionDao.applyCastOn(executionId.value, expectedVersion, amount).toDomainResult() }
+
     override suspend fun listExecutionsForScope(guideId: GuideId, projectId: String?, pieceId: String?) =
         executionDao.getScopeExecutions(guideId.value, projectId, pieceId).map { it.toDomain() }
 

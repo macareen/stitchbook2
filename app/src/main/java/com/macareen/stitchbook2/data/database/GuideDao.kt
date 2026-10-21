@@ -22,6 +22,12 @@ class DraftConflictException(
 @Dao
 abstract class GuideDao {
 
+    @Query("SELECT * FROM library_items WHERE id = :id")
+    abstract suspend fun getPatternReference(id: String): LibraryItemEntity?
+
+    @Query("UPDATE library_items SET notes = :notes, updated_at = :updatedAt WHERE id = :id")
+    abstract suspend fun appendPatternReference(id: String, notes: String, updatedAt: Long): Int
+
     /** The project's own guides plus the pattern guides it uses. */
     @Query(
         """
@@ -257,6 +263,17 @@ abstract class GuideDao {
             draft = draft,
             nodes = getDraftNodeEntities(draft.id)
         )
+    }
+
+    @Transaction
+    open suspend fun replaceDraftAndReference(expectedGuide: com.macareen.stitchbook2.domain.guide.Guide,
+        draft: GuideDraftEntity, expectedVersion: Long, nodes: List<DraftNodeEntity>, notes: String, reference: com.macareen.stitchbook2.domain.guide.ReferenceCleanup): DraftAggregate {
+        if (getGuide(expectedGuide.id.value)?.toDomain() != expectedGuide) throw DraftConflictException(draft.id)
+        val changed = replaceDraft(draft, expectedVersion, nodes)
+        val pattern = expectedGuide.libraryItemId?.let { getPatternReference(it) }
+        if (pattern != null) check(appendPatternReference(pattern.id, reference.appendTo(pattern.notes), draft.updatedAt) == 1)
+        else check(updateGuideMetadata(expectedGuide.id.value, expectedGuide.name, notes, draft.updatedAt) == 1)
+        return changed
     }
 
     @Transaction

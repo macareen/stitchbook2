@@ -27,6 +27,23 @@ import org.junit.Test
 
 class CreateGuideFromPdfUseCaseTest {
 
+    @Test fun patternSetupCannotOverwriteEditsMadeWhileItsPdfIsRead() = runBlocking {
+        val original = LibraryItem("pattern", "Sample", Craft.KNITTING, null, null, emptyList(), null, false, 0, 0,
+            pdfUri = "content://sample/old.pdf")
+        val library = FakeLibraryRepository(original)
+        val extractor = object : PdfTextExtractor {
+            override suspend fun extract(input: InputStream): ExtractedDocument {
+                library.item = original.copy(notes = "Keep my edit", pdfUri = "content://sample/new.pdf")
+                return ExtractedDocument(1, listOf(ExtractedLine("Gauge: 20 sts over 10 cm", SourceReference(1, 1))))
+            }
+        }
+        val useCase = CreateGuideFromPdfUseCase(extractor, FakeGuideRepository(), idGenerator(), library)
+        useCase.setupPattern("pattern", ByteArrayInputStream(ByteArray(0)), original.pdfUri)
+        assertEquals("Keep my edit", library.item!!.notes)
+        assertEquals("content://sample/new.pdf", library.item!!.pdfUri)
+        assertEquals(null, library.item!!.gauge)
+    }
+
     @Test fun `detected PDF title repairs filename titles but preserves custom names and original files`() = runBlocking {
         val document = ExtractedDocument(1, listOf("AUTUMN CARDIGAN", "Sizes: S, M, L", "BODY", "Cast on 40 (44, 48) sts.")
             .mapIndexed { i, text -> ExtractedLine(text, SourceReference(1, i + 1)) })
@@ -195,7 +212,7 @@ class CreateGuideFromPdfUseCaseTest {
 
         val saved = library.item!!
         assertEquals("Ana Example", saved.author)
-        assertEquals("A quick weekend knit for chilly mornings.\n\nYarn: approx. 200 yds of worsted", saved.notes)
+        assertEquals("## Description\nA quick weekend knit for chilly mornings.\n\n## Suggested yarn\napprox. 200 yds of worsted", saved.notes)
         assertEquals("My own gauge note", saved.gauge)
         assertEquals("4.5 mm circular", saved.recommendedTools)
         assertEquals(200.0, saved.yardageRequired!!, 0.0)
@@ -214,7 +231,7 @@ class CreateGuideFromPdfUseCaseTest {
         val useCase = CreateGuideFromPdfUseCase(FakePdfTextExtractor(document), guides, idGenerator(), library)
         useCase.forPattern("pattern", "M", null, "April Cardigan", ByteArrayInputStream(ByteArray(0)))
         assertTrue(requireNotNull(library.item?.notes).contains("Bust circumference: 91 (97) 101 cm"))
-        assertTrue(requireNotNull(library.item?.notes).contains("Abbreviations: M1R:"))
+        assertTrue(requireNotNull(library.item?.notes).contains("## Glossary\nM1R:"))
         assertTrue(guides.lastSavedDraft!!.nodes.any { it.instructionText == "Cast on 66 sts. (p.1)" })
         assertTrue(guides.lastSavedDraft!!.nodes.none { it.instructionText?.contains("From the RS") == true })
     }
@@ -377,7 +394,7 @@ private class FakeGuideRepository : GuideRepository {
     }
 
     override suspend fun updateGuideMetadata(guideId: GuideId, name: String, notes: String?): Guide? =
-        throw UnsupportedOperationException("Not used by CreateGuideFromPdfUseCase")
+        guides[guideId.value]?.copy(name = name, notes = notes)?.also { guides[guideId.value] = it }
 
     override suspend fun deleteGuide(guideId: GuideId): Unit =
         throw UnsupportedOperationException("Not used by CreateGuideFromPdfUseCase")
@@ -411,6 +428,11 @@ private class FakeLibraryRepository(var item: LibraryItem?) : LibraryRepository 
     override fun observeLibraryItem(id: String): Flow<LibraryItem?> = flowOf(item?.takeIf { it.id == id })
     override suspend fun saveLibraryItem(item: LibraryItem) {
         this.item = item
+    }
+    override suspend fun saveIfUnchanged(expected: LibraryItem, replacement: LibraryItem): Boolean {
+        if (item != expected) return false
+        item = replacement
+        return true
     }
     override suspend fun deleteLibraryItem(item: LibraryItem) {
         this.item = null

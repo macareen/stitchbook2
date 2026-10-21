@@ -157,3 +157,9 @@ Project → **Manage pieces** keeps named components such as Left sleeve and Rig
 Guide updates: in Focus, open Overview > Guide versions to review matching completed steps before using the latest publication. Previous unfinished progress remains a resumable saved place for that project or piece; finished records remain readable.
 
 Guide versions defaults to the latest publication; Compare a publication also offers earlier revisions. Selecting a different revision builds a fresh carryover proposal before you apply it.
+
+For continuing development, read the repository [session handoff](docs/HANDOFF.md).
+
+Pattern PDFs now set up description, gauge, tools, suggested yarn, techniques and glossary when recognizable at import. Existing values are kept. Open a pattern and choose **Read PDF details** to retry or fill an older record; **Pattern reference** shows shared supporting information. Size guides use that reference without adding definitions to progress. Existing published guides still need reviewed corrections through **Edit guide**.
+
+Focus shows the working row/action above the instruction, with tappable glossary terms and a saved cast-on counter. **Calculators → Photo gauge** lets you align a stitch/row grid over a photo and enter known physical spans. It is a manual measuring aid; a photo alone does not supply scale.

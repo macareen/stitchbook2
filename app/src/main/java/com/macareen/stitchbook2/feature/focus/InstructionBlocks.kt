@@ -17,25 +17,25 @@ import com.macareen.stitchbook2.ui.theme.StitchbookSpacing
 
 /** Inline stitch groups are visually bounded; completing the containing guide step still happens once. */
 @Composable
-internal fun InstructionBlocks(text: String, style: TextStyle, modifier: Modifier = Modifier) {
-    BlockList(FocusInstructionLayout.blocks(text), style, modifier)
+internal fun InstructionBlocks(text: String, style: TextStyle, modifier: Modifier = Modifier, glossary: List<com.macareen.stitchbook2.domain.guide.GlossaryEntry> = emptyList()) {
+    BlockList(FocusInstructionLayout.blocks(text), style, modifier, glossary)
 }
 
 @Composable
-private fun BlockList(blocks: List<FocusInstructionLayout.Block>, style: TextStyle, modifier: Modifier = Modifier) {
+private fun BlockList(blocks: List<FocusInstructionLayout.Block>, style: TextStyle, modifier: Modifier = Modifier, glossary: List<com.macareen.stitchbook2.domain.guide.GlossaryEntry>) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
         blocks.forEach { block ->
             if (block.children.isEmpty()) {
-                Text(block.text, style = style, color = MaterialTheme.colorScheme.onSurface)
+                GlossaryText(block.text, style, glossary)
             } else {
                 Card(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium,
                     border = BorderStroke(1.dp, if (block.text.endsWith("*")) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.secondary),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                         contentColor = MaterialTheme.colorScheme.onSurface)) {
                     Column(Modifier.padding(StitchbookSpacing.small), verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
-                        Text(block.text, style = style)
-                        BlockList(block.children, style, Modifier.padding(start = StitchbookSpacing.small))
-                        block.suffix?.let { Text(it, style = style) }
+                        GlossaryText(block.text, style, glossary)
+                        BlockList(block.children, style, Modifier.padding(start = StitchbookSpacing.small), glossary)
+                        block.suffix?.let { GlossaryText(it, style, glossary) }
                     }
                 }
             }

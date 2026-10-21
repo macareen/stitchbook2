@@ -6,8 +6,7 @@ import com.macareen.stitchbook2.domain.guide.DraftNodeType
 
 /**
  * Turns a validated [StructuredGuide] into the Draft node tree the Draft
- * editor already edits. Materials, abbreviations, and notes become one
- * "Before you start" section so nothing the helper read is lost, and every
+ * editor already edits. Reference metadata is stored separately in portable guide notes; every
  * review item becomes a visible "Review needed" step the user can fix or
  * delete. The result is always a draft; publishing stays a user action.
  */
@@ -64,20 +63,6 @@ object StructuredGuideMapper {
         }
 
         val roots = mutableListOf<NodeId>()
-
-        val preparation = buildList {
-            if (guide.materials.isNotEmpty()) add("Materials: " + guide.materials.joinToString("; "))
-            if (guide.abbreviations.isNotEmpty()) {
-                add("Abbreviations: " + guide.abbreviations.joinToString("; ") { "${it.term} = ${it.meaning}" })
-            }
-            addAll(guide.notes)
-        }
-        if (preparation.isNotEmpty()) {
-            val children = preparation.map(::instruction)
-            val id = NodeId(newNodeId())
-            nodes += DraftNode(id = id, type = DraftNodeType.SECTION, title = BEFORE_YOU_START_TITLE, children = children)
-            roots += id
-        }
 
         guide.steps.forEach { roots += map(it) }
         guide.review.forEach { roots += instruction(REVIEW_PREFIX + it) }

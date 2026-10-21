@@ -37,7 +37,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         JournalEntryEntity::class,
         CraftingSessionEntity::class
     ],
-    version = 25,
+    version = 26,
     exportSchema = true
 )
 abstract class StitchbookDatabase : RoomDatabase() {
@@ -106,7 +106,8 @@ val ALL_MIGRATIONS: Array<Migration>
         MIGRATION_21_22,
         MIGRATION_22_23,
         MIGRATION_23_24,
-        MIGRATION_24_25
+        MIGRATION_24_25,
+        MIGRATION_25_26
     )
 
 val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -1140,5 +1141,11 @@ val MIGRATION_24_25 = object : Migration(24, 25) {
         db.execSQL("DROP TABLE active_executions")
         db.execSQL("ALTER TABLE active_executions_new RENAME TO active_executions")
         db.execSQL("CREATE UNIQUE INDEX index_active_executions_execution_id ON active_executions(execution_id)")
+    }
+}
+
+val MIGRATION_25_26 = object : Migration(25, 26) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE executions ADD COLUMN cast_on_counts TEXT NOT NULL DEFAULT '[]'")
     }
 }

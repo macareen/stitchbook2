@@ -728,6 +728,7 @@ private fun JSONObject.toAddressFrameRecord(): AddressFrameRecord = AddressFrame
 )
 
 internal fun ExecutionRecord.toJson(): JSONObject = JSONObject().apply {
+    put("castOnCounts", JSONArray(castOnCountsJson))
     put("id", id)
     put("guideId", guideId)
     put("definitionRevisionId", definitionRevisionId)
@@ -754,6 +755,7 @@ internal fun ExecutionRecord.toJson(): JSONObject = JSONObject().apply {
 }
 
 internal fun JSONObject.toExecutionRecord(): ExecutionRecord = ExecutionRecord(
+    castOnCountsJson = if (has("castOnCounts")) getJSONArray("castOnCounts").toString() else "[]",
     id = getString("id"),
     guideId = getString("guideId"),
     definitionRevisionId = getString("definitionRevisionId"),

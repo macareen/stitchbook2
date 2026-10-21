@@ -2,9 +2,43 @@ package com.macareen.stitchbook2.domain.parsing
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PatternSizesTest {
+
+    @Test fun numericDeclarationBeatsLaterSizeBranchProse() {
+        val lines = listOf("Sizes 1 (2; 3; 4) [5; 6; 7] detailed below. Choose the right fit.", "Sizes 1-4: Work the front, then back, then sleeves.")
+        val doc = ExtractedDocument(1, lines.mapIndexed { i, text -> ExtractedLine(text, SourceReference(1, i + 1)) })
+        assertEquals((1..7).map(Int::toString), PatternSizes.findInDocument(doc)!!.first)
+    }
+
+    @Test fun sizesBelowAnIntroKeepLetterLabelsWithoutMeasurementAnnotations() {
+        val lines = listOf("SIZES", "Choose by your circumference.", "Measure before starting.", "S (16 cm) M (20 cm) L (24 cm) XL (28 cm)", "ABBREVIATIONS")
+        val doc = ExtractedDocument(1, lines.mapIndexed { i, text -> ExtractedLine(text, SourceReference(1, i + 1)) })
+        val found = PatternSizes.findInDocument(doc)!!
+        assertEquals(listOf("S", "M", "L", "XL"), found.first)
+        assertEquals(4, found.second.source.lineNumber)
+    }
+
+    @Test fun unresolvedExecutableAlternativesAreFlaggedWithoutGuessingOrChangingText() {
+        val text = "Cast on 12 (14) 16 (18) 20 sts."
+        val source = SourceReference(2, 7)
+        val parsed = ParsedPattern(listOf(ParsedInstruction(text, source)), emptyList())
+        assertEquals(1, PatternSizes.unresolvedIssues(parsed, 3).size)
+        assertEquals(source, PatternSizes.unresolvedIssues(parsed, 3).single().source)
+        assertEquals(text, parsed.rootNodes.filterIsInstance<ParsedInstruction>().single().text)
+        assertTrue(PatternSizes.unresolvedIssues(parsed, 5).isEmpty())
+    }
+
+    @Test fun commasBeforeAlternatingGroupsDoNotSplitOneSizeList() {
+        val values = listOf(12, 14, 16, 18, 20, 22, 24)
+        val text = "Cast on 12 (14) 16 (18) 20, (22) 24 sts."
+        values.forEachIndexed { index, count -> assertEquals("Cast on $count sts.", PatternSizes.resolve(text, index, values.size)) }
+        assertEquals("Cast on 24 sts.", PatternSizes.resolve("Cast on 12 (14), 16 (18), 20 (22), 24 sts.", 6, 7))
+        assertEquals("Use 3,5 mm needles.", PatternSizes.resolve("Use 3,5 mm needles.", 0, 2))
+        assertEquals("Knit 2, purl 4.", PatternSizes.resolve("Knit 2, purl 4.", 0, 2))
+    }
 
     @Test fun repeatedGroupedSizeLabelsAreFlattenedWithoutBracketFragments() {
         assertEquals(listOf("A", "B", "C", "D", "E", "F", "G"), PatternSizes.labelsFrom("A (B, C, D) (E, F, G)"))

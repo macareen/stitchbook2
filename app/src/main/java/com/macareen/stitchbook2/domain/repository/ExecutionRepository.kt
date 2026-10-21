@@ -35,6 +35,9 @@ class ExecutionVersionConflictException(
  * reimplements traversal or transition rules.
  */
 interface ExecutionRepository {
+    suspend fun adjustCastOn(executionId: ExecutionId, expectedVersion: Long, amount: Int): PersistedExecutionTransitionResult =
+        throw UnsupportedOperationException("Cast-on tracking unavailable")
+
 
     suspend fun listExecutionsForScope(guideId: GuideId, projectId: String?, pieceId: String?): List<PersistedExecution> = emptyList()
     suspend fun applyReviewedRevision(review: com.macareen.stitchbook2.domain.execution.ReviewedRevisionChange,

@@ -129,6 +129,9 @@ fun projectMarkdown(project: Project, snapshot: BackupSnapshot, now: Long): Stri
                 val author = pattern.author?.takeIf { it.isNotBlank() }?.let { " by ${it.trim()}" }.orEmpty()
                 val file = pattern.pdfFileName?.let { " — file: $it" }.orEmpty()
                 line("- ${pattern.title.trim()}$author$file")
+                com.macareen.stitchbook2.domain.library.PatternSuggestions.reference(pattern)?.let { reference ->
+                    reference.lines().forEach { line("  > $it") }
+                }
                 pattern.sourceUrl?.takeIf { it.isNotBlank() }?.let { line("  <${it.trim()}>") }
             }
         }
@@ -188,6 +191,10 @@ private fun StringBuilder.guidesSection(projectId: String, graph: GuideBackupGra
             if (progress.isEmpty()) line("Not started.")
             progress.forEach { execution ->
                 val revision = graph.revisions.firstOrNull { it.id == execution.definitionRevisionId }
+                com.macareen.stitchbook2.domain.execution.CastOnCounts.decode(execution.castOnCountsJson,
+                    com.macareen.stitchbook2.domain.execution.DefinitionRevisionId(execution.definitionRevisionId)).forEach { (address, count) ->
+                    line("Cast-on stitches: $count (${address.instructionNodeId.value}; ${address.ancestryFrames}).")
+                }
                 line("Revision ${revision?.revisionNumber ?: execution.definitionRevisionId}: ${execution.status}, ${execution.completedOccurrences.size} completed steps (progress ${execution.id}).")
             }
             line()
@@ -199,6 +206,7 @@ private fun StringBuilder.guidesSection(projectId: String, graph: GuideBackupGra
         val size = guide.sizeLabel?.takeIf { it.isNotBlank() }?.let { " (size ${it.trim()})" }.orEmpty()
         line("### ${guide.name.trim()}$size")
         line()
+        guide.notes?.takeIf { it.isNotBlank() }?.let { line("#### Reference"); line(); line(it); line() }
         if (guide.isArchived) { line("Archived guide; project progress is kept."); line() }
         val revision = graph.revisions.filter { it.guideId == guide.id }.maxByOrNull { it.revisionNumber }
         val nodes = revision?.nodes ?: graph.drafts.firstOrNull { it.guideId == guide.id }?.nodes.orEmpty()
@@ -212,6 +220,10 @@ private fun StringBuilder.guidesSection(projectId: String, graph: GuideBackupGra
             ?.let { progress ->
                 val state = if (progress.completedAt != null) "finished" else "in progress"
                 line("Progress: ${progress.completedOccurrences.size} steps done, $state.")
+                com.macareen.stitchbook2.domain.execution.CastOnCounts.decode(progress.castOnCountsJson,
+                    com.macareen.stitchbook2.domain.execution.DefinitionRevisionId(progress.definitionRevisionId)).forEach { (address, count) ->
+                    line("Cast-on stitches: $count (${address.instructionNodeId.value}; ${address.ancestryFrames}).")
+                }
                 line()
             }
         val children = nodes.groupBy { it.parentNodeId }.mapValues { (_, list) -> list.sortedBy { it.childOrder } }

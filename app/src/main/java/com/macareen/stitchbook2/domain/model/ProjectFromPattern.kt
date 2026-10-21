@@ -41,6 +41,6 @@ object ProjectFromPattern {
         notes = null,
         createdAt = now,
         updatedAt = now,
-        description = pattern.notes
+        description = com.macareen.stitchbook2.domain.library.PatternSuggestions.description(pattern)
     )
 }

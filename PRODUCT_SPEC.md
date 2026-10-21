@@ -342,3 +342,13 @@ OptionalLocalPatternDiagnosticTest is opt-in and emulator-only. A private input 
 Inline stitch-group presentation retains balanced brackets or star delimiters, surrounding instructions and ending qualifiers while showing child actions on their own lines inside bounded nested cards. Quoted content, numeric alternatives and malformed groups are not reinterpreted. Formatting recursion is bounded, and compact comma-separated actions are supported. This presentation is shared by the draft editor, Focus and overview; it adds no execution steps, rewrites no guide text and needs no schema/export change.
 
 Reusable size guides can be archived reversibly rather than deleting saved work. The pattern page offers Archive and a collapsible archived list with Restore. Existing projects continue their pinned guides; a project picker can Show archived and explicitly restore-and-use one. Original pattern/PDF associations, revisions and all progress survive. Orphaned archived guides remain reachable in that picker. Unused guides can still be removed after confirmation. Visibility is included in full-library/per-project JSON and per-project Markdown; this independent data-retention improvement does not claim reference-app archive behavior.
+
+
+## October21 guide and gauge update
+
+- Reference/glossary is separate from executable guide steps, available from Focus with tappable pattern terms. Existing drafts support reviewed reference cleanup; old publications and progress stay intact until explicitly reviewed.
+- Focus presents the row/round/action above regular working text. Cast-on steps have a saved stitch count/goal with accessible plus/minus controls, scoped to the exact occurrence and piece; counting never completes a step automatically.
+- Photo gauge provides offline photo selection/capture, manual measured-area calibration, fractional stitch/row counts, alignment sliders, cm/in conversion and text sharing. Originals remain in user storage. This is a manual measuring aid, not automatic stitch recognition.
+- Continue prioritizing extraction → selected size → reviewed guide → accurate tracking. True measurement/stitch target loops, simultaneous shaping and reference-row fidelity remain higher priorities than unrelated convenience features.
+
+2026-10-21 pattern setup: general description, gauge, recommended tools/yarn, measurements, techniques and glossary are pattern-owned. Local PDF import fills recognizable empty fields while preserving manual edits, original files and existing guide work. Size guides share pattern reference; standalone guide reference remains guide-owned. Pattern Read PDF details retries older imports. All durable metadata travels in existing full/project JSON, Library CSV and project Markdown.

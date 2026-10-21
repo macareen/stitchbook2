@@ -16,7 +16,7 @@ class PieceBackupTest {
         return original.copy(pieces = listOf(left, right), executions = listOf(a, b), activeExecutions = listOf(
             ActiveExecutionRecord(a.guideId, "project-1", a.id, left.id), ActiveExecutionRecord(b.guideId, "project-1", b.id, right.id)))
     }
-    private fun snapshot(graph: GuideBackupGraph = graph()) = BackupSnapshot(4).withGuideGraph(graph)
+    private fun snapshot(graph: GuideBackupGraph = graph()) = BackupSnapshot(CURRENT_BACKUP_FORMAT_VERSION).withGuideGraph(graph)
     @Test fun aPieceIdCannotChangeGuideOwnershipDuringImport() {
         val existing = BackupSnapshot(4, projectPieces = listOf(left.copy(guideId = "another-local-guide")))
         assertTrue(validateBackup(snapshot(), existing, RestoreMode.MERGE).any { it.type == BackupRecordType.PROJECT_PIECES })

@@ -48,6 +48,24 @@ class CreateGuideFromPdfUseCase(
         data class ExtractionFailed(val cause: Throwable) : Result
     }
 
+    suspend fun patternInfo(pdf: InputStream): com.macareen.stitchbook2.domain.library.PatternPdfInfo? {
+        val extraction = extract(pdf) as? Extraction.Read ?: return null
+        val title = PatternDocumentTitle.find(extraction.document)
+        val details = PatternTextParser.parseWithDetails(extraction.document, title).second
+        return com.macareen.stitchbook2.domain.library.PatternPdfInfo(title, details, PatternSizes.findInDocument(extraction.document)?.first.orEmpty())
+    }
+
+    /** Read and fill only blank pattern fields, guarded against concurrent edits/removal. */
+    suspend fun setupPattern(libraryItemId: String, pdf: InputStream, expectedPdfUri: String? = null): com.macareen.stitchbook2.domain.library.PatternPdfInfo? {
+        val repository = libraryRepository ?: return patternInfo(pdf)
+        val expected = repository.observeLibraryItem(libraryItemId).first() ?: return null
+        if (expectedPdfUri != null && expected.pdfUri != expectedPdfUri) return null
+        val info = patternInfo(pdf) ?: return null
+        val filled = com.macareen.stitchbook2.domain.library.PatternSuggestions.apply(expected, info)
+        if (filled != expected) repository.saveIfUnchanged(expected, filled.copy(updatedAt = System.currentTimeMillis()))
+        return info
+    }
+
     /** Reads choices before guide creation without saving or changing the pattern. */
     suspend fun sizeChoices(pdf: InputStream): List<String> {
         val extraction = extract(pdf)
@@ -79,11 +97,11 @@ class CreateGuideFromPdfUseCase(
         guideName: String,
         pdf: InputStream
     ): Result {
+        val item = libraryRepository?.observeLibraryItem(libraryItemId)?.first()
         val extraction = extract(pdf) ?: return Result.NoExtractableText
         if (extraction is Extraction.Failed) return Result.ExtractionFailed(extraction.cause)
         val document = (extraction as Extraction.Read).document
 
-        val item = libraryRepository?.observeLibraryItem(libraryItemId)?.first()
         val originalTitle = item?.title ?: guideName.substringBefore(" \u00b7 ")
         val detectedTitle = PatternDocumentTitle.find(document)
         val automaticTitle = item?.pdfFileName?.let {
@@ -115,7 +133,9 @@ class CreateGuideFromPdfUseCase(
             document = sized,
             extraIssues = extractionIssues(document) + issues,
             patternTitle = title,
-            onDetails = { fillPatternDetails(libraryItemId, details, fromPdf?.second?.text, detectedTitle.takeIf { automaticTitle }) }
+            selectedSizeCount = labels.size.takeIf { index != null },
+            storeReferenceOnGuide = libraryRepository == null,
+            onDetails = { fillPatternDetails(item, details, fromPdf?.second?.text, detectedTitle.takeIf { automaticTitle }) }
         ) {
             guideRepository.createPatternGuide(libraryItemId, sizeLabel, updatedGuideName)
         }
@@ -125,25 +145,14 @@ class CreateGuideFromPdfUseCase(
      * Copies what the pattern says about itself into the Library entry's empty
      * fields. Anything the user already wrote is kept as it is.
      */
-    private suspend fun fillPatternDetails(libraryItemId: String, details: PatternDetails, sizesLine: String?, detectedTitle: String? = null) {
+    private suspend fun fillPatternDetails(expected: com.macareen.stitchbook2.domain.model.LibraryItem?, details: PatternDetails, sizesLine: String?, detectedTitle: String? = null) {
         val repository = libraryRepository ?: return
         if (details.isEmpty && sizesLine == null && detectedTitle == null) return
-        val item = repository.observeLibraryItem(libraryItemId).first() ?: return
-        // The yarn line has no field of its own, so it follows the description.
-        val description = listOfNotNull(details.description, details.yarn?.let { "Yarn: $it" },
-            details.measurements?.let { "Measurements: $it" }, details.abbreviations?.let { "Abbreviations: $it" })
-            .joinToString("\n\n")
-            .ifBlank { null }
-        val filled = item.copy(
-            title = detectedTitle ?: item.title,
-            author = item.author ?: details.designer,
-            notes = item.notes ?: description,
-            gauge = item.gauge ?: details.gauge,
-            sizes = item.sizes ?: details.sizes ?: sizesLine?.substringAfter(':')?.trim()?.ifEmpty { null },
-            recommendedTools = item.recommendedTools ?: details.tools,
-            yardageRequired = item.yardageRequired ?: details.yardage
-        )
-        if (filled != item) repository.saveLibraryItem(filled.copy(updatedAt = System.currentTimeMillis()))
+        val item = expected ?: return
+        val info = com.macareen.stitchbook2.domain.library.PatternPdfInfo(detectedTitle, details,
+            sizesLine?.let(PatternSizes::labelsFrom).orEmpty())
+        val filled = com.macareen.stitchbook2.domain.library.PatternSuggestions.apply(item, info)
+        if (filled != item) repository.saveIfUnchanged(item, filled.copy(updatedAt = System.currentTimeMillis()))
     }
 
     // Check the original extraction, before size selection or cleanup removes intentional text.
@@ -177,11 +186,13 @@ class CreateGuideFromPdfUseCase(
         document: ExtractedDocument,
         extraIssues: List<ParsingIssue>,
         patternTitle: String? = null,
+        storeReferenceOnGuide: Boolean = true,
+        selectedSizeCount: Int? = null,
         onDetails: suspend (PatternDetails) -> Unit = {},
         createGuide: suspend () -> Guide
     ): Result {
         val (steps, details) = PatternTextParser.parseWithDetails(document, patternTitle)
-        val parsed = steps.copy(issues = extraIssues + steps.issues)
+        val parsed = steps.copy(issues = extraIssues + steps.issues + selectedSizeCount?.let { PatternSizes.unresolvedIssues(steps, it) }.orEmpty())
         val mapped = ParsedPatternMapper.toDraftNodes(parsed, newNodeId, reviewIssuesFirst = true)
 
         val guide = createGuide()
@@ -192,6 +203,9 @@ class CreateGuideFromPdfUseCase(
             emptyDraft.copy(rootNodeIds = mapped.rootNodeIds, nodes = mapped.nodes)
         )
 
+        if (storeReferenceOnGuide) com.macareen.stitchbook2.domain.guide.GuideReference.notes(details)?.let { reference ->
+            guideRepository.updateGuideMetadata(guide.id, guide.name, reference)
+        }
         onDetails(details)
         return Result.Success(guide.id, parsed.issues.size)
     }

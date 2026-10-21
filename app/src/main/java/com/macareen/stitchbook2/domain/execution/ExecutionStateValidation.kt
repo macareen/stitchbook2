@@ -21,6 +21,8 @@ sealed interface ExecutionStateError {
         val cause: ExecutionAddressError
     ) : ExecutionStateError
 
+    data class InvalidCastOnCount(val address: ExecutionAddress) : ExecutionStateError
+
     data object ActiveExecutionWithoutCurrentAddress : ExecutionStateError
     data class CompletedExecutionWithCurrentAddress(
         val currentAddress: ExecutionAddress
@@ -83,6 +85,13 @@ object ExecutionStateValidator {
                     address = address,
                     cause = exception.error
                 )
+            }
+        }
+
+        state.castOnCounts.forEach { (address, count) ->
+            val valid = runCatching { traversal.resolve(address).instruction }.getOrNull()
+            if (count < 0 || valid == null || com.macareen.stitchbook2.domain.guide.WorkingInstruction.of(valid.text).castOnTarget == null) {
+                errors += ExecutionStateError.InvalidCastOnCount(address)
             }
         }
 
