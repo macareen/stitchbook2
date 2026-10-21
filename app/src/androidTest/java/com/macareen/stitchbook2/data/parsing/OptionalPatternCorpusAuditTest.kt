@@ -23,7 +23,26 @@ class OptionalPatternCorpusAuditTest {
         try {
             val bytes = ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation
                 .executeShellCommand("cat /data/local/tmp/stitchbook-private-pattern.pdf")).use { it.readBytes() }
-            val document = PdfBoxTextExtractor(instrumentation.targetContext, MlKitPdfPageOcr()).extract(ByteArrayInputStream(bytes))
+            val extractor = PdfBoxTextExtractor(instrumentation.targetContext, MlKitPdfPageOcr())
+            val document = extractor.extract(ByteArrayInputStream(bytes))
+            // Explicit private diagnostic only. Format: page,left,top,right,bottom~... . Keep
+            // selected OCR/text out of test results unless a permissioned audit opts in.
+            InstrumentationRegistry.getArguments().getString("auditSelection")?.takeIf { it.isNotBlank() }?.let { encoded ->
+                val regions = encoded.split('~').map { token ->
+                    val values = token.split(',').map { it.toIntOrNull() ?: error("Invalid audit selection") }
+                    require(values.size == 5)
+                    PdfSourceRegion(values[0], values[1], values[2], values[3], values[4])
+                }
+                try {
+                    val selected = extractor.extract(ByteArrayInputStream(bytes), PdfSourceSelection(regions))
+                    instrumentation.sendStatus(0, Bundle().apply {
+                        putString("auditSelectedLines", JSONArray(selected.lines.map { line -> JSONObject()
+                            .put("page", line.source.pageNumber).put("line", line.source.lineNumber).put("text", line.text) }).toString())
+                    })
+                } catch (error: Exception) {
+                    instrumentation.sendStatus(0, Bundle().apply { putString("auditSelectionError", error.message.orEmpty()) })
+                }
+            }
             // Explicit diagnostic only: capture privately, never in repository test reports.
             InstrumentationRegistry.getArguments().getString("auditPage")?.toIntOrNull()?.let { page ->
                 instrumentation.sendStatus(0, Bundle().apply {

@@ -101,8 +101,8 @@ class PdfBoxTextExtractor(
                     val page = doc.getPage(region.page - 1)
                     // Region extraction and the preview use displayed crop-box coordinates.
                     // Refuse unsupported rotations instead of selecting a different area silently.
-                    if (!region.isWholePage && (page.rotation != 0 || page.cropBox.lowerLeftX != 0f || page.cropBox.lowerLeftY != 0f)) {
-                        throw PdfTextExtractionException("Region review requires an unrotated page with a standard crop origin.")
+                    if (!region.isWholePage && page.rotation != 0) {
+                        throw PdfTextExtractionException("Region review requires an unrotated page.")
                     }
                     val width = page.cropBox.width
                     val height = page.cropBox.height
