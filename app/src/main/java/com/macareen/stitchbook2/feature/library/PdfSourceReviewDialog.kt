@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -31,6 +32,7 @@ import com.macareen.stitchbook2.domain.parsing.PdfSourceRegion
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.rendering.PDFRenderer
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
@@ -47,12 +49,14 @@ internal fun PdfSourceReviewDialog(
     var editing by rememberSaveable { mutableIntStateOf(0) }
     var reviewed by rememberSaveable(review.preview) { mutableStateOf(false) }
     val selected = review.regions.getOrNull(editing)
+    val reviewList = rememberLazyListState()
+    val scope = rememberCoroutineScope()
     Dialog(onDismissRequest = { if (!review.busy) onDismiss() },
         properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = !review.busy)) {
         Surface(Modifier.fillMaxSize().safeDrawingPadding()) {
             Column(Modifier.padding(16.dp)) {
                 Text(stringResource(R.string.pdf_source_title, review.size), style = MaterialTheme.typography.titleLarge)
-                LazyColumn(Modifier.weight(1f).testTag("pdf-source-review"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                LazyColumn(state = reviewList, modifier = Modifier.weight(1f).testTag("pdf-source-review"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     item {
                         Text(stringResource(R.string.pdf_source_help))
                         FlowRow {
@@ -119,7 +123,18 @@ internal fun PdfSourceReviewDialog(
                     review.preview?.let { preview ->
                         item { Text(stringResource(R.string.pdf_source_text), style = MaterialTheme.typography.titleMedium) }
                         itemsIndexed(preview.selected.lines) { _, line ->
-                            Text("p.${line.source.pageNumber} · ${line.text}")
+                            val sourcePageLabel = stringResource(R.string.pdf_source_show_page, line.source.pageNumber)
+                            TextButton(
+                                onClick = {
+                                    page = line.source.pageNumber
+                                    scope.launch { reviewList.animateScrollToItem(0) }
+                                },
+                                modifier = Modifier.fillMaxWidth().semantics {
+                                    contentDescription = sourcePageLabel
+                                }
+                            ) {
+                                Text("p.${line.source.pageNumber} · ${line.text}")
+                            }
                         }
                         item {
                             Row {
