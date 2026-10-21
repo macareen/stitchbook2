@@ -62,7 +62,7 @@ object PatternTextParser {
     internal fun startsNewLine(text: String): Boolean =
         SECTION_LINE.matches(text) || isRowLabelOnly(text) || TOTAL_REPEAT_PREFIX.containsMatchIn(text) || REPEAT_LINE.matches(text) || ROW_RANGE_LINE.matches(text) ||
             ROW_SINGLE_LINE.matches(text) || NOTE_PREFIX.containsMatchIn(text) || BULLET.containsMatchIn(text) || headingTitle(text) != null ||
-            PatternMetadataSplitter.startsDetailsLine(text)
+            PatternMetadataSplitter.startsDetailsLine(text) || PatternPieceReplay.startsReference(text)
 
     /**
      * A short title such as "BODY", "FINISHING", or "Sleeves (make 2):".
@@ -72,6 +72,7 @@ object PatternTextParser {
     internal fun headingTitle(text: String): String? {
         if (isRowLabelOnly(text)) return null
         val trimmed = text.trim()
+        if (PatternPieceReplay.isPieceHeading(trimmed)) return trimmed.removeSuffix(":")
         if (trimmed.length !in 3..MAX_HEADING_LENGTH || trimmed.endsWith(".")) return null
         val letters = trimmed.filter { it.isLetter() }
         val shouting = letters.length >= 4 && letters.all { it.isUpperCase() } && trimmed.none { it.isDigit() }
@@ -95,7 +96,7 @@ object PatternTextParser {
      */
     fun parseWithDetails(document: ExtractedDocument, patternTitle: String? = null): Pair<ParsedPattern, PatternDetails> {
         val split = splitReference(document, patternTitle)
-        return parseLines(split.instructions) to split.details
+        return PatternPieceReplay.resolve(parseLines(split.instructions)) to split.details
     }
 
     internal fun splitReference(document: ExtractedDocument, patternTitle: String? = null): SplitPattern {

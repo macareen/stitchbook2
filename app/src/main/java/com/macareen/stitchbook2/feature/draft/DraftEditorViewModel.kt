@@ -10,6 +10,8 @@ import com.macareen.stitchbook2.domain.execution.NodeId
 import com.macareen.stitchbook2.domain.guide.DraftNode
 import com.macareen.stitchbook2.domain.guide.DraftNodeType
 import com.macareen.stitchbook2.domain.guide.GuideDraft
+import com.macareen.stitchbook2.domain.guide.DraftSectionReplay
+import com.macareen.stitchbook2.domain.guide.SectionReplayChoice
 import com.macareen.stitchbook2.domain.repository.DraftProblem
 import com.macareen.stitchbook2.domain.repository.DraftValidationException
 import com.macareen.stitchbook2.domain.repository.DraftVersionConflictException
@@ -34,6 +36,8 @@ data class DraftOutlineRow(
     val canMoveUp: Boolean,
     val canMoveDown: Boolean
 )
+
+data class SectionReplayReview(val expected: GuideDraft, val targetId: NodeId, val choices: List<SectionReplayChoice>)
 
 sealed interface DraftEditorUiState {
     data object Loading : DraftEditorUiState
@@ -79,6 +83,33 @@ class DraftEditorViewModel(
 
     private val _uiState = MutableStateFlow<DraftEditorUiState>(DraftEditorUiState.Loading)
     val uiState: StateFlow<DraftEditorUiState> = _uiState.asStateFlow()
+    private val replayReview = MutableStateFlow<SectionReplayReview?>(null)
+    val sectionReplayReview: StateFlow<SectionReplayReview?> = replayReview.asStateFlow()
+
+    fun requestSectionReplay(targetId: NodeId) {
+        val current = draft ?: return
+        if (isSaving()) return
+        val choices = DraftSectionReplay.choices(current, targetId)
+        replayReview.value = SectionReplayReview(current, targetId, choices)
+    }
+
+    fun dismissSectionReplay() {
+        if (!isSaving()) replayReview.value = null
+    }
+
+    fun confirmSectionReplay(review: SectionReplayReview, sourceId: NodeId) {
+        if (isSaving() || replayReview.value != review) return
+        val current = draft ?: return
+        if (current != review.expected) {
+            replayReview.value = null
+            showError("The draft changed. Open the section review again before replacing this reminder.")
+            return
+        }
+        try {
+            val updated = DraftSectionReplay.replace(current, review.targetId, sourceId, newNodeId) ?: return
+            persist(updated) { replayReview.value = null }
+        } catch (_: IllegalArgumentException) { showError("Could not copy this section. Your draft is kept.") }
+    }
 
     private var draft: GuideDraft? = null
     private var guideName: String = ""
@@ -337,7 +368,7 @@ class DraftEditorViewModel(
         return (_uiState.value as? DraftEditorUiState.Content)?.isSaving == true
     }
 
-    private fun persist(updated: GuideDraft) {
+    private fun persist(updated: GuideDraft, onSaved: () -> Unit = {}) {
         val content = _uiState.value as? DraftEditorUiState.Content
         _uiState.value = content?.copy(isSaving = true, errorMessage = null)
             ?: DraftEditorUiState.Content(
@@ -352,6 +383,7 @@ class DraftEditorViewModel(
             try {
                 val saved = guideRepository.saveDraft(updated)
                 draft = saved
+                onSaved()
                 render()
             } catch (error: CancellationException) {
                 throw error
@@ -396,6 +428,7 @@ class DraftEditorViewModel(
     }
 
     private suspend fun reloadAfterConflict() {
+        replayReview.value = null
         // loadDraft returning null here means the Guide/Draft itself is gone
         // (not merely changed) -- still must not leave isSaving stuck true,
         // so this falls through to NotFound rather than returning silently.

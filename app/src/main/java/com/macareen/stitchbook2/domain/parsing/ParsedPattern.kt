@@ -40,7 +40,8 @@ data class ParsedRange(
 data class ParsedRepeat(
     val count: Int,
     val children: List<ParsedNode>,
-    override val source: SourceReference
+    override val source: SourceReference,
+    val label: String? = null
 ) : ParsedNode {
     init {
         require(count >= 1) { "Repeat count must be 1 or greater." }
