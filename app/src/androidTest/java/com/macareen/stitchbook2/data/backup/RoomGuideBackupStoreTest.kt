@@ -63,6 +63,26 @@ class RoomGuideBackupStoreTest {
         assertEquals(emptyList<Any>(), guideRepository(destination).observeAllPatternGuides().first())
     }
 
+    @Test fun castOnCountsSurviveJsonAndDatabaseRestore() = runBlocking<Unit> {
+        source.projectDao().upsert(projectEntity("project-1"))
+        val id = publishSimpleGuide(source)
+        val guides = guideRepository(source)
+        ids.addLast("cast-draft")
+        val draft = guides.createDraftFromLatestRevision(id)
+        guides.saveDraft(draft.copy(nodes = draft.nodes.map { if (it.type == DraftNodeType.INSTRUCTION) it.copy(instructionText = "Cast on 6 sts.") else it }))
+        ids.addLast("cast-revision")
+        val revision = guides.publishDraft(id)
+        val work = executionRepository(source)
+        ids.addLast("cast-work")
+        val initial = work.createExecution(id, revision.id, "project-1")
+        val counted = work.adjustCastOn(initial.state.executionId, initial.version, 1).execution
+        val graph = RoomGuideBackupStore(source.guideBackupDao()).load()
+        val restored = decodeBackup(encodeBackup(BackupSnapshot(CURRENT_BACKUP_FORMAT_VERSION).withGuideGraph(graph), 0)).guideGraph()!!
+        destination.projectDao().upsert(projectEntity("project-1"))
+        RoomGuideBackupStore(destination.guideBackupDao()).replace(restored)
+        assertEquals(counted, executionRepository(destination).loadExecution(counted.state.executionId))
+    }
+
     @Test
     fun realProgressSurvivesAJsonBackupAndReplaceIntoAnEmptyDatabase() = runBlocking {
         source.projectDao().upsert(projectEntity("project-1"))

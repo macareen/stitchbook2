@@ -15,6 +15,10 @@ class PhotoThumbnailLoaderTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val orientations = listOf(
             ExifInterface.ORIENTATION_NORMAL to Color.RED,
+            ExifInterface.ORIENTATION_FLIP_HORIZONTAL to Color.GREEN,
+            ExifInterface.ORIENTATION_FLIP_VERTICAL to Color.BLUE,
+            ExifInterface.ORIENTATION_TRANSPOSE to Color.RED,
+            ExifInterface.ORIENTATION_TRANSVERSE to Color.YELLOW,
             ExifInterface.ORIENTATION_ROTATE_90 to Color.BLUE,
             ExifInterface.ORIENTATION_ROTATE_180 to Color.YELLOW,
             ExifInterface.ORIENTATION_ROTATE_270 to Color.GREEN
@@ -34,7 +38,7 @@ class PhotoThumbnailLoaderTest {
                 }
                 val before = file.readBytes()
                 val thumbnail = requireNotNull(PhotoThumbnailLoader.load(context, Uri.fromFile(file).toString(), 100))
-                val sideways = orientation == ExifInterface.ORIENTATION_ROTATE_90 || orientation == ExifInterface.ORIENTATION_ROTATE_270
+                val sideways = orientation in listOf(ExifInterface.ORIENTATION_ROTATE_90, ExifInterface.ORIENTATION_ROTATE_270, ExifInterface.ORIENTATION_TRANSPOSE, ExifInterface.ORIENTATION_TRANSVERSE)
                 assertEquals(if (sideways) 40 else 80, thumbnail.width)
                 assertEquals(if (sideways) 80 else 40, thumbnail.height)
                 val actual = thumbnail.getPixel(5, 5)

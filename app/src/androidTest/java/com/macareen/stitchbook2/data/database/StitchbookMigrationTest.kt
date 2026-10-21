@@ -18,7 +18,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Bump alongside `StitchbookDatabase.version`; every migration chain below must reach it. */
-private const val CURRENT_SCHEMA_VERSION = 25
+private const val CURRENT_SCHEMA_VERSION = 26
 
 @RunWith(AndroidJUnit4::class)
 class StitchbookMigrationTest {
@@ -85,6 +85,19 @@ class StitchbookMigrationTest {
         if (::database.isInitialized) database.close()
         context.deleteDatabase(DATABASE_NAME)
         context.deleteDatabase(HELPER_DATABASE_NAME)
+    }
+
+    @Test fun migrationTwentyFiveToTwentySixPreservesSavedPlaceAndAddsEmptyCounts() {
+        migrationHelper.createDatabase(HELPER_DATABASE_NAME, 25).use { db ->
+            db.execSQL("INSERT INTO guides (id, project_id, library_item_id, size_label, name, notes, created_at, updated_at) VALUES ('g', NULL, NULL, 'L', 'Keep guide', 'Keep reference', 1, 2)")
+            db.execSQL("INSERT INTO definition_revisions(id, guide_id, revision_number, created_at) VALUES ('r', 'g', 1, 2)")
+            db.execSQL("INSERT INTO executions(id, guide_id, definition_revision_id, status, current_instruction_node_id, created_at, updated_at, completed_at, version, project_id, piece_id) VALUES ('e', 'g', 'r', 'ACTIVE', 'step', 3, 4, NULL, 7, NULL, NULL)")
+        }
+        migrationHelper.runMigrationsAndValidate(HELPER_DATABASE_NAME, 26, true, MIGRATION_25_26).use { db ->
+            db.query("SELECT version, current_instruction_node_id, cast_on_counts, updated_at FROM executions WHERE id = 'e'").use {
+                assertTrue(it.moveToFirst()); assertEquals(7, it.getInt(0)); assertEquals("step", it.getString(1)); assertEquals("[]", it.getString(2)); assertEquals(4L, it.getLong(3))
+            }
+        }
     }
 
     @Test fun migrationTwentyFourToTwentyFivePreservesExistingExecutionScope() {
@@ -793,7 +806,8 @@ class StitchbookMigrationTest {
             MIGRATION_21_22,
             MIGRATION_22_23,
             MIGRATION_23_24,
-            MIGRATION_24_25
+            MIGRATION_24_25,
+            MIGRATION_25_26
         ).use { db ->
             db.query(
                 "SELECT name, notes, description, construction_method, custom_type_label, start_date, target_date, completed_date FROM projects WHERE id = 'existing-project'"

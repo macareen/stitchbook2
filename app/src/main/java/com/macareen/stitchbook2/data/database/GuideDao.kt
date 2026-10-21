@@ -260,6 +260,15 @@ abstract class GuideDao {
     }
 
     @Transaction
+    open suspend fun replaceDraftAndReference(expectedGuide: com.macareen.stitchbook2.domain.guide.Guide,
+        draft: GuideDraftEntity, expectedVersion: Long, nodes: List<DraftNodeEntity>, notes: String): DraftAggregate {
+        if (getGuide(expectedGuide.id.value)?.toDomain() != expectedGuide) throw DraftConflictException(draft.id)
+        val changed = replaceDraft(draft, expectedVersion, nodes)
+        check(updateGuideMetadata(expectedGuide.id.value, expectedGuide.name, notes, draft.updatedAt) == 1)
+        return changed
+    }
+
+    @Transaction
     open suspend fun replaceDraft(
         draft: GuideDraftEntity,
         expectedVersion: Long,

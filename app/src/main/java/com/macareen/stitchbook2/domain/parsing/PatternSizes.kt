@@ -22,19 +22,19 @@ object PatternSizes {
     private val MEASUREMENT_VALUES = Regex("""^([\d\s.,/()\[\];-]+?)\s*(?:cm|in(?:ches)?|\")(?:\s|$)""", RegexOption.IGNORE_CASE)
 
     // A count, a decimal, a mixed or plain fraction, or a dash for "not in this size".
-    private const val VALUE = """(?:\d+/\d+|\d+(?:\.\d+)?(?:\s\d+/\d+)?|[-–—])"""
+    private const val VALUE = """(?:\d+/\d+|\d+(?:\.\d+)?(?:\s\d+/\d+|[¼½¾⅛⅜⅝⅞])?(?:st|nd|rd|th)?|[-–—])"""
 
     private val SIZE_HEADING = Regex("""^(?:finished\s+)?sizes?\s*[:\-\u2013\u2014]?\s*$""", RegexOption.IGNORE_CASE)
     private const val LABEL = """(?:\d+X|\d*X*[SML]|[A-Z]|$VALUE)"""
     private val ALTERNATING_LABELS = Regex("""^($LABEL(?:\s*[(\[]\s*$LABEL\s*[)\]]|\s+$LABEL)+)(?:\s*(?:cm|in(?:ches)?|[\"])?\s*)$""", RegexOption.IGNORE_CASE)
 
-    private val VALUE_TOKEN = Regex(VALUE)
+    private val VALUE_TOKEN = Regex(VALUE, RegexOption.IGNORE_CASE)
     private val SINGLE_VALUE = Regex("^$VALUE$")
     private val LABEL_TOKEN = Regex(LABEL, RegexOption.IGNORE_CASE)
     private val NUMERIC_RUN: Regex = run {
         val inside = "$VALUE(?:\\s*[,;]\\s*$VALUE)*"
         val group = "(?:\\(\\s*$inside\\s*\\)|\\[\\s*$inside\\s*\\])"
-        Regex("(?<![\\d./(\\[])($VALUE(?:\\s*$group|\\s+$VALUE)+)")
+        Regex("(?<![\\d./(])($VALUE(?:\\s*$group|\\s+$VALUE)+)", RegexOption.IGNORE_CASE)
     }
 
     /** Labels in grouped, alternating, comma or slash notation; measurement units are not labels. */

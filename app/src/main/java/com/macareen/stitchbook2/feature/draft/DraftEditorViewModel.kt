@@ -47,7 +47,9 @@ sealed interface DraftEditorUiState {
         /** Whether [GuideRepository.getLatestRevision] currently returns a Revision for this Guide. */
         val isPublished: Boolean = false,
         /** Whether [ExecutionRepository.getActiveExecution] currently returns an ACTIVE Execution. */
-        val hasActiveExecution: Boolean = false
+        val hasActiveExecution: Boolean = false,
+        val referenceNotes: String? = null,
+        val referenceCandidates: List<String> = emptyList()
     ) : DraftEditorUiState
 }
 
@@ -80,6 +82,7 @@ class DraftEditorViewModel(
 
     private var draft: GuideDraft? = null
     private var guideName: String = ""
+    private var cachedGuide: com.macareen.stitchbook2.domain.guide.Guide? = null
 
     init {
         load()
@@ -94,11 +97,14 @@ class DraftEditorViewModel(
                     _uiState.value = DraftEditorUiState.NotFound
                     return@launch
                 }
+                cachedGuide = guide
                 guideName = guide.name
                 draft = loadedDraft
                 val (isPublished, hasActiveExecution) = currentPublicationStatus()
                 _uiState.value = DraftEditorUiState.Content(
                     guideName = guideName,
+                    referenceNotes = cachedGuide?.notes,
+                    referenceCandidates = draft?.let { com.macareen.stitchbook2.domain.guide.GuideReferenceCleanup.preview(it).movedTexts }.orEmpty(),
                     rows = outlineRows(loadedDraft),
                     isPublished = isPublished,
                     hasActiveExecution = hasActiveExecution
@@ -108,6 +114,23 @@ class DraftEditorViewModel(
             } catch (_: Exception) {
                 _uiState.value = DraftEditorUiState.LoadError
             }
+        }
+    }
+
+    fun moveReferences() {
+        val current = draft ?: return
+        val guide = cachedGuide ?: return
+        if (isSaving()) return
+        val content = _uiState.value as? DraftEditorUiState.Content ?: return
+        _uiState.value = content.copy(isSaving = true, errorMessage = null)
+        scope.launch {
+            try {
+                draft = guideRepository.moveDraftReferences(guide, current)
+                cachedGuide = guideRepository.getGuide(guideId)
+                render()
+            } catch (error: CancellationException) { throw error }
+            catch (_: DraftVersionConflictException) { cachedGuide = guideRepository.getGuide(guideId); reloadAfterConflict() }
+            catch (_: Exception) { showError("Could not move reference text. Your draft is kept.") }
         }
     }
 
@@ -316,6 +339,8 @@ class DraftEditorViewModel(
         _uiState.value = content?.copy(isSaving = true, errorMessage = null)
             ?: DraftEditorUiState.Content(
                 guideName = guideName,
+                referenceNotes = cachedGuide?.notes,
+                referenceCandidates = draft?.let { com.macareen.stitchbook2.domain.guide.GuideReferenceCleanup.preview(it).movedTexts }.orEmpty(),
                 rows = outlineRows(updated),
                 isSaving = true
             )
@@ -343,6 +368,8 @@ class DraftEditorViewModel(
         val previous = _uiState.value as? DraftEditorUiState.Content
         _uiState.value = DraftEditorUiState.Content(
             guideName = guideName,
+            referenceNotes = cachedGuide?.notes,
+            referenceCandidates = draft?.let { com.macareen.stitchbook2.domain.guide.GuideReferenceCleanup.preview(it).movedTexts }.orEmpty(),
             rows = outlineRows(current),
             isPublished = previous?.isPublished == true,
             hasActiveExecution = previous?.hasActiveExecution == true
@@ -355,6 +382,8 @@ class DraftEditorViewModel(
         val previous = _uiState.value as? DraftEditorUiState.Content
         _uiState.value = DraftEditorUiState.Content(
             guideName = guideName,
+            referenceNotes = cachedGuide?.notes,
+            referenceCandidates = draft?.let { com.macareen.stitchbook2.domain.guide.GuideReferenceCleanup.preview(it).movedTexts }.orEmpty(),
             rows = outlineRows(unchanged),
             isSaving = false,
             errorMessage = message,
@@ -379,6 +408,8 @@ class DraftEditorViewModel(
         val (isPublished, hasActiveExecution) = currentPublicationStatus()
         _uiState.value = DraftEditorUiState.Content(
             guideName = guideName,
+            referenceNotes = cachedGuide?.notes,
+            referenceCandidates = draft?.let { com.macareen.stitchbook2.domain.guide.GuideReferenceCleanup.preview(it).movedTexts }.orEmpty(),
             rows = outlineRows(reloaded),
             isSaving = false,
             errorMessage = "This changed elsewhere. Showing the current draft.",
@@ -400,6 +431,8 @@ class DraftEditorViewModel(
         val hasActiveExecution = executionRepository.getActiveExecution(guideId, projectId) != null
         _uiState.value = DraftEditorUiState.Content(
             guideName = guideName,
+            referenceNotes = cachedGuide?.notes,
+            referenceCandidates = draft?.let { com.macareen.stitchbook2.domain.guide.GuideReferenceCleanup.preview(it).movedTexts }.orEmpty(),
             rows = outlineRows(reloaded),
             isPublished = true,
             hasActiveExecution = hasActiveExecution

@@ -59,7 +59,8 @@ data class ExecutionEntity(
     val version: Long,
     /** The project this knitting belongs to; null when the guide was opened on its own. */
     @ColumnInfo(name = "project_id") val projectId: String? = null,
-    @ColumnInfo(name = "piece_id") val pieceId: String? = null
+    @ColumnInfo(name = "piece_id") val pieceId: String? = null,
+    @ColumnInfo(name = "cast_on_counts", defaultValue = "'[]'") val castOnCountsJson: String = "[]"
 )
 
 /**

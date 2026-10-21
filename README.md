@@ -157,3 +157,5 @@ Project → **Manage pieces** keeps named components such as Left sleeve and Rig
 Guide updates: in Focus, open Overview > Guide versions to review matching completed steps before using the latest publication. Previous unfinished progress remains a resumable saved place for that project or piece; finished records remain readable.
 
 Guide versions defaults to the latest publication; Compare a publication also offers earlier revisions. Selecting a different revision builds a fresh carryover proposal before you apply it.
+
+For continuing development, read the repository [session handoff](docs/HANDOFF.md).

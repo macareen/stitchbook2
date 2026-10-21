@@ -2,6 +2,10 @@
 
 This file governs work throughout the repository unless a more specific `AGENTS.md` is added in a subdirectory.
 
+## Session handoff
+
+Read [docs/HANDOFF.md](docs/HANDOFF.md) for the current checkpoint, user priorities, verification history and next steps. Update it when handing off work so other sessions can continue from the repository.
+
 ## Product guardrails
 
 Stitchbook is a private, local-first Android companion for knitting, crochet, Tunisian crochet, loom knitting, and other fibre crafts. The user owns their data. Essential use must work offline, without a subscription, paid cloud service, or mandatory account.
@@ -18,8 +22,8 @@ The product may be inspired by the useful capabilities of existing craft applica
 - It uses Kotlin, Jetpack Compose, Material 3, Navigation Compose, and Gradle Kotlin DSL.
 - The current minimum SDK is 26 and the application ID is `com.macareen.stitchbook2`.
 - Room-backed features: projects (with dates, description, and construction method), guides (owned by a project, or by a pattern and size and used by any project, with progress kept per project) with Focus Mode, counters, library patterns with SAF-referenced PDFs and a linked pattern folder, stash with yarn allocations, tools, photo references, journal entries, milestones, crafting sessions with statistics, and PNG share cards. Dependencies are wired manually through `AppContainer`, with screen-level ViewModels and repository interfaces.
-- The Room database is schema version 25, with every migration in `ALL_MIGRATIONS` (`data/database/StitchbookDatabase.kt`) and schemas 1–25 exported under `app/schemas`. Future schema changes require explicit migrations and updated schema/test fixtures; do not add a silent destructive-migration fallback.
-- The full-library backup is versioned JSON (format 4, including guides, drafts, revisions, pieces, and progress) with reviewed Merge/Replace restore, plus per-project JSON and Markdown export; see ARCHITECTURE.md "Current backup format". PDFs and photos are referenced, never copied.
+- The Room database is schema version 26, with every migration in `ALL_MIGRATIONS` (`data/database/StitchbookDatabase.kt`) and schemas 1–26 exported under `app/schemas`. Future schema changes require explicit migrations and updated schema/test fixtures; do not add a silent destructive-migration fallback.
+- The full-library backup is versioned JSON (format 5, including guides, drafts, revisions, pieces, and progress) with reviewed Merge/Replace restore, plus per-project JSON and Markdown export; see ARCHITECTURE.md "Current backup format". PDFs and photos are referenced, never copied.
 - Optional network use is limited to the Ravelry pull (personal key, read-only, kept encrypted with the Android Keystore); everything else is offline.
 - WorkManager is still unused: nothing runs in the background except the Focus-Mode-scoped counter notification service.
 - Avoid premature module splitting and do not create empty package structures.

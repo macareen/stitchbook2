@@ -79,6 +79,8 @@ object PatternMetadataSplitter {
         """^(?:(?:finished\s+)?(?:bust(?: circumference)?|chest(?: circumference)?|circumference|length|measurements?)\b|(?:the .+ is )?designed to fit\b)""",
         RegexOption.IGNORE_CASE
     )
+    private val TERM_DEFINITION = Regex("""^([\p{L}][\p{L}\d-]{0,14})\s*[:=]\s*(.+)$""")
+    private val SHORT_DEFINITION = Regex("""^(k|p|sts?|rs|ws|co|bo|kfb|k2tog|ssk|skp|m1[lr]?|yo|sc|dc|hdc|tr|sl\s?st)\s+(.+)$""", RegexOption.IGNORE_CASE)
     private val TERM = Regex("""^[\p{L}][\p{L}\d]{0,11}:?$""")
     private val DEFINITION = Regex("""^From (?:the )?(?:RS|WS)\b""", RegexOption.IGNORE_CASE)
     private val WORKING_INSTRUCTION = Regex(
@@ -89,12 +91,22 @@ object PatternMetadataSplitter {
     /** Keep metadata boundaries intact before the splitter has block context. */
     internal fun startsDetailsLine(text: String): Boolean =
         INLINE_FIELD.matches(text) || MEASUREMENT.containsMatchIn(text) ||
-            blockFor(text) != null || isStandaloneTerm(text) || DEFINITION.containsMatchIn(text)
+            blockFor(text) != null || termDefinition(text) != null || SHORT_DEFINITION.matches(text) || isStandaloneTerm(text) || DEFINITION.containsMatchIn(text)
 
-    internal fun standsAlone(text: String): Boolean = isStandaloneTerm(text) || INLINE_FIELD.matches(text)
+    internal fun standsAlone(text: String): Boolean = isStandaloneTerm(text) || termDefinition(text) != null || blockFor(text) != null || INLINE_FIELD.matches(text)
 
     private fun isStandaloneTerm(text: String): Boolean = TERM.matches(text) &&
         (text.any(Char::isDigit) || text.filter(Char::isLetter).all(Char::isUpperCase))
+
+    private fun termDefinition(text: String, allowUnknown: Boolean = false): Pair<String, String>? {
+        if (INLINE_FIELD.matches(text)) return null
+        val match = TERM_DEFINITION.matchEntire(text) ?: return null
+        val term = match.groupValues[1]
+        if (Regex("(?:r|rnd|row|round)\\d+", RegexOption.IGNORE_CASE).matches(term)) return null
+        if (term.lowercase() in setOf("row", "round", "section", "note", "tip", "warning", "caution", "gauge", "sizes", "yarn", "needles", "knit", "purl", "repeat", "work")) return null
+        if (!allowUnknown && !SHORT_DEFINITION.matches("$term definition")) return null
+        return term to match.groupValues[2]
+    }
 
     private const val METRES_PER_YARD = 0.9144
 
@@ -147,6 +159,23 @@ object PatternMetadataSplitter {
                 continue
             }
 
+            val directBlock = blockFor(text)
+            if (directBlock != null) {
+                block = directBlock
+                continuation = null
+                continue
+            }
+            val definition = termDefinition(text, block == Block.ABBREVIATIONS) ?: if (block == Block.ABBREVIATIONS) SHORT_DEFINITION.matchEntire(text)?.let {
+                it.groupValues[1] to it.groupValues[2]
+            } else null
+            if (definition != null) {
+                abbreviations += "${definition.first}: ${definition.second}"
+                block = Block.ABBREVIATIONS
+                continuation = null
+                // A definition can be printed beside working text without owning the following rows.
+                continue
+            }
+
             val heading = headingTitle(text)
             if (heading != null) {
                 continuation = null
@@ -179,7 +208,7 @@ object PatternMetadataSplitter {
             continuation = null
 
             if (block != Block.INSTRUCTIONS && (isRowLine(text) || STARTS_INSTRUCTIONS.containsMatchIn(text) ||
-                    block == Block.ABBREVIATIONS && WORKING_INSTRUCTION.containsMatchIn(text))) {
+                    block == Block.ABBREVIATIONS && Regex("""^(?:repeat|rep)\s+(?:rows?|rounds?)\s+\d""", RegexOption.IGNORE_CASE).containsMatchIn(text))) {
                 started = true
                 block = Block.INSTRUCTIONS
             }
@@ -210,7 +239,7 @@ object PatternMetadataSplitter {
                 sizes = sizes.joined(),
                 yardage = yarnText?.let(::yardsIn),
                 measurements = measurements.joined(),
-                abbreviations = abbreviations.joined()
+                abbreviations = abbreviations.takeIf { it.isNotEmpty() }?.joinToString("\n")
             ),
             instructions = instructions
         )

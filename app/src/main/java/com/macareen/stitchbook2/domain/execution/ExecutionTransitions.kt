@@ -35,6 +35,19 @@ class ExecutionEngine private constructor(
         )
     }
 
+    fun adjustCastOn(state: ExecutionState, amount: Int): ExecutionTransitionResult {
+        validate(state)
+        require(amount == 1 || amount == -1)
+        val address = requireNotNull(state.currentAddress)
+        require(com.macareen.stitchbook2.domain.guide.WorkingInstruction.of(traversal.resolve(address).instruction.text).castOnTarget != null)
+        val previous = state.castOnCounts[address] ?: 0
+        val next = Math.addExact(previous, amount).coerceAtLeast(0)
+        if (next == previous) return ExecutionTransitionResult.NoChange(state, NoChangeReason.ALREADY_AT_TARGET)
+        val changed = state.copy(castOnCounts = state.castOnCounts + (address to next))
+        validate(changed)
+        return ExecutionTransitionResult.Changed(changed)
+    }
+
     fun complete(state: ExecutionState): ExecutionTransitionResult {
         validate(state)
         if (state.status == ExecutionStatus.COMPLETED) {

@@ -120,6 +120,12 @@ internal fun validateGuides(
             else if (piece.projectId != execution.projectId || piece.guideId != execution.guideId) invalid(BackupRecordType.EXECUTIONS, execution.id, "Progress belongs to a different piece scope.")
         }
         val key = execution.id
+        if (execution.castOnCountsJson != "[]") {
+            val revision = revisionsById[execution.definitionRevisionId]
+            if (incoming.formatVersion < 5 || revision == null || !validateCastOnBackup(execution, revision)) {
+                invalid(BackupRecordType.EXECUTIONS, key, "Invalid cast-on counts or backup format older than 5.")
+            }
+        }
         requireGuide(BackupRecordType.EXECUTIONS, key, execution.guideId)
         requireSameGuideLocally(BackupRecordType.EXECUTIONS, key, execution.guideId)
         if (revisionsById[execution.definitionRevisionId]?.guideId != execution.guideId) {

@@ -609,3 +609,11 @@ The user clarified on 2026-10-14 that LooseLoop is their former app and Stitchbo
 2026-10-19 pattern PDF actions: review a selected original before attaching/replacing, or unlink only the PDF reference. Full-snapshot transaction guards concurrent edits/removal; failed saves retain the selection. Existing guide drafts, published versions, pieces and progress stay unchanged. Source files are never copied, deleted or overwritten. Pattern metadata editing is also implemented from the pattern page, with a scrollable form, failed-save retry and an explicit reload after concurrent changes. Other overflow actions remain open. Schema25/backup format4 already export the changed PDF fields.
 
 2026-10-19 piece quantity and fresh copies: Manage pieces previews numbered names and atomically creates 1–100 independent records from one published project guide. Fresh copy rechecks source metadata and guide eligibility, creates an unarchived piece with a chosen name, and does not copy executions, saved places or completion. Failure retains form values. Schema25/format4 already preserve each generated identity and its later progress. This implements quantity as independently tracked pieces, not a persistent quantity group; subsection selection, grouped quantity editing and mirrored instructions remain open.
+
+
+## October21 guide and gauge update
+
+- Reference/glossary is separate from executable guide steps, available from Focus with tappable pattern terms. Existing drafts support reviewed reference cleanup; old publications and progress stay intact until explicitly reviewed.
+- Focus presents the row/round/action above regular working text. Cast-on steps have a saved stitch count/goal with accessible plus/minus controls, scoped to the exact occurrence and piece; counting never completes a step automatically.
+- Photo gauge provides offline photo selection/capture, manual measured-area calibration, fractional stitch/row counts, alignment sliders, cm/in conversion and text sharing. Originals remain in user storage. This is a manual measuring aid, not automatic stitch recognition.
+- Continue prioritizing extraction → selected size → reviewed guide → accurate tracking. True measurement/stitch target loops, simultaneous shaping and reference-row fidelity remain higher priorities than unrelated convenience features.

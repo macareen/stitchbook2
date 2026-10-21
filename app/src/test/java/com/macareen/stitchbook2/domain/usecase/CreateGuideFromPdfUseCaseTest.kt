@@ -377,7 +377,7 @@ private class FakeGuideRepository : GuideRepository {
     }
 
     override suspend fun updateGuideMetadata(guideId: GuideId, name: String, notes: String?): Guide? =
-        throw UnsupportedOperationException("Not used by CreateGuideFromPdfUseCase")
+        guides[guideId.value]?.copy(name = name, notes = notes)?.also { guides[guideId.value] = it }
 
     override suspend fun deleteGuide(guideId: GuideId): Unit =
         throw UnsupportedOperationException("Not used by CreateGuideFromPdfUseCase")

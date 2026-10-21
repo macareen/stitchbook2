@@ -63,6 +63,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -146,7 +147,8 @@ fun GuideFocusRoute(viewModel: GuideFocusViewModel, onOpenPattern: (PatternPage)
         onOpenPattern = onOpenPattern,
         onToggleTimer = viewModel::onToggleTimer,
         onReviewVersions = viewModel.revisionReview::open,
-        onEditGuide = onEditGuide
+        onEditGuide = onEditGuide,
+        onAdjustCastOn = viewModel::onAdjustCastOn
     )
     revisionReview?.let { GuideRevisionReviewDialog(it, viewModel.revisionReview::select,
         viewModel.revisionReview::selectAll, viewModel.revisionReview::apply, viewModel.revisionReview::resume, viewModel.revisionReview::close, viewModel.revisionReview::choosePublication,
@@ -168,7 +170,8 @@ fun GuideFocusScreen(
     onOpenPattern: (PatternPage) -> Unit = {},
     onToggleTimer: () -> Unit = {},
     onReviewVersions: () -> Unit = {},
-    onEditGuide: () -> Unit = {}
+    onEditGuide: () -> Unit = {},
+    onAdjustCastOn: (Int) -> Unit = {}
 ) {
     when (uiState) {
         GuideFocusUiState.Loading -> LoadingState(modifier)
@@ -209,6 +212,7 @@ fun GuideFocusScreen(
             onToggleTimer = onToggleTimer,
             onReviewVersions = onReviewVersions,
             onEditGuide = onEditGuide,
+            onAdjustCastOn = onAdjustCastOn,
             modifier = modifier
         )
 
@@ -322,20 +326,27 @@ private fun InProgressContent(
     onToggleTimer: () -> Unit,
     onReviewVersions: () -> Unit,
     onEditGuide: () -> Unit,
+    onAdjustCastOn: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showOverview by rememberSaveable { mutableStateOf(false) }
+    var showReference by rememberSaveable { mutableStateOf(false) }
+    var showDetail by rememberSaveable { mutableStateOf(false) }
+    val working = com.macareen.stitchbook2.domain.guide.WorkingInstruction.of(state.instructionText)
+    val glossary = remember(state.referenceNotes) { com.macareen.stitchbook2.domain.guide.GuideReference.glossary(state.referenceNotes) }
+    val readingPosition = state.occurrenceKey.ifBlank { state.version.toString() }
     val instructionScroll = rememberScrollState()
     val readingScope = rememberCoroutineScope()
     var readingExecutionId by rememberSaveable { mutableStateOf(state.executionId.value) }
-    var readingVersion by rememberSaveable { mutableLongStateOf(state.version) }
+    var readingVersion by rememberSaveable { mutableStateOf(readingPosition) }
     // Advancing (including an identical repeated row) starts at the top again.
     // Recreating the same screen keeps its saved reading position.
-    LaunchedEffect(state.executionId, state.version) {
-        if (readingExecutionId != state.executionId.value || readingVersion != state.version) {
+    LaunchedEffect(state.executionId, readingPosition) {
+        if (readingExecutionId != state.executionId.value || readingVersion != readingPosition) {
+            showDetail = false
             instructionScroll.scrollTo(0)
             readingExecutionId = state.executionId.value
-            readingVersion = state.version
+            readingVersion = readingPosition
         }
     }
     Column(
@@ -344,8 +355,9 @@ private fun InProgressContent(
             .padding(horizontal = StitchbookSpacing.large, vertical = StitchbookSpacing.small),
         verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.medium)
     ) {
-        TextButton(onClick = onEditGuide, enabled = !state.isBusy) {
-            Text(stringResource(R.string.focus_edit_guide))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            TextButton(onClick = onEditGuide, enabled = !state.isBusy) { Text(stringResource(R.string.focus_edit_guide)) }
+            TextButton(onClick = { showReference = true }) { Text(stringResource(R.string.reference_title)) }
         }
         // Where you are: guide, part, and how far through.
         Column(
@@ -396,6 +408,21 @@ private fun InProgressContent(
             )
         }
 
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            working.subtitle?.let { Text(it, style = MaterialTheme.typography.titleLarge) }
+            state.positions.forEach { PositionLine(it) }
+        }
+        working.castOnTarget?.let { target ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { onAdjustCastOn(-1) }, enabled = !state.isBusy && state.castOnCount > 0) {
+                    Icon(Icons.Outlined.Remove, stringResource(R.string.cast_on_decrease))
+                }
+                Text(stringResource(R.string.cast_on_count, state.castOnCount, target), style = MaterialTheme.typography.headlineLarge)
+                IconButton(onClick = { onAdjustCastOn(1) }, enabled = !state.isBusy && state.castOnCount < Int.MAX_VALUE) {
+                    Icon(Icons.Outlined.Add, stringResource(R.string.cast_on_increase))
+                }
+            }
+        }
         // The step itself, as the screen's centrepiece. It scrolls on its own so
         // the counters and the Complete button below always stay reachable.
         Surface(
@@ -413,15 +440,11 @@ private fun InProgressContent(
                         .verticalScroll(instructionScroll),
                     verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.medium)
                 ) {
-                    if (state.positions.isNotEmpty()) {
-                        Column(
-                            modifier = Modifier.semantics(mergeDescendants = true) {},
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
-                        ) {
-                            state.positions.forEach { position -> PositionLine(position) }
-                        }
+                    InstructionBlocks(working.action, MaterialTheme.typography.bodyLarge.copy(fontSize = 22.sp, lineHeight = 30.sp), glossary = glossary)
+                    working.detail?.let {
+                        TextButton(onClick = { showDetail = !showDetail }) { Text(stringResource(R.string.focus_step_note)) }
+                        if (showDetail) Text(it, style = MaterialTheme.typography.bodyMedium)
                     }
-                    InstructionBlocks(state.instructionText, MaterialTheme.typography.instruction)
                     state.feedback?.let { feedback ->
                         QuietText(text = focusFeedbackText(feedback))
                     }
@@ -507,6 +530,7 @@ private fun InProgressContent(
         }
     }
 
+    if (showReference) GuideReferenceDialog(state.referenceNotes, onClose = { showReference = false })
     if (showOverview) {
         OverviewSheet(
             entries = state.overview,

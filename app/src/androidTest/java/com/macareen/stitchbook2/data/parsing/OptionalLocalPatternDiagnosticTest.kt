@@ -41,9 +41,16 @@ class OptionalLocalPatternDiagnosticTest {
         }
         labels.indices.forEach { index ->
             val selected = SizeSpecificInstructions.select(input, labels, index)
-            val parsed = PatternTextParser.parseWithDetails(selected.document, title).first
+            val (parsed, details) = PatternTextParser.parseWithDetails(selected.document, title)
+            assertNotNull("Pattern reference material must remain available", com.macareen.stitchbook2.domain.guide.GuideReference.notes(details))
             val nodes = descendants(parsed.rootNodes)
             val instructions = nodes.filterIsInstance<ParsedInstruction>()
+            assertFalse("Glossary definitions must not become executable steps", instructions.any {
+                Regex("""^(?:kfb|skp|ssk|k2tog|rs|ws)\s*[:=]""", RegexOption.IGNORE_CASE).containsMatchIn(it.text)
+            })
+            assertFalse("Per-size ordinal runs remain unresolved", instructions.any {
+                Regex("""\d+(?:st|nd|rd|th)\s*\(\d+(?:st|nd|rd|th)\)\s+\d+(?:st|nd|rd|th)""", RegexOption.IGNORE_CASE).containsMatchIn(it.text)
+            })
             assertTrue("Each selected size must retain instructions", instructions.isNotEmpty())
             assertFalse("An alternating size run remains at size index $index",
                 instructions.any { alternating.containsMatchIn(it.text) })

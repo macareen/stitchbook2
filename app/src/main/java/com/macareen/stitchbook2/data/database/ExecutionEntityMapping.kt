@@ -110,7 +110,8 @@ fun ExecutionAggregate.toDomain(): PersistedExecution {
         definitionRevisionId = revisionId,
         currentAddress = currentAddress,
         completedAddresses = completedAddresses,
-        status = execution.status.toExecutionStatus()
+        status = execution.status.toExecutionStatus(),
+        castOnCounts = com.macareen.stitchbook2.domain.execution.CastOnCounts.decode(execution.castOnCountsJson, revisionId)
     )
 
     val validated = try {
@@ -137,6 +138,7 @@ fun ExecutionState.toExecutionEntity(
     completedAt: Long?,
     version: Long
 ) = ExecutionEntity(
+    castOnCountsJson = com.macareen.stitchbook2.domain.execution.CastOnCounts.encode(castOnCounts),
     id = executionId.value,
     guideId = guideId.value,
     definitionRevisionId = definitionRevisionId.value,

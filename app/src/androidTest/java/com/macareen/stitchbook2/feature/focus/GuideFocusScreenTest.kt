@@ -1,5 +1,7 @@
 package com.macareen.stitchbook2.feature.focus
 
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
@@ -42,6 +44,23 @@ class GuideFocusScreenTest {
                 )
             }
         }
+    }
+
+    @Test fun rowSubtitleAndLinkedTermOpenThePatternDefinition() {
+        setContent(GuideFocusUiState.InProgress("Guide", "project", ExecutionId("work"), 0,
+            "Row 1 (RS): kfb", emptyList(), emptyList(), referenceNotes = "## Glossary\nkfb: Knit front and back"))
+        composeTestRule.onNodeWithText("Row 1 (RS)").assertIsDisplayed()
+        composeTestRule.onNodeWithText("kfb").performClick()
+        composeTestRule.onNodeWithText("Knit front and back").assertIsDisplayed()
+    }
+
+    @Test fun castOnShowsGoalAndDisablesOnlyTheUnavailableDecrement() {
+        setContent(GuideFocusUiState.InProgress("Guide", "project", ExecutionId("work"), 0,
+            "Cast on 6 sts.", emptyList(), emptyList()))
+        composeTestRule.onNodeWithText("Cast on").assertIsDisplayed()
+        composeTestRule.onNodeWithText("0 / 6").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("Remove one cast-on stitch").assertIsNotEnabled()
+        composeTestRule.onNodeWithContentDescription("Add one cast-on stitch").assertIsEnabled()
     }
 
     @Test

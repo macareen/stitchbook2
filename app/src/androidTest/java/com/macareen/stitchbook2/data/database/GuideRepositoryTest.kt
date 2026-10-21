@@ -58,6 +58,27 @@ class GuideRepositoryTest {
         database.close()
     }
 
+    @Test fun reviewedReferenceCleanupIsAtomicAndLeavesPublishedDefinitionIntact() = runBlocking<Unit> {
+        insertProject("project")
+        enqueueIds("guide", "draft")
+        val guide = repository.createGuide("project", "Guide")
+        val initial = repository.loadDraft(guide.id)!!
+        val nodes = listOf(DraftNode(NodeId("term"), DraftNodeType.INSTRUCTION, instructionText = "kfb: Knit front and back"),
+            DraftNode(NodeId("cast"), DraftNodeType.INSTRUCTION, instructionText = "Cast on 6 sts."))
+        val draft = repository.saveDraft(initial.copy(rootNodeIds = nodes.map { it.id }, nodes = nodes))
+        enqueueIds("revision")
+        val published = repository.publishDraft(guide.id)
+        val current = repository.loadDraft(guide.id)!!
+        val snapshot = repository.getGuide(guide.id)!!
+        val cleaned = repository.moveDraftReferences(snapshot, current)
+        assertEquals(listOf(NodeId("cast")), cleaned.rootNodeIds)
+        assertEquals(published, repository.loadRevision(published.id))
+        assertEquals("kfb", com.macareen.stitchbook2.domain.guide.GuideReference.glossary(repository.getGuide(guide.id)!!.notes).single().term)
+        try { repository.moveDraftReferences(snapshot, current); throw AssertionError("Expected stale draft rejection") }
+        catch (_: DraftVersionConflictException) { }
+        assertEquals(cleaned, repository.loadDraft(guide.id))
+    }
+
     @Test
     fun guideBelongsToProjectAndStartsWithOneEmptyDraft() = runBlocking {
         insertProject("project")

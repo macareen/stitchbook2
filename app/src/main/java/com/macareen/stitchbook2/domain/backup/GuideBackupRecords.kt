@@ -90,7 +90,8 @@ data class ExecutionRecord(
     val version: Long,
     val currentFrames: List<AddressFrameRecord>,
     val completedOccurrences: List<CompletedOccurrenceRecord>,
-    val pieceId: String? = null
+    val pieceId: String? = null,
+    val castOnCountsJson: String = "[]"
 )
 
 /** Which execution is resumed for a guide in one project ("" for the guide on its own). */
@@ -159,6 +160,9 @@ fun GuideDraftRecord.canonical(): GuideDraftRecord = copy(nodes = nodes.canonica
 fun GuideRevisionRecord.canonical(): GuideRevisionRecord = copy(nodes = nodes.canonicalNodes())
 
 fun ExecutionRecord.canonical(): ExecutionRecord = copy(
+    castOnCountsJson = com.macareen.stitchbook2.domain.execution.CastOnCounts.encode(
+        com.macareen.stitchbook2.domain.execution.CastOnCounts.decode(castOnCountsJson,
+            com.macareen.stitchbook2.domain.execution.DefinitionRevisionId(definitionRevisionId))),
     currentFrames = currentFrames.canonicalFrames(),
     completedOccurrences = completedOccurrences
         .map { it.copy(frames = it.frames.canonicalFrames()) }

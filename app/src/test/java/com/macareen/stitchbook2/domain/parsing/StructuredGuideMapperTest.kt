@@ -74,13 +74,12 @@ class StructuredGuideMapperTest {
         val byId = result.nodes.associateBy { it.id }
         val roots = result.rootNodeIds.map(byId::getValue)
 
-        assertEquals(StructuredGuideMapper.BEFORE_YOU_START_TITLE, roots[0].title)
-        assertEquals(
-            listOf("Materials: DK yarn; 4 mm needles", "Abbreviations: k = knit; p = purl", "Gauge: 22 sts = 10 cm"),
-            roots[0].children.map { byId.getValue(it).instructionText }
-        )
-        assertEquals("Cast on 88.", roots[1].instructionText)
-        assertEquals("Review needed: Size M count is unclear.", roots[2].instructionText)
+        assertEquals(2, roots.size)
+        assertEquals("Cast on 88.", roots[0].instructionText)
+        assertEquals("Review needed: Size M count is unclear.", roots[1].instructionText)
+        val notes = com.macareen.stitchbook2.domain.guide.GuideReference.notes(guide)!!
+        assertTrue(notes.contains("DK yarn"))
+        assertEquals(2, com.macareen.stitchbook2.domain.guide.GuideReference.glossary(notes).size)
     }
 
     @Test

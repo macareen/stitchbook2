@@ -192,6 +192,9 @@ class CreateGuideFromPdfUseCase(
             emptyDraft.copy(rootNodeIds = mapped.rootNodeIds, nodes = mapped.nodes)
         )
 
+        com.macareen.stitchbook2.domain.guide.GuideReference.notes(details)?.let { reference ->
+            guideRepository.updateGuideMetadata(guide.id, guide.name, reference)
+        }
         onDetails(details)
         return Result.Success(guide.id, parsed.issues.size)
     }
