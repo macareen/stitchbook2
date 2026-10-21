@@ -405,6 +405,7 @@ class DraftEditorViewModel(
             return
         }
         draft = reloaded
+        referenceNotes = guideRepository.getReferenceNotes(guideId)
         // Recomputed fresh, not preserved: a conflict specifically means
         // something else changed, and that something could have been a
         // publish or execution start racing with this one.

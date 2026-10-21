@@ -241,6 +241,7 @@ class DraftEditorViewModelTest {
 
         repository.nextSaveError = DraftVersionConflictException(guideId)
         repository.persistedDraft = draftWithOneInstruction()
+        repository.referenceNotes = "## Glossary\nkfb: Updated pattern definition"
 
         viewModel.addNode(type = DraftNodeType.SECTION, parentId = null, title = "Body")
 
@@ -248,6 +249,7 @@ class DraftEditorViewModelTest {
         assertEquals("This changed elsewhere. Showing the current draft.", content.errorMessage)
         assertEquals(1, content.rows.size)
         assertEquals("Cast on 40 stitches", content.rows.single().node.instructionText)
+        assertEquals(repository.referenceNotes, content.referenceNotes)
     }
 
     @Test
@@ -448,6 +450,8 @@ private class FakeGuideRepository(
     draft: GuideDraft?
 ) : GuideRepository {
     private var guide: Guide? = guide
+    var referenceNotes: String? = null
+    override suspend fun getReferenceNotes(guideId: GuideId): String? = referenceNotes
     var persistedDraft: GuideDraft? = draft
     var failLoad = false
     var nextSaveError: Exception? = null
