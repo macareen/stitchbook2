@@ -19,6 +19,10 @@ import java.io.InputStream
 interface PdfTextExtractor {
     /** @throws PdfTextExtractionException if [input] is not a readable PDF. */
     suspend fun extract(input: InputStream): ExtractedDocument
+
+    /** Optional region support; implementations must never silently ignore a selection. */
+    suspend fun extract(input: InputStream, selection: PdfSourceSelection): ExtractedDocument =
+        throw PdfTextExtractionException("This extractor does not support selected PDF regions.")
 }
 
 class PdfTextExtractionException(message: String, cause: Throwable? = null) : IOException(message, cause)

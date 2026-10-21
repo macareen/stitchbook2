@@ -42,6 +42,54 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PatternGuidesViewModelTest {
+    @Test fun sourceEditsInvalidatePreviewAndSavedPatternChangesRefuseCreation() = runBlocking {
+        val guides = FakePatternGuides()
+        val library = FakeLibrary(listOf(pattern.copy(pdfUri = "content://pattern.pdf", sizes = "S, M")))
+        val document = ExtractedDocument(2, listOf(ExtractedLine("Cast on 60 (66) sts.", SourceReference(1, 1)),
+            ExtractedLine("Bind off.", SourceReference(2, 1))))
+        val model = PatternGuidesViewModel("pattern", library, guides, scope,
+            createGuideFromPdf = CreateGuideFromPdfUseCase(FixedText(document), guides, { "n" }), readPatternFile = { ByteArray(1) })
+        val collector = scope.launch { model.uiState.collect {} }
+        withTimeout(5_000) { model.uiState.first { it is PatternGuidesUiState.Content } }
+        model.createGuide("M", true)
+        withTimeout(5_000) { model.pdfSourceReview.first { it != null } }
+        model.confirmSourceReview()
+        assertTrue(guides.created.isEmpty())
+        model.previewSource()
+        withTimeout(5_000) { model.pdfSourceReview.first { it?.preview != null && !it.busy } }
+        model.changeSourceRegions(listOf(com.macareen.stitchbook2.domain.parsing.PdfSourceRegion(1)))
+        assertEquals(null, model.pdfSourceReview.value!!.preview)
+        model.confirmSourceReview()
+        assertTrue(guides.created.isEmpty())
+        model.previewSource()
+        withTimeout(5_000) { model.pdfSourceReview.first { it?.preview != null && !it.busy } }
+        library.saveLibraryItem(pattern.copy(pdfUri = "content://changed.pdf"))
+        model.confirmSourceReview()
+        withTimeout(5_000) { model.pdfSourceReview.first { it?.changed == true } }
+        assertTrue(guides.created.isEmpty())
+        model.dismissSourceReview()
+        assertEquals(null, model.pdfSourceReview.value)
+        collector.cancel()
+    }
+
+    @Test fun overlappingSelectionRetainsTheReviewAndCreatesNothing() = runBlocking {
+        val guides = FakePatternGuides()
+        val model = PatternGuidesViewModel("pattern", FakeLibrary(listOf(pattern.copy(pdfUri = "content://pattern.pdf"))), guides, scope,
+            createGuideFromPdf = CreateGuideFromPdfUseCase(FixedText(ExtractedDocument(1,
+                listOf(ExtractedLine("Bind off.", SourceReference(1, 1))))), guides, { "n" }), readPatternFile = { ByteArray(1) })
+        val collector = scope.launch { model.uiState.collect {} }
+        withTimeout(5_000) { model.uiState.first { it is PatternGuidesUiState.Content } }
+        model.createGuide("M", true)
+        withTimeout(5_000) { model.pdfSourceReview.first { it != null } }
+        val region = com.macareen.stitchbook2.domain.parsing.PdfSourceRegion(1)
+        model.changeSourceRegions(listOf(region, region))
+        model.previewSource()
+        withTimeout(5_000) { model.pdfSourceReview.first { it?.problem != null && !it.busy } }
+        assertEquals(listOf(region, region), model.pdfSourceReview.value!!.regions)
+        assertTrue(guides.created.isEmpty())
+        collector.cancel()
+    }
+
     @Test fun archivingAndRestoringMoveTheSameGuideBetweenLists() {
         val guides = FakePatternGuides()
         guides.add(guide("m", "M"), true)
@@ -144,7 +192,12 @@ class PatternGuidesViewModelTest {
         assertEquals(listOf("S", "M"), (viewModel.uiState.value as PatternGuidesUiState.Content).sizeChoices)
         viewModel.createGuide("M", fromPattern = true)
 
-        // Text extraction runs on the IO dispatcher, so wait for the new guide.
+        runBlocking { withTimeout(5_000) { viewModel.pdfSourceReview.first { it != null } } }
+        assertTrue(guides.created.isEmpty())
+        viewModel.previewSource()
+        runBlocking { withTimeout(5_000) { viewModel.pdfSourceReview.first { it?.preview != null && !it.busy } } }
+        assertTrue(guides.created.isEmpty())
+        viewModel.confirmSourceReview()
         val createdId = runBlocking { withTimeout(5_000) { viewModel.createdGuideId.first { it != null } } }
 
         assertEquals(listOf("content://pattern.pdf", "content://pattern.pdf"), read)
@@ -575,7 +628,10 @@ private class FakePatternGuides : GuideRepository {
     override fun observeGuides(projectId: String): Flow<List<Guide>> = flowOf(emptyList())
     override suspend fun getGuide(guideId: GuideId): Guide? = unused()
     override suspend fun createGuide(projectId: String, name: String, notes: String?): Guide = unused()
-    override suspend fun updateGuideMetadata(guideId: GuideId, name: String, notes: String?): Guide? = unused()
+    override suspend fun updateGuideMetadata(guideId: GuideId, name: String, notes: String?): Guide? =
+        guides.value.firstOrNull { it.id == guideId }?.copy(name = name, notes = notes)?.also { updated ->
+            guides.value = guides.value.map { if (it.id == guideId) updated else it }
+        }
     override suspend fun deleteGuide(guideId: GuideId): Unit = unused()
     override suspend fun loadDraft(guideId: GuideId): GuideDraft? = drafts[guideId.value]
     override suspend fun saveDraft(draft: GuideDraft): GuideDraft = draft.also { savedDraft = it }
@@ -589,6 +645,8 @@ private class FakePatternGuides : GuideRepository {
 
 private class FixedText(private val document: ExtractedDocument) : PdfTextExtractor {
     override suspend fun extract(input: InputStream): ExtractedDocument = document
+    override suspend fun extract(input: InputStream, selection: com.macareen.stitchbook2.domain.parsing.PdfSourceSelection): ExtractedDocument =
+        document.copy(lines = selection.regions.flatMap { region -> document.lines.filter { it.source.pageNumber == region.page } })
 }
 
 private class SavedProjects : ProjectRepository {

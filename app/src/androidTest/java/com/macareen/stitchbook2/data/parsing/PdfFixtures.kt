@@ -63,6 +63,25 @@ internal object PdfFixtures {
         ByteArrayOutputStream().also { document.save(it) }.toByteArray()
     }
 
+    fun buildColumnReviewPdf(): ByteArray = PDDocument().use { document ->
+        addPage(document, listOf("Sizes: S, M", "Gauge: 20 sts over 10 cm"))
+        val page = PDPage()
+        document.addPage(page)
+        PDPageContentStream(document, page).use { stream ->
+            fun at(x: Float, y: Float, text: String) {
+                stream.beginText(); stream.setFont(PDType1Font.HELVETICA, 12f)
+                stream.newLineAtOffset(x, y); stream.showText(text); stream.endText()
+            }
+            // Interleave the content stream deliberately; regions must restore column order.
+            at(40f, 700f, "Cast on 20 (24) sts.")
+            at(330f, 700f, "Row 2: Purl.")
+            at(40f, 680f, "Row 1: Knit.")
+            at(330f, 680f, "Bind off.")
+            at(40f, 300f, "Advertisement and reader comments")
+        }
+        ByteArrayOutputStream().also { document.save(it) }.toByteArray()
+    }
+
     /** The word [buildImageOnlyPagePdf] draws onto its page as a picture, not text. */
     const val IMAGE_ONLY_PAGE_WORD = "STITCHBOOK"
 

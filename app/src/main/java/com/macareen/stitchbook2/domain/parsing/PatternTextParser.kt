@@ -94,6 +94,11 @@ object PatternTextParser {
      * instead of turning it into steps; see [PatternMetadataSplitter].
      */
     fun parseWithDetails(document: ExtractedDocument, patternTitle: String? = null): Pair<ParsedPattern, PatternDetails> {
+        val split = splitReference(document, patternTitle)
+        return parseLines(split.instructions) to split.details
+    }
+
+    internal fun splitReference(document: ExtractedDocument, patternTitle: String? = null): SplitPattern {
         val title = patternTitle?.trim()?.replace(Regex("""\s+"""), " ")
         val withoutTitle = if (title.isNullOrBlank()) document else document.copy(lines = document.lines.filterNot {
             it.text.trim().replace(Regex("""\s+"""), " ").equals(title, ignoreCase = true)
@@ -101,8 +106,7 @@ object PatternTextParser {
         val cleaned = PatternTextCleanup.clean(withoutTitle, ::startsNewLine) {
             headingTitle(it) != null || PatternMetadataSplitter.standsAlone(it)
         }
-        val split = PatternMetadataSplitter.split(cleaned, ::isRowLine, ::anyHeading)
-        return parseLines(split.instructions) to split.details
+        return PatternMetadataSplitter.split(cleaned, ::isRowLine, ::anyHeading)
     }
 
     private fun anyHeading(text: String): String? =
