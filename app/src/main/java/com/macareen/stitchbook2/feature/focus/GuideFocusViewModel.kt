@@ -494,7 +494,7 @@ class GuideFocusViewModel(
             val projectId = contextProjectId.orEmpty()
             val piece = pieceId?.let { id -> requireNotNull(executionRepository.loadPiece(id)) }
             require(piece == null || (piece.projectId == contextProjectId && piece.guideId == guideId.value && !piece.isArchived))
-            referenceNotes = guide.notes
+            referenceNotes = guideRepository.getReferenceNotes(guideId)
             val displayName = piece?.let { "${guide.name} · ${it.name}" } ?: guide.name
             patternLibraryItemId = guide.libraryItemId ?: contextProjectId?.let { id ->
                 // Only a project with exactly one pattern file says which pattern to open.

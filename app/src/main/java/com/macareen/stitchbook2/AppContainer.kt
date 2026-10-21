@@ -67,6 +67,7 @@ interface AppContainer {
     val structuredGuideDecoder: StructuredGuideDecoder
     val ravelryCredentialStore: RavelryCredentialStore
     val patternFolder: PatternFolder
+    val readPatternInfo: suspend (String) -> com.macareen.stitchbook2.domain.library.PatternPdfInfo? get() = { null }
     val syncPatternFolder: SyncPatternFolder
     val ravelrySync: RavelrySync
     val downloadRavelryPdf: DownloadRavelryPdf
@@ -141,15 +142,13 @@ class DefaultAppContainer(context: Context) : AppContainer {
 
     override val patternFolder: PatternFolder = SafPatternFolder(context)
 
+    override val readPatternInfo: suspend (String) -> com.macareen.stitchbook2.domain.library.PatternPdfInfo? = { uri ->
+        withContext(Dispatchers.IO) { context.contentResolver.openInputStream(uri.toUri())?.use { createGuideFromPdfUseCase.patternInfo(it) } }
+    }
+
     override val syncPatternFolder: SyncPatternFolder = SyncPatternFolder(
-        folder = patternFolder,
-        libraryRepository = libraryRepository,
-        newId = { UUID.randomUUID().toString() },
-        readTitle = { uri -> withContext(Dispatchers.IO) {
-            context.contentResolver.openInputStream(uri.toUri())?.use {
-                com.macareen.stitchbook2.data.parsing.PdfBoxPatternTitleReader(context).read(it)
-            }
-        } }
+        folder = patternFolder, libraryRepository = libraryRepository,
+        newId = { UUID.randomUUID().toString() }, readDetails = readPatternInfo
     )
 
     private val ravelryApi = HttpRavelryApi(onHttpResult = { stage, status ->

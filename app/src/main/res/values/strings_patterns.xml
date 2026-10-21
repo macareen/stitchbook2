@@ -17,7 +17,6 @@
     <string name="pattern_guides_pdf_unreadable">The pattern\'s PDF couldn\'t be opened. Check it\'s still in your pattern folder, or create the guide empty.</string>
     <string name="pattern_guides_pdf_no_text">No text was found in the pattern\'s PDF. Create the guide empty and add the steps yourself.</string>
     <string name="project_use_pattern_guide">Use a pattern guide</string>
-    <string name="pattern_page_notes">Pattern notes</string>
     <string name="pattern_page_no_notes">No notes yet.</string>
     <string name="pattern_page_read_more">Read more</string>
     <string name="pattern_page_read_less">Read less</string>

@@ -755,4 +755,8 @@
     <string name="photo_gauge_help_text">Lay the swatch flat beside a ruler and photograph it straight on. Move the outline to a known measured area. Enter its physical width and height, then adjust the counts and alignment until the grid follows your stitch columns and rows. Count spaces between boundaries, including partial stitches. Each axis can be measured separately. A photo alone cannot establish scale; tilted photos and uneven fabric reduce accuracy. Taking a photo first asks where to save your original. Calculator settings are temporary.</string>
     <string name="photo_gauge_stitches_tab">Stitches</string>
     <string name="photo_gauge_rows_tab">Rows / passes</string>
+    <string name="pattern_reference_title">Pattern reference</string>
+    <string name="pattern_details_read">Read PDF details</string>
+    <string name="pattern_details_reading">Reading pattern details…</string>
+    <string name="pattern_details_read_failed">Could not read pattern details. Your PDF and edits are kept. You can try again.</string>
 </resources>

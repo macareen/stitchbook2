@@ -75,7 +75,8 @@ class LibraryViewModel(
     private val repository: LibraryRepository,
     externalScope: CoroutineScope? = null,
     private val patternFolder: PatternFolder? = null,
-    private val syncPatternFolder: SyncPatternFolder? = null
+    private val syncPatternFolder: SyncPatternFolder? = null,
+    private val readPatternDetails: (suspend (String) -> com.macareen.stitchbook2.domain.library.PatternPdfInfo?)? = null
 ) : ViewModel() {
 
     private val scope: CoroutineScope = externalScope ?: viewModelScope
@@ -229,6 +230,13 @@ class LibraryViewModel(
             )
             try {
                 repository.saveLibraryItem(item)
+                if (item.pdfUri != null && (original == null || original.pdfUri != item.pdfUri)) {
+                    val info = readPatternDetails?.invoke(item.pdfUri)
+                    if (info != null) {
+                        val filled = com.macareen.stitchbook2.domain.library.PatternSuggestions.apply(item, info)
+                        if (filled != item) repository.saveIfUnchanged(item, filled.copy(updatedAt = System.currentTimeMillis()))
+                    }
+                }
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Exception) {
@@ -353,10 +361,11 @@ class LibraryViewModel(
         fun factory(
             repository: LibraryRepository,
             patternFolder: PatternFolder? = null,
-            syncPatternFolder: SyncPatternFolder? = null
+            syncPatternFolder: SyncPatternFolder? = null,
+            readPatternDetails: (suspend (String) -> com.macareen.stitchbook2.domain.library.PatternPdfInfo?)? = null
         ): ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                LibraryViewModel(repository, patternFolder = patternFolder, syncPatternFolder = syncPatternFolder)
+                LibraryViewModel(repository, patternFolder = patternFolder, syncPatternFolder = syncPatternFolder, readPatternDetails = readPatternDetails)
             }
         }
     }

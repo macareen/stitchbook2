@@ -129,6 +129,9 @@ fun projectMarkdown(project: Project, snapshot: BackupSnapshot, now: Long): Stri
                 val author = pattern.author?.takeIf { it.isNotBlank() }?.let { " by ${it.trim()}" }.orEmpty()
                 val file = pattern.pdfFileName?.let { " — file: $it" }.orEmpty()
                 line("- ${pattern.title.trim()}$author$file")
+                com.macareen.stitchbook2.domain.library.PatternSuggestions.reference(pattern)?.let { reference ->
+                    reference.lines().forEach { line("  > $it") }
+                }
                 pattern.sourceUrl?.takeIf { it.isNotBlank() }?.let { line("  <${it.trim()}>") }
             }
         }

@@ -235,7 +235,8 @@ fun StitchbookNavHost(
                 factory = LibraryViewModel.factory(
                     libraryRepository,
                     application.container.patternFolder,
-                    application.container.syncPatternFolder
+                    application.container.syncPatternFolder,
+                    application.container.readPatternInfo
                 )
             )
             LibraryRoute(

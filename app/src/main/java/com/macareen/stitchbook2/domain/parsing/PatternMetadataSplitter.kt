@@ -15,11 +15,12 @@ data class PatternDetails(
     /** Total yarn needed in yards, when the materials state it in yards or metres. */
     val yardage: Double? = null,
     val measurements: String? = null,
-    val abbreviations: String? = null
+    val abbreviations: String? = null,
+    val techniques: String? = null
 ) {
     val isEmpty: Boolean
         get() = description == null && designer == null && gauge == null && yarn == null &&
-            tools == null && sizes == null && yardage == null && measurements == null && abbreviations == null
+            tools == null && sizes == null && yardage == null && measurements == null && abbreviations == null && techniques == null
 }
 
 /** [details] about the pattern, and the [instructions] that become steps. */
@@ -45,7 +46,7 @@ data class SplitPattern(val details: PatternDetails, val instructions: List<Extr
  */
 object PatternMetadataSplitter {
 
-    private enum class Block { DESCRIPTION, GAUGE, YARN, TOOLS, SIZES, MEASUREMENTS, ABBREVIATIONS, SKIP, INSTRUCTIONS }
+    private enum class Block { DESCRIPTION, GAUGE, YARN, TOOLS, SIZES, MEASUREMENTS, ABBREVIATIONS, TECHNIQUES, SKIP, INSTRUCTIONS }
 
     private val HEADING_BLOCKS: List<Pair<Regex, Block>> = listOf(
         Regex("""^(gauge|tension)$""") to Block.GAUGE,
@@ -53,13 +54,14 @@ object PatternMetadataSplitter {
         Regex("""^(needles?|hooks?|crochet hooks?|tools|notions|needles and notions|equipment)$""") to Block.TOOLS,
         Regex("""^(sizes?|finished size|sizing)$""") to Block.SIZES,
         Regex("""^(finished measurements?|measurements?)$""") to Block.MEASUREMENTS,
-        Regex("""^(abbreviations?|stitch glossary|glossary|techniques|special stitches)$""") to Block.ABBREVIATIONS,
+        Regex("""^(abbreviations?|stitch glossary|glossary)$""") to Block.ABBREVIATIONS,
+        Regex("""^(techniques|special stitches|special techniques)$""") to Block.TECHNIQUES,
         Regex("""^(skill level|difficulty|copyright|terms of use|support|contact)$""") to Block.SKIP,
         Regex("""^(about( this pattern)?|description|introduction|pattern notes|size guide|size chart|size information|size notes|size selection|notes|designer'?s? notes?|construction|story)$""") to Block.DESCRIPTION
     )
 
     private val INLINE_FIELD = Regex(
-        """^(gauge|tension|yarn|needles?|hooks?|crochet hook|notions|sizes?|finished measurements?|yardage)\s*[:–—-]\s*(.+)$""",
+        """^((?:(?:suggested|recommended)\s+)?(?:gauge|tension|yarn|materials?|supplies|needles?|hooks?|crochet hook|notions|sizes?|finished measurements?|yardage|techniques?|description))\s*[:–—-]\s*(.+)$""",
         RegexOption.IGNORE_CASE
     )
     private val BYLINE = Regex("""^(?:.*\b)?(?:designed\s+)?by\s+([A-Z][\p{L}'.-]+(?:\s+[A-Z][\p{L}'.-]+){0,3})\s*$""")
@@ -126,6 +128,7 @@ object PatternMetadataSplitter {
         val sizes = mutableListOf<String>()
         val measurements = mutableListOf<String>()
         val abbreviations = mutableListOf<String>()
+        val techniques = mutableListOf<String>()
         var continuation: Block? = null
         var designer: String? = null
         val instructions = mutableListOf<ExtractedLine>()
@@ -140,6 +143,7 @@ object PatternMetadataSplitter {
             Block.SIZES -> sizes += text
             Block.MEASUREMENTS -> measurements += text
             Block.ABBREVIATIONS -> abbreviations += text
+            Block.TECHNIQUES -> techniques += text
             Block.SKIP, Block.INSTRUCTIONS -> Unit
         }
 
@@ -165,7 +169,7 @@ object PatternMetadataSplitter {
                 continuation = null
                 continue
             }
-            val definition = termDefinition(text, block == Block.ABBREVIATIONS) ?: if (block == Block.ABBREVIATIONS) SHORT_DEFINITION.matchEntire(text)?.let {
+            val definition = termDefinition(text, block in setOf(Block.ABBREVIATIONS, Block.TECHNIQUES)) ?: if (block == Block.ABBREVIATIONS) SHORT_DEFINITION.matchEntire(text)?.let {
                 it.groupValues[1] to it.groupValues[2]
             } else null
             if (definition != null) {
@@ -239,6 +243,7 @@ object PatternMetadataSplitter {
                 sizes = sizes.joined(),
                 yardage = yarnText?.let(::yardsIn),
                 measurements = measurements.joined(),
+                techniques = techniques.joined(),
                 abbreviations = abbreviations.takeIf { it.isNotEmpty() }?.joinToString("\n")
             ),
             instructions = instructions
@@ -246,13 +251,15 @@ object PatternMetadataSplitter {
     }
 
     private fun blockFor(heading: String): Block? {
-        val key = heading.lowercase().trim().removeSuffix(":").trim()
+        val key = heading.lowercase().trim().removeSuffix(":").trim().removePrefix("suggested ").removePrefix("recommended ")
         return HEADING_BLOCKS.firstOrNull { (pattern, _) -> pattern.matches(key) }?.second
     }
 
-    private fun fieldFor(label: String): Block = when (label.lowercase().trim()) {
+    private fun fieldFor(label: String): Block = when (label.lowercase().trim().removePrefix("suggested ").removePrefix("recommended ")) {
+        "technique", "techniques" -> Block.TECHNIQUES
+        "description" -> Block.DESCRIPTION
         "gauge", "tension" -> Block.GAUGE
-        "yarn", "yardage" -> Block.YARN
+        "yarn", "material", "materials", "supplies", "yardage" -> Block.YARN
         "size", "sizes" -> Block.SIZES
         "finished measurement", "finished measurements" -> Block.MEASUREMENTS
         else -> Block.TOOLS

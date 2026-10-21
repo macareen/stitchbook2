@@ -57,7 +57,15 @@ fun GuideReferenceDialog(notes: String?, onClose: () -> Unit) {
                 val remaining = if (glossary.isEmpty()) notes else notes.replace(Regex("(?is)(?:^|\\n)##\\s*(?:glossary|abbreviations?)\\s*\\n.*?(?=\\n##\\s|$)"), "").trim()
                 if (remaining.isNotBlank()) {
                     Text(stringResource(R.string.reference_all), style = MaterialTheme.typography.titleMedium)
-                    Text(remaining)
+                    val sections = com.macareen.stitchbook2.domain.library.PatternSuggestions.sections(remaining)
+                    if (sections.isEmpty()) Text(remaining)
+                    else {
+                        remaining.substringBefore("## ").trim().takeIf(String::isNotBlank)?.let { Text(it) }
+                        sections.forEach { (heading, body) ->
+                            Text(heading, style = MaterialTheme.typography.titleSmall)
+                            Text(body)
+                        }
+                    }
                 }
             }
         } }, confirmButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.reference_close)) } })

@@ -12,7 +12,7 @@ object GuideReference {
 
     fun glossary(notes: String?): List<GlossaryEntry> {
         if (notes.isNullOrBlank()) return emptyList()
-        val glossary = Regex("""(?is)(?:^|\n)(?:##\s*)?(?:abbreviations?|glossary)\s*:?\s*(.*?)(?=\n##\s|$)""")
+        val glossary = Regex("""(?is)(?:^|\n)(?:##\s*)?(?:abbreviations?|glossary|techniques)\s*:?\s*(.*?)(?=\n##\s|$)""")
             .findAll(notes).map { it.groupValues[1] }.joinToString("\n")
         val matches = definition.findAll(glossary).toList()
         return matches.mapIndexedNotNull { index, match ->
@@ -26,7 +26,7 @@ object GuideReference {
     fun notes(details: PatternDetails): String? = sections(listOf(
         "Description" to details.description, "Designer" to details.designer, "Gauge" to details.gauge,
         "Materials" to details.yarn, "Tools" to details.tools, "Sizes" to details.sizes,
-        "Measurements" to details.measurements, "Glossary" to details.abbreviations))
+        "Measurements" to details.measurements, "Techniques" to details.techniques, "Glossary" to details.abbreviations))
 
     fun notes(guide: StructuredGuide): String? = sections(listOf(
         "Materials" to guide.materials.joinToString("\n").ifBlank { null },

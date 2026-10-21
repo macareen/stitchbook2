@@ -34,12 +34,32 @@ object PatternSizes {
     private val NUMERIC_RUN: Regex = run {
         val inside = "$VALUE(?:\\s*[,;]\\s*$VALUE)*"
         val group = "(?:\\(\\s*$inside\\s*\\)|\\[\\s*$inside\\s*\\])"
-        Regex("(?<![\\d./(])($VALUE(?:\\s*$group|\\s+$VALUE)+)", RegexOption.IGNORE_CASE)
+        Regex("(?<![\\d./(])($VALUE(?:\\s*[,;]?\\s*$group|\\s*[,;]\\s+$VALUE|\\s+$VALUE)+)", RegexOption.IGNORE_CASE)
+    }
+
+    private val boundedLabel = Regex("($LABEL)(?![\\p{L}\\d])", RegexOption.IGNORE_CASE)
+    private val canonicalLabel = Regex("^$LABEL$", RegexOption.IGNORE_CASE)
+    private val annotatedSize = Regex("""(?i)(?<![\p{L}\d])(\d*X*[SML])\s*\([^)]*(?:cm|inches?|[”\"])[^)]*\)""")
+
+    /** Trim prose after a complete size declaration; never consume an incomplete annotation. */
+    private fun declarationPrefix(text: String): String {
+        var end = 0
+        var count = 0
+        while (end < text.length) {
+            val token = boundedLabel.find(text, end)?.takeIf { it.range.first == end }
+            if (token != null) { end = token.range.last + 1; count++ }
+            else if (text[end].isWhitespace() || text[end] in "()[],;/") end++
+            else break
+        }
+        val prefix = text.take(end).trim()
+        return if (count >= 2 && prefix.count { it == '(' } == prefix.count { it == ')' } && prefix.count { it == '[' } == prefix.count { it == ']' }) prefix else text
     }
 
     /** Labels in grouped, alternating, comma or slash notation; measurement units are not labels. */
     fun labelsFrom(text: String): List<String> {
-        val trimmed = MEASUREMENT_VALUES.find(text.trim())?.groupValues?.get(1)?.trim() ?: text.trim()
+        val annotated = annotatedSize.findAll(text).map { it.groupValues[1] }.toList()
+        if (annotated.size >= 2) return annotated
+        val trimmed = declarationPrefix(MEASUREMENT_VALUES.find(text.trim())?.groupValues?.get(1)?.trim() ?: text.trim())
         val flattened = StringBuilder()
         var closing: Char? = null
         for (character in trimmed) {
@@ -73,12 +93,16 @@ object PatternSizes {
     fun findInDocument(document: ExtractedDocument): Pair<List<String>, ExtractedLine>? {
         val candidates = document.lines.mapIndexedNotNull { index, line ->
             val inline = SIZES_LINE.matchEntire(line.text.trim()) ?: MEASUREMENT_LINE.matchEntire(line.text.trim())
-            val source = if (SIZE_HEADING.matches(line.text.trim())) document.lines.getOrNull(index + 1) else line
-            val text = if (source != line) source?.text else inline?.groupValues?.get(1)
-            text?.let(::labelsFrom)?.takeIf { it.isNotEmpty() }?.let { it to requireNotNull(source) }
+            if (SIZE_HEADING.matches(line.text.trim())) {
+                document.lines.drop(index + 1).take(8)
+                    .takeWhile { !Regex("""^(?:abbreviations?|materials?|gauge|pattern|instructions?|needles?|hooks?)\s*:?\s*$""", RegexOption.IGNORE_CASE).matches(it.text.trim()) }
+                    .mapNotNull { source -> labelsFrom(source.text).takeIf { labels -> labels.isNotEmpty() && labels.all(canonicalLabel::matches) }?.let { it to source } }
+                    .firstOrNull()
+            } else inline?.groupValues?.get(1)?.let(::labelsFrom)?.takeIf { it.isNotEmpty() }?.let { it to line }
         }
-        return candidates.firstOrNull { (labels, _) -> labels.all { it.any(Char::isLetter) } }
-            ?: candidates.firstOrNull()
+        val canonical = candidates.filter { (labels, _) -> labels.all(canonicalLabel::matches) }
+        return canonical.firstOrNull { (labels, _) -> labels.all { it.any(Char::isLetter) } }
+            ?: canonical.firstOrNull() ?: candidates.firstOrNull()
     }
 
     /** Where [label] sits in [labels], ignoring case and spacing, or null when it isn't one of them. */
@@ -105,6 +129,26 @@ object PatternSizes {
                 leading + values[sizeIndex]
             } else match.value
         }
+    }
+
+    /** Long grouped alternatives left in an executable instruction require explicit size review. */
+    fun unresolvedIssues(pattern: ParsedPattern, sizeCount: Int): List<ParsingIssue> {
+        if (sizeCount < 2) return emptyList()
+        fun visit(nodes: List<ParsedNode>): List<ParsingIssue> = nodes.flatMap { node ->
+            when (node) {
+                is ParsedInstruction -> {
+                    val ambiguous = NUMERIC_RUN.findAll(node.text).any { match ->
+                        val values = VALUE_TOKEN.findAll(match.value).map { it.value }.toList()
+                        ('(' in match.value || '[' in match.value) && values.size >= 4 && values.size != sizeCount && !(values.size > sizeCount && values.distinct().size == 1)
+                    }
+                    if (ambiguous) listOf(ParsingIssue("Check this instruction's unresolved size numbers in the original pattern before following it.", node.source)) else emptyList()
+                }
+                is ParsedSection -> visit(node.children)
+                is ParsedRange -> visit(node.children)
+                is ParsedRepeat -> visit(node.children)
+            }
+        }
+        return visit(pattern.rootNodes).distinctBy { it.source }
     }
 
     /** [document] with every line resolved for one size; sources are unchanged. */

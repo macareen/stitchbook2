@@ -105,7 +105,8 @@ class SyncPatternFolder(
     private val libraryRepository: LibraryRepository,
     private val newId: () -> String,
     private val clock: () -> Long = System::currentTimeMillis,
-    private val readTitle: suspend (String) -> String? = { null }
+    private val readTitle: suspend (String) -> String? = { null },
+    private val readDetails: (suspend (String) -> PatternPdfInfo?)? = null
 ) {
     /** Returns null when no folder is chosen. */
     suspend operator fun invoke(): PatternFolderSyncResult? {
@@ -117,7 +118,11 @@ class SyncPatternFolder(
             val title = try { readTitle(requireNotNull(item.pdfUri)) }
             catch (error: kotlinx.coroutines.CancellationException) { throw error }
             catch (_: Exception) { null }
-            libraryRepository.saveLibraryItem(item.copy(title = title?.takeIf(String::isNotBlank) ?: item.title))
+            val titled = item.copy(title = title?.takeIf(String::isNotBlank) ?: item.title)
+            val info = try { readDetails?.invoke(requireNotNull(item.pdfUri)) }
+                catch (error: kotlinx.coroutines.CancellationException) { throw error }
+                catch (_: Exception) { null }
+            libraryRepository.saveLibraryItem(if (info == null) titled else PatternSuggestions.apply(titled, info))
         }
         return PatternFolderSyncResult(added = added.size, missing = PatternFolderPlanner.missingCount(pdfs, existing, folderUri))
     }

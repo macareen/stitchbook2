@@ -13,6 +13,13 @@ class PatternMetadataSplitterTest {
         lines = lines.mapIndexed { index, text -> ExtractedLine(text, SourceReference(pageNumber = 1, lineNumber = index + 1)) }
     )
 
+    @Test fun inlineMaterialsAndSuggestedHeadingsFillPatternRecommendations() {
+        val (_, details) = PatternTextParser.parseWithDetails(documentOf("Materials: 250 g of DK wool", "Recommended needles: 4 mm circular", "Suggested gauge", "20 stitches over 10 cm", "PATTERN", "Cast on 30 sts."))
+        assertEquals("250 g of DK wool", details.yarn)
+        assertEquals("4 mm circular", details.tools)
+        assertEquals("20 stitches over 10 cm", details.gauge)
+    }
+
     @Test fun anActionLabelIsNotMistakenForAGlossaryTerm() {
         val (_, details) = PatternTextParser.parseWithDetails(documentOf("PATTERN", "Cast on 6 sts.", "Decrease: Knit two together."))
         assertNull(details.abbreviations)

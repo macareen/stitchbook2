@@ -152,6 +152,13 @@ class LocalGuideRepository(
         return guideDao.getDraft(guideId.value)?.toDomain()
     }
 
+    override suspend fun getReferenceNotes(guideId: GuideId): String? {
+        val guide = getGuide(guideId) ?: return null
+        val pattern = guide.libraryItemId?.let { guideDao.getPatternReference(it)?.toDomain() }
+        return listOfNotNull(guide.notes, pattern?.let(com.macareen.stitchbook2.domain.library.PatternSuggestions::reference))
+            .joinToString("\n\n").ifBlank { null }
+    }
+
     override suspend fun moveDraftReferences(expectedGuide: Guide, expectedDraft: GuideDraft): GuideDraft {
         require(expectedGuide.id == expectedDraft.guideId)
         val plan = com.macareen.stitchbook2.domain.guide.GuideReferenceCleanup.preview(expectedDraft)
@@ -161,7 +168,7 @@ class LocalGuideRepository(
             updated.createdAt, updated.updatedAt, updated.version)
         return try {
             guideDao.replaceDraftAndReference(expectedGuide, entity, expectedDraft.version, updated.toNodeEntities(),
-                plan.appendTo(expectedGuide.notes)).toDomain()
+                plan.appendTo(expectedGuide.notes), plan).toDomain()
         } catch (_: DraftConflictException) { throw DraftVersionConflictException(expectedDraft.guideId) }
     }
 

@@ -87,7 +87,9 @@ sealed interface PatternGuidesUiState {
         val completedProjects: Int = 0,
         val guideRemovalFailed: Boolean = false,
         val guideArchiveFailed: Boolean = false,
-        val archivedGuides: List<PatternGuideEntry> = emptyList()
+        val archivedGuides: List<PatternGuideEntry> = emptyList(),
+        val isReadingDetails: Boolean = false,
+        val detailsReadFailed: Boolean = false
     ) : PatternGuidesUiState {
         /** PDF sizes take precedence; saved Library sizes remain a fallback. */
         val sizeChoices: List<String> get() = pdfSizeChoices.ifEmpty { PatternSizes.labelsFrom(pattern.sizes.orEmpty()) }
@@ -128,32 +130,34 @@ class PatternGuidesViewModel(
     private val startedProject = MutableStateFlow<String?>(null)
     private val ravelryPdf = MutableStateFlow(RavelryPdfState())
 
-    private data class DiscoveredSizes(val uri: String, val labels: List<String>)
+    private data class DiscoveredSizes(val uri: String, val labels: List<String>, val reading: Boolean = false, val failed: Boolean = false)
+    private val detailsRetry = MutableStateFlow(0L)
     private val discoveredSizes = MutableStateFlow<DiscoveredSizes?>(null)
 
     init {
         // Reading choices is independent of creating a guide. A replaced PDF
         // cancels its predecessor; metadata updates do not re-extract the PDF.
         scope.launch {
-            libraryRepository.observeLibraryItem(libraryItemId)
-                .map { it?.pdfUri }
-                .distinctUntilChanged()
+            combine(libraryRepository.observeLibraryItem(libraryItemId).map { it?.pdfUri }.distinctUntilChanged(), detailsRetry) { uri, _ -> uri }
                 .collectLatest { uri ->
                     discoveredSizes.value = null
                     val useCase = createGuideFromPdf
                     if (uri != null && useCase != null) {
-                        val labels = try {
+                        discoveredSizes.value = DiscoveredSizes(uri, emptyList(), reading = true)
+                        try {
                             val bytes = readPatternFile(uri)
-                            if (bytes == null) emptyList() else ByteArrayInputStream(bytes).use { useCase.sizeChoices(it) }
-                        } catch (error: CancellationException) {
-                            throw error
-                        } catch (_: Exception) {
-                            emptyList()
-                        }
-                        discoveredSizes.value = DiscoveredSizes(uri, labels)
+                            val info = bytes?.let { ByteArrayInputStream(it).use { input -> useCase.setupPattern(libraryItemId, input, uri) } }
+                            discoveredSizes.value = DiscoveredSizes(uri, info?.sizes.orEmpty(), failed = info == null)
+                        } catch (error: CancellationException) { throw error }
+                        catch (_: Exception) { discoveredSizes.value = DiscoveredSizes(uri, emptyList(), failed = true) }
                     }
                 }
         }
+    }
+
+    fun readPatternDetails() {
+        if (discoveredSizes.value?.reading == true || creation.value.isCreating || pdfReview.value != null || editReview.value != null) return
+        detailsRetry.value += 1
     }
 
     /** Saves the pattern's Ravelry PDF into the pattern folder and links it here. */
@@ -308,6 +312,8 @@ class PatternGuidesViewModel(
                 pdfSizeChoices = sizes?.takeIf { it.uri == pattern.pdfUri }?.labels.orEmpty(),
                 guideRemovalFailed = creationState.guideRemovalFailed,
                 guideArchiveFailed = creationState.guideArchiveFailed,
+                isReadingDetails = sizes?.takeIf { it.uri == pattern.pdfUri }?.reading == true,
+                detailsReadFailed = sizes?.takeIf { it.uri == pattern.pdfUri }?.failed == true,
                 archivedGuides = guides.filter { it.guide.isArchived }
             )
         }

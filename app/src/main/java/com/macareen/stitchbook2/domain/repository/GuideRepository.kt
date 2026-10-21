@@ -57,6 +57,8 @@ class DraftVersionConflictException(
 )
 
 interface GuideRepository {
+    suspend fun getReferenceNotes(guideId: GuideId): String? = getGuide(guideId)?.notes
+
     suspend fun moveDraftReferences(expectedGuide: Guide, expectedDraft: GuideDraft): GuideDraft =
         throw UnsupportedOperationException("Reference cleanup unavailable")
 

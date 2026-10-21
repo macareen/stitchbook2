@@ -82,6 +82,7 @@ class DraftEditorViewModel(
 
     private var draft: GuideDraft? = null
     private var guideName: String = ""
+    private var referenceNotes: String? = null
     private var cachedGuide: com.macareen.stitchbook2.domain.guide.Guide? = null
 
     init {
@@ -98,12 +99,13 @@ class DraftEditorViewModel(
                     return@launch
                 }
                 cachedGuide = guide
+                referenceNotes = guideRepository.getReferenceNotes(guideId)
                 guideName = guide.name
                 draft = loadedDraft
                 val (isPublished, hasActiveExecution) = currentPublicationStatus()
                 _uiState.value = DraftEditorUiState.Content(
                     guideName = guideName,
-                    referenceNotes = cachedGuide?.notes,
+                    referenceNotes = referenceNotes,
                     referenceCandidates = draft?.let { com.macareen.stitchbook2.domain.guide.GuideReferenceCleanup.preview(it).movedTexts }.orEmpty(),
                     rows = outlineRows(loadedDraft),
                     isPublished = isPublished,
@@ -127,6 +129,7 @@ class DraftEditorViewModel(
             try {
                 draft = guideRepository.moveDraftReferences(guide, current)
                 cachedGuide = guideRepository.getGuide(guideId)
+                referenceNotes = guideRepository.getReferenceNotes(guideId)
                 render()
             } catch (error: CancellationException) { throw error }
             catch (_: DraftVersionConflictException) { cachedGuide = guideRepository.getGuide(guideId); reloadAfterConflict() }
@@ -339,7 +342,7 @@ class DraftEditorViewModel(
         _uiState.value = content?.copy(isSaving = true, errorMessage = null)
             ?: DraftEditorUiState.Content(
                 guideName = guideName,
-                referenceNotes = cachedGuide?.notes,
+                referenceNotes = referenceNotes,
                 referenceCandidates = draft?.let { com.macareen.stitchbook2.domain.guide.GuideReferenceCleanup.preview(it).movedTexts }.orEmpty(),
                 rows = outlineRows(updated),
                 isSaving = true
@@ -368,7 +371,7 @@ class DraftEditorViewModel(
         val previous = _uiState.value as? DraftEditorUiState.Content
         _uiState.value = DraftEditorUiState.Content(
             guideName = guideName,
-            referenceNotes = cachedGuide?.notes,
+            referenceNotes = referenceNotes,
             referenceCandidates = draft?.let { com.macareen.stitchbook2.domain.guide.GuideReferenceCleanup.preview(it).movedTexts }.orEmpty(),
             rows = outlineRows(current),
             isPublished = previous?.isPublished == true,
@@ -382,7 +385,7 @@ class DraftEditorViewModel(
         val previous = _uiState.value as? DraftEditorUiState.Content
         _uiState.value = DraftEditorUiState.Content(
             guideName = guideName,
-            referenceNotes = cachedGuide?.notes,
+            referenceNotes = referenceNotes,
             referenceCandidates = draft?.let { com.macareen.stitchbook2.domain.guide.GuideReferenceCleanup.preview(it).movedTexts }.orEmpty(),
             rows = outlineRows(unchanged),
             isSaving = false,
@@ -408,7 +411,7 @@ class DraftEditorViewModel(
         val (isPublished, hasActiveExecution) = currentPublicationStatus()
         _uiState.value = DraftEditorUiState.Content(
             guideName = guideName,
-            referenceNotes = cachedGuide?.notes,
+            referenceNotes = referenceNotes,
             referenceCandidates = draft?.let { com.macareen.stitchbook2.domain.guide.GuideReferenceCleanup.preview(it).movedTexts }.orEmpty(),
             rows = outlineRows(reloaded),
             isSaving = false,
@@ -431,7 +434,7 @@ class DraftEditorViewModel(
         val hasActiveExecution = executionRepository.getActiveExecution(guideId, projectId) != null
         _uiState.value = DraftEditorUiState.Content(
             guideName = guideName,
-            referenceNotes = cachedGuide?.notes,
+            referenceNotes = referenceNotes,
             referenceCandidates = draft?.let { com.macareen.stitchbook2.domain.guide.GuideReferenceCleanup.preview(it).movedTexts }.orEmpty(),
             rows = outlineRows(reloaded),
             isPublished = true,
