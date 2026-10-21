@@ -11,7 +11,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.testTag
@@ -146,6 +151,9 @@ private fun RegionEdge(label: String, value: Int, minimum: Int, maximum: Int, en
 private fun SourcePagePreview(bytes: ByteArray, page: Int, regions: List<PdfSourceRegion>) {
     var bitmap by remember(bytes, page) { mutableStateOf<android.graphics.Bitmap?>(null) }
     var failed by remember(bytes, page) { mutableStateOf(false) }
+    var zoom by remember(bytes, page) { mutableFloatStateOf(1f) }
+    var panX by remember(bytes, page) { mutableFloatStateOf(0f) }
+    var panY by remember(bytes, page) { mutableFloatStateOf(0f) }
     LaunchedEffect(bytes, page) {
         try {
             bitmap = withContext(Dispatchers.IO) {
@@ -160,14 +168,39 @@ private fun SourcePagePreview(bytes: ByteArray, page: Int, regions: List<PdfSour
     val image = bitmap
     DisposableEffect(image) { onDispose { image?.recycle() } }
     if (image != null) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            TextButton(onClick = { zoom = (zoom * 1.25f).coerceAtMost(4f) }, enabled = zoom < 4f) {
+                Text(stringResource(R.string.pdf_source_zoom_in))
+            }
+            TextButton(onClick = { zoom = (zoom / 1.25f).coerceAtLeast(1f); if (zoom == 1f) { panX = 0f; panY = 0f } }, enabled = zoom > 1f) {
+                Text(stringResource(R.string.pdf_source_zoom_out))
+            }
+            TextButton(onClick = { zoom = 1f; panX = 0f; panY = 0f }, enabled = zoom > 1f || panX != 0f || panY != 0f,
+                modifier = Modifier.testTag("pdf-source-reset-zoom")) {
+                Text(stringResource(R.string.pdf_source_zoom_reset))
+            }
+        }
         Box(Modifier.fillMaxWidth().aspectRatio(image.width.toFloat() / image.height)) {
-            Image(image.asImageBitmap(), stringResource(R.string.pdf_source_original), Modifier.fillMaxSize())
-            Canvas(Modifier.fillMaxSize()) {
-                regions.forEach { region ->
-                    val offset = Offset(size.width * region.left / 100f, size.height * region.top / 100f)
-                    val area = Size(size.width * (region.right - region.left) / 100f, size.height * (region.bottom - region.top) / 100f)
-                    drawRect(Color(0xFF00695C).copy(alpha = .12f), offset, area)
-                    drawRect(Color(0xFF00695C), offset, area, style = Stroke(3.dp.toPx()))
+            val zoomModifier = Modifier.fillMaxSize().clipToBounds()
+                .pointerInput(page) {
+                    detectTransformGestures { _, pan, zoomChange, _ ->
+                        val nextZoom = (zoom * zoomChange).coerceIn(1f, 4f)
+                        zoom = nextZoom
+                        if (nextZoom == 1f) { panX = 0f; panY = 0f }
+                        else { panX += pan.x; panY += pan.y }
+                    }
+                }
+                .pointerInput(page) { detectTapGestures(onDoubleTap = { zoom = 1f; panX = 0f; panY = 0f }) }
+                .graphicsLayer(scaleX = zoom, scaleY = zoom, translationX = panX, translationY = panY)
+            Box(zoomModifier) {
+                Image(image.asImageBitmap(), stringResource(R.string.pdf_source_original), Modifier.fillMaxSize())
+                Canvas(Modifier.fillMaxSize()) {
+                    regions.forEach { region ->
+                        val offset = Offset(size.width * region.left / 100f, size.height * region.top / 100f)
+                        val area = Size(size.width * (region.right - region.left) / 100f, size.height * (region.bottom - region.top) / 100f)
+                        drawRect(Color(0xFF00695C).copy(alpha = .12f), offset, area)
+                        drawRect(Color(0xFF00695C), offset, area, style = Stroke(3.dp.toPx()))
+                    }
                 }
             }
         }
