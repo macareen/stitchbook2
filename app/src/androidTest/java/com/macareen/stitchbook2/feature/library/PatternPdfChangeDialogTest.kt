@@ -42,7 +42,7 @@ class PatternPdfChangeDialogTest {
         var editRequests = 0
         compose.setContent { StitchbookTheme {
             PatternGuidesScreen(PatternGuidesUiState.Content(review.expected, emptyList(), false, false),
-                {}, {}, { _, _ -> }, onUnlinkPdf = { unlinkRequests++ }, onEditPattern = { editRequests++ })
+                {}, {}, { _, _, _ -> }, onUnlinkPdf = { unlinkRequests++ }, onEditPattern = { editRequests++ })
         } }
         compose.onNodeWithText("PDF actions").performScrollTo().performClick()
         compose.onNodeWithText("Replace PDF link").assertIsDisplayed()

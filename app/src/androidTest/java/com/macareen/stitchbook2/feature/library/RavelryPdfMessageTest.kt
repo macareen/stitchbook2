@@ -43,7 +43,7 @@ class RavelryPdfMessageTest {
                         canGetRavelryPdf = true,
                         ravelryPdf = RavelryPdfState(result = DownloadRavelryPdf.Result.Failed(
                             DownloadRavelryPdf.Problem.PERMISSION_DENIED, 403, RavelryRequestStage.PDF_LINK))),
-                    onOpenPdf = {}, onEditGuide = {}, onCreateGuide = { _, _ -> }
+                    onOpenPdf = {}, onEditGuide = {}, onCreateGuide = { _, _, _ -> }
                 )
                 }
             }

@@ -42,7 +42,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PatternGuidesViewModelTest {
-    @Test fun creatingFromCurrentPdfSelectionOpensAnEditableSizeFilteredDraftWithoutPreviewGate() = runBlocking {
+    @Test fun fillingFromPatternOpensAnEditableSizeFilteredDraftWithoutPageReview() = runBlocking {
         val guides = FakePatternGuides()
         val document = ExtractedDocument(1, listOf(
             ExtractedLine("Sizes: S (M)", SourceReference(1, 1)),
@@ -55,12 +55,10 @@ class PatternGuidesViewModelTest {
         val collector = scope.launch { model.uiState.collect {} }
         withTimeout(5_000) { model.uiState.first { it is PatternGuidesUiState.Content } }
         model.createGuide("M", fromPattern = true)
-        withTimeout(5_000) { model.pdfSourceReview.first { it != null } }
-
-        model.createDraftFromSelection()
         val createdId = withTimeout(5_000) { model.createdGuideId.first { it != null } }
 
         assertEquals("created-1", createdId)
+        assertEquals(null, model.pdfSourceReview.value)
         assertEquals("Cast on 66 sts. (p.1)", guides.savedDraft?.nodes?.single()?.instructionText)
         collector.cancel()
     }
@@ -74,7 +72,7 @@ class PatternGuidesViewModelTest {
             createGuideFromPdf = CreateGuideFromPdfUseCase(FixedText(document), guides, { "n" }), readPatternFile = { ByteArray(1) })
         val collector = scope.launch { model.uiState.collect {} }
         withTimeout(5_000) { model.uiState.first { it is PatternGuidesUiState.Content } }
-        model.createGuide("M", true)
+        model.createGuide("M", fromPattern = true, reviewPdfSource = true)
         withTimeout(5_000) { model.pdfSourceReview.first { it != null } }
         model.confirmSourceReview()
         assertTrue(guides.created.isEmpty())
@@ -102,7 +100,7 @@ class PatternGuidesViewModelTest {
                 listOf(ExtractedLine("Bind off.", SourceReference(1, 1))))), guides, { "n" }), readPatternFile = { ByteArray(1) })
         val collector = scope.launch { model.uiState.collect {} }
         withTimeout(5_000) { model.uiState.first { it is PatternGuidesUiState.Content } }
-        model.createGuide("M", true)
+        model.createGuide("M", fromPattern = true, reviewPdfSource = true)
         withTimeout(5_000) { model.pdfSourceReview.first { it != null } }
         val region = com.macareen.stitchbook2.domain.parsing.PdfSourceRegion(1)
         model.changeSourceRegions(listOf(region, region))
@@ -213,7 +211,7 @@ class PatternGuidesViewModelTest {
         ).also { vm -> scope.launch { vm.uiState.collect {} } }
 
         assertEquals(listOf("S", "M"), (viewModel.uiState.value as PatternGuidesUiState.Content).sizeChoices)
-        viewModel.createGuide("M", fromPattern = true)
+        viewModel.createGuide("M", fromPattern = true, reviewPdfSource = true)
 
         runBlocking { withTimeout(5_000) { viewModel.pdfSourceReview.first { it != null } } }
         assertTrue(guides.created.isEmpty())
