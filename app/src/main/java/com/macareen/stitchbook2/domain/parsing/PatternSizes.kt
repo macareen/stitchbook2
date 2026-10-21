@@ -143,7 +143,7 @@ object PatternSizes {
         }
     }
 
-    /** Long grouped alternatives left in an executable instruction require explicit size review. */
+    /** Grouped numeric alternatives that cannot be resolved for the chosen size count require review. */
     fun unresolvedIssues(pattern: ParsedPattern, sizeCount: Int): List<ParsingIssue> {
         if (sizeCount < 2) return emptyList()
         fun visit(nodes: List<ParsedNode>): List<ParsingIssue> = nodes.flatMap { node ->
@@ -151,7 +151,7 @@ object PatternSizes {
                 is ParsedInstruction -> {
                     val ambiguous = NUMERIC_RUN.findAll(node.text).any { match ->
                         val values = VALUE_TOKEN.findAll(match.value).map { it.value }.toList()
-                        ('(' in match.value || '[' in match.value) && values.size >= 4 && values.size != sizeCount && !(values.size > sizeCount && values.distinct().size == 1)
+                        ('(' in match.value || '[' in match.value) && values.size >= 2 && values.size != sizeCount && !(values.size > sizeCount && values.distinct().size == 1)
                     }
                     if (ambiguous) listOf(ParsingIssue("Check this instruction's unresolved size numbers in the original pattern before following it.", node.source)) else emptyList()
                 }

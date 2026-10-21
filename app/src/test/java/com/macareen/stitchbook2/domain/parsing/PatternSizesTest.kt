@@ -52,6 +52,22 @@ class PatternSizesTest {
         assertTrue(PatternSizes.unresolvedIssues(parsed, 5).isEmpty())
     }
 
+    @Test fun groupedAlternativesWithTooFewValuesAreFlaggedButInvariantRunsAreNot() {
+        val tooFew = "Work 2 (3) times."
+        val source = SourceReference(3, 4)
+        val parsed = ParsedPattern(listOf(ParsedInstruction(tooFew, source)), emptyList())
+
+        assertEquals(tooFew, PatternSizes.resolve(tooFew, sizeIndex = 2, sizeCount = 3))
+        assertEquals(source, PatternSizes.unresolvedIssues(parsed, sizeCount = 3).single().source)
+        assertTrue(PatternSizes.unresolvedIssues(parsed, sizeCount = 2).isEmpty())
+
+        val invariant = ParsedPattern(
+            listOf(ParsedInstruction("Work 2 (2) 2 (2) times.", source)),
+            emptyList()
+        )
+        assertTrue(PatternSizes.unresolvedIssues(invariant, sizeCount = 3).isEmpty())
+    }
+
     @Test fun commasBeforeAlternatingGroupsDoNotSplitOneSizeList() {
         val values = listOf(12, 14, 16, 18, 20, 22, 24)
         val text = "Cast on 12 (14) 16 (18) 20, (22) 24 sts."
