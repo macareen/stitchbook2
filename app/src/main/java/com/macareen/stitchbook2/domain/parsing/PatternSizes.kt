@@ -39,6 +39,7 @@ object PatternSizes {
 
     private val boundedLabel = Regex("($LABEL)(?![\\p{L}\\d])", RegexOption.IGNORE_CASE)
     private val canonicalLabel = Regex("^$LABEL$", RegexOption.IGNORE_CASE)
+    private val namedLabel = Regex("""^[\p{L}\d]+(?:[ –-][\p{L}\d]+){0,2}$""")
     private val annotatedSize = Regex("""(?i)(?<![\p{L}\d])(\d*X*[SML])\s*\([^)]*(?:cm|inches?|[”\"])[^)]*\)""")
 
     /** Trim prose after a complete size declaration; never consume an incomplete annotation. */
@@ -92,13 +93,24 @@ object PatternSizes {
     /** Prefer letter sizes to measurements, retaining the source of the actual list. */
     fun findInDocument(document: ExtractedDocument): Pair<List<String>, ExtractedLine>? {
         val candidates = document.lines.mapIndexedNotNull { index, line ->
-            val inline = SIZES_LINE.matchEntire(line.text.trim()) ?: MEASUREMENT_LINE.matchEntire(line.text.trim())
+            val text = line.text.trim()
+            // OCR can interleave neighbouring columns between a heading and its list.
+            // A complete annotated label list is evidence on its own; prose is not.
+            val annotated = annotatedSize.findAll(text).map { it.groupValues[1] }.toList()
+            if (annotated.size >= 2 && annotated.distinct().size == annotated.size &&
+                annotatedSize.replace(text, "").all { it.isWhitespace() || it in ",;" })
+                return@mapIndexedNotNull annotated to line
+            val explicit = SIZES_LINE.matchEntire(text)
+            val inline = explicit ?: MEASUREMENT_LINE.matchEntire(text)
             if (SIZE_HEADING.matches(line.text.trim())) {
                 document.lines.drop(index + 1).take(8)
                     .takeWhile { !Regex("""^(?:abbreviations?|materials?|gauge|pattern|instructions?|needles?|hooks?)\s*:?\s*$""", RegexOption.IGNORE_CASE).matches(it.text.trim()) }
                     .mapNotNull { source -> labelsFrom(source.text).takeIf { labels -> labels.isNotEmpty() && labels.all(canonicalLabel::matches) }?.let { it to source } }
                     .firstOrNull()
-            } else inline?.groupValues?.get(1)?.let(::labelsFrom)?.takeIf { it.isNotEmpty() }?.let { it to line }
+            } else inline?.groupValues?.get(1)?.let(::labelsFrom)?.takeIf {
+                it.isNotEmpty() && it.all { label -> canonicalLabel.matches(label) ||
+                    (explicit != null && namedLabel.matches(label)) }
+            }?.let { it to line }
         }
         val canonical = candidates.filter { (labels, _) -> labels.all(canonicalLabel::matches) }
         return canonical.firstOrNull { (labels, _) -> labels.all { it.any(Char::isLetter) } }

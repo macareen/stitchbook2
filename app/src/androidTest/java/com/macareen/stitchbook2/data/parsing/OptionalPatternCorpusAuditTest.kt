@@ -13,7 +13,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 
-/** Opt-in read-only corpus audit. Neither filenames nor extracted prose enter test output. */
+/** Opt-in read-only corpus audit. Default metrics exclude filenames and extracted prose. */
 class OptionalPatternCorpusAuditTest {
     @Test fun auditOnePermissionedPdf() = runBlocking<Unit> {
         assumeTrue(InstrumentationRegistry.getArguments().getString("auditPattern") == "true")
@@ -24,6 +24,13 @@ class OptionalPatternCorpusAuditTest {
             val bytes = ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation
                 .executeShellCommand("cat /data/local/tmp/stitchbook-private-pattern.pdf")).use { it.readBytes() }
             val document = PdfBoxTextExtractor(instrumentation.targetContext, MlKitPdfPageOcr()).extract(ByteArrayInputStream(bytes))
+            // Explicit diagnostic only: capture privately, never in repository test reports.
+            InstrumentationRegistry.getArguments().getString("auditPage")?.toIntOrNull()?.let { page ->
+                instrumentation.sendStatus(0, Bundle().apply {
+                    putString("auditPageLines", JSONArray(document.lines.filter { it.source.pageNumber == page }
+                        .map { it.text }).toString())
+                })
+            }
             result.put("pages", document.pageCount).put("lines", document.lines.size)
                 .put("unreadablePages", JSONArray(document.pagesWithoutText()))
             val lowText = (1..document.pageCount).filter { page -> document.lines.filter { it.source.pageNumber == page }.sumOf { it.text.length } < 50 }
