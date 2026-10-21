@@ -7,6 +7,27 @@ import org.junit.Test
 
 class PatternSizesTest {
 
+    @Test fun completeAnnotatedListSurvivesInterleavedOcrColumns() {
+        val doc = document("SIZES", "Tools", "ABBREVIATIONS", "k", "knit", "Measure around your foot.",
+            "S(6/15cm) M (7\"/18cm) L(8\"/21cm) XL(9\"/24cm)")
+        val found = requireNotNull(PatternSizes.findInDocument(doc))
+        assertEquals(listOf("S", "M", "L", "XL"), found.first)
+        assertEquals(SourceReference(1, 7), found.second.source)
+    }
+
+    @Test fun annotatedMentionsInsideInstructionsAreNotStandaloneDeclarations() {
+        assertNull(PatternSizes.findInDocument(document("For S (15 cm) and M (18 cm), work to the marker.")))
+        assertNull(PatternSizes.findInDocument(document("S (15 cm), S (18 cm)")))
+    }
+
+    @Test fun dimensionsAndBracketedUnitConversionsAreNotSizeChoices() {
+        assertNull(PatternSizes.findInDocument(document(
+            "Measurements: 5 1/2” (14 cm) diameter base x 15 3/8” (39 cm) height (without handles)")))
+        assertEquals(listOf("Small", "Medium", "Large"), PatternSizes.findInDocument(document("Sizes: Small (Medium, Large)"))!!.first)
+        assertNull(PatternSizes.findInDocument(document("Size 9 (U.S.)/", "5.5 mm crochet hook")))
+        assertEquals(listOf("0-3 months", "3-6 months"), PatternSizes.findInDocument(document("Sizes: 0-3 months, 3-6 months"))!!.first)
+    }
+
     @Test fun numericDeclarationBeatsLaterSizeBranchProse() {
         val lines = listOf("Sizes 1 (2; 3; 4) [5; 6; 7] detailed below. Choose the right fit.", "Sizes 1-4: Work the front, then back, then sleeves.")
         val doc = ExtractedDocument(1, lines.mapIndexed { i, text -> ExtractedLine(text, SourceReference(1, i + 1)) })
