@@ -43,7 +43,8 @@ internal fun PdfSourceReviewDialog(
     onRegions: (List<PdfSourceRegion>) -> Unit,
     onPreview: () -> Unit,
     onCreate: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onCreateDraft: () -> Unit = onCreate
 ) {
     var page by rememberSaveable { mutableIntStateOf(1) }
     var editing by rememberSaveable { mutableIntStateOf(0) }
@@ -113,13 +114,6 @@ internal fun PdfSourceReviewDialog(
                             Text(stringResource(R.string.pdf_source_split_columns))
                         }
                     }
-                    item {
-                        TextButton(onClick = onPreview, enabled = !review.busy && !review.changed && review.regions.isNotEmpty(),
-                            modifier = Modifier.testTag("pdf-source-preview")) { Text(stringResource(R.string.pdf_source_preview)) }
-                        if (review.busy) CircularProgressIndicator()
-                        if (review.changed) Text(stringResource(R.string.pdf_source_changed), color = MaterialTheme.colorScheme.error)
-                        review.problem?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                    }
                     review.preview?.let { preview ->
                         item { Text(stringResource(R.string.pdf_source_text), style = MaterialTheme.typography.titleMedium) }
                         itemsIndexed(preview.selected.lines) { _, line ->
@@ -144,10 +138,28 @@ internal fun PdfSourceReviewDialog(
                         }
                     }
                 }
-                FlowRow {
-                    TextButton(onClick = onCreate, enabled = reviewed && review.preview != null && review.problem == null && !review.changed && !review.busy,
-                        modifier = Modifier.testTag("pdf-source-create")) { Text(stringResource(R.string.pattern_guides_create)) }
-                    TextButton(onClick = onDismiss, enabled = !review.busy) { Text(stringResource(R.string.cancel)) }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(stringResource(if (review.preview == null) R.string.pdf_source_quick_create_help else R.string.pdf_source_confirm_next_step),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    TextButton(onClick = onPreview, enabled = !review.busy && !review.changed && review.regions.isNotEmpty(),
+                        modifier = Modifier.fillMaxWidth().testTag("pdf-source-preview")) {
+                        Text(stringResource(R.string.pdf_source_preview))
+                    }
+                    if (review.busy) CircularProgressIndicator()
+                    if (review.changed) Text(stringResource(R.string.pdf_source_changed), color = MaterialTheme.colorScheme.error)
+                    review.problem?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                    FlowRow {
+                        if (review.preview == null) {
+                            TextButton(onClick = onCreateDraft, enabled = !review.busy && !review.changed && review.problem == null && review.regions.isNotEmpty(),
+                                modifier = Modifier.testTag("pdf-source-quick-create")) {
+                                Text(stringResource(R.string.pdf_source_quick_create))
+                            }
+                        } else {
+                            TextButton(onClick = onCreate, enabled = reviewed && review.problem == null && !review.changed && !review.busy,
+                                modifier = Modifier.testTag("pdf-source-create")) { Text(stringResource(R.string.pattern_guides_create)) }
+                        }
+                        TextButton(onClick = onDismiss, enabled = !review.busy) { Text(stringResource(R.string.cancel)) }
+                    }
                 }
             }
         }

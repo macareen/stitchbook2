@@ -7,7 +7,7 @@
     <string name="draft_replay_confirm">I checked the source and any differences in side, shaping, length or repeats. I will review the copied steps before publishing.</string>
     <string name="draft_replay_apply">Replace reminder</string>
     <string name="pdf_source_title">Review PDF for size %1$s</string>
-    <string name="pdf_source_help">Keep the pages and areas needed for this guide. Read each column as its own region, in order. Trim ads, comments or margins only after checking the original. Charts and partial text may still need manual instructions. Size choices and pattern reference come from the full PDF.</string>
+    <string name="pdf_source_help">Keep pages and areas with work instructions. Read each column as its own region and arrange them in order. Compare the preview with the original before creating. Exclude ads, comments or glossary areas only after checking nearby instructions. Charts and partial text may need manual steps. Size choices and pattern reference still come from the full PDF.</string>
     <string name="pdf_source_page">Page %1$d of %2$d</string>
     <string name="pdf_source_add_page">Include this page</string>
     <string name="pdf_source_order">Reading order</string>
@@ -26,6 +26,9 @@
     <string name="pdf_source_changed">The saved pattern changed. Cancel and start again to review its current source.</string>
     <string name="pdf_source_text">Text in reading order</string>
     <string name="pdf_source_confirm">I checked this text and reading order against the original, including sizing and charts. Create an editable draft for review.</string>
+    <string name="pdf_source_confirm_next_step">Review the extracted text above and check the confirmation to enable Create.</string>
+    <string name="pdf_source_quick_create">Create draft and edit</string>
+    <string name="pdf_source_quick_create_help">Create an unpublished draft from the selected pages and areas. Review or correct its instructions in the editor before publishing; previewing here is optional.</string>
     <string name="pdf_source_original">Original PDF page with included areas highlighted</string>
     <string name="pdf_source_zoom_in">Zoom in</string>
     <string name="pdf_source_zoom_out">Zoom out</string>

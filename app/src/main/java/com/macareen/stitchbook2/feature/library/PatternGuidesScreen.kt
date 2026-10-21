@@ -131,7 +131,7 @@ fun PatternGuidesRoute(
     }
     sourceReview?.let { review ->
         PdfSourceReviewDialog(review, viewModel::changeSourceRegions, viewModel::previewSource,
-            viewModel::confirmSourceReview, viewModel::dismissSourceReview)
+            viewModel::confirmSourceReview, viewModel::dismissSourceReview, viewModel::createDraftFromSelection)
     }
 }
 

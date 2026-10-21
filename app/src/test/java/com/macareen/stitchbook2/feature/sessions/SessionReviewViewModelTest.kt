@@ -143,4 +143,5 @@ private class ReviewPreferences : UserPreferencesRepository {
     override fun setNavigationStyle(style: BottomNavigationStyle) = Unit
     override fun setThemeMode(mode: ThemeMode) = Unit
     override fun setMeasurementSystem(system: MeasurementSystem) = Unit
+    override fun setToolSizeDisplay(display: com.macareen.stitchbook2.domain.preferences.ToolSizeDisplay) = Unit
 }

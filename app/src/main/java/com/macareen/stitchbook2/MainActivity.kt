@@ -10,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.macareen.stitchbook2.domain.preferences.ThemeMode
 import com.macareen.stitchbook2.ui.components.LocalMeasurementSystem
+import com.macareen.stitchbook2.ui.components.LocalToolSizeDisplay
 import com.macareen.stitchbook2.ui.theme.StitchbookTheme
 
 class MainActivity : ComponentActivity() {
@@ -25,7 +26,10 @@ class MainActivity : ComponentActivity() {
                 ThemeMode.DARK -> true
             }
             StitchbookTheme(darkTheme = darkTheme) {
-                CompositionLocalProvider(LocalMeasurementSystem provides preferences.measurementSystem) {
+                CompositionLocalProvider(
+                    LocalMeasurementSystem provides preferences.measurementSystem,
+                    LocalToolSizeDisplay provides preferences.toolSizeDisplay
+                ) {
                     StitchbookApp(navigationStyle = preferences.navigationStyle)
                 }
             }

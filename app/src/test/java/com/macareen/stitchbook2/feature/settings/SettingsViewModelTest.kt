@@ -146,5 +146,6 @@ class SettingsViewModelTest {
         override fun setNavigationStyle(style: com.macareen.stitchbook2.domain.preferences.BottomNavigationStyle) = Unit
         override fun setThemeMode(mode: ThemeMode) = Unit
         override fun setMeasurementSystem(system: MeasurementSystem) = Unit
+        override fun setToolSizeDisplay(display: com.macareen.stitchbook2.domain.preferences.ToolSizeDisplay) = Unit
     }
 }

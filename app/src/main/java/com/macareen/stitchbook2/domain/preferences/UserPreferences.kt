@@ -10,7 +10,8 @@ import kotlinx.coroutines.flow.StateFlow
  */
 data class UserPreferences(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
-    val measurementSystem: MeasurementSystem = MeasurementSystem.IMPERIAL,
+    val measurementSystem: MeasurementSystem = MeasurementSystem.METRIC,
+    val toolSizeDisplay: ToolSizeDisplay = ToolSizeDisplay.MILLIMETERS_FIRST,
     val navigationStyle: BottomNavigationStyle = BottomNavigationStyle.WORDS,
     val timerReviewMinutes: Int = com.macareen.stitchbook2.domain.model.SessionTimeReview.DEFAULT_MINUTES
 )
@@ -45,7 +46,17 @@ enum class MeasurementSystem(val storageValue: String) {
 
     companion object {
         fun fromStorageValue(value: String?): MeasurementSystem =
-            entries.firstOrNull { it.storageValue == value } ?: IMPERIAL
+            entries.firstOrNull { it.storageValue == value } ?: METRIC
+    }
+}
+
+/** Orders the two independently recorded tool-size values without replacing either. */
+enum class ToolSizeDisplay(val storageValue: String) {
+    MILLIMETERS_FIRST("MILLIMETERS_FIRST"), RECORDED_LABEL_FIRST("RECORDED_LABEL_FIRST");
+
+    companion object {
+        fun fromStorageValue(value: String?): ToolSizeDisplay =
+            entries.firstOrNull { it.storageValue == value } ?: MILLIMETERS_FIRST
     }
 }
 
@@ -59,6 +70,8 @@ interface UserPreferencesRepository {
     fun setThemeMode(mode: ThemeMode)
 
     fun setMeasurementSystem(system: MeasurementSystem)
+
+    fun setToolSizeDisplay(display: ToolSizeDisplay)
 }
 
 private const val METERS_PER_YARD = 0.9144
