@@ -7,5 +7,9 @@
     <string name="settings_measurement_label">Lengths</string>
     <string name="settings_measurement_metric">Metres</string>
     <string name="settings_measurement_imperial">Yards</string>
-    <string name="settings_measurement_description">Only changes how yarn lengths are shown. Your records keep their original units.</string>
+    <string name="settings_measurement_description">Changes displayed yarn and tool lengths. Saved values and original wording stay unchanged.</string>
+    <string name="settings_tool_size_display_label">Tool sizes</string>
+    <string name="settings_tool_size_mm_first">Millimetres first</string>
+    <string name="settings_tool_size_label_first">Recorded label first</string>
+    <string name="settings_tool_size_display_description">When both a millimetre size and a label such as US 7 are recorded, both remain visible; this only changes their order.</string>
 </resources>

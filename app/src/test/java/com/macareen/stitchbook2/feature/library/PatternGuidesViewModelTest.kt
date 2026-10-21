@@ -42,6 +42,29 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PatternGuidesViewModelTest {
+    @Test fun creatingFromCurrentPdfSelectionOpensAnEditableSizeFilteredDraftWithoutPreviewGate() = runBlocking {
+        val guides = FakePatternGuides()
+        val document = ExtractedDocument(1, listOf(
+            ExtractedLine("Sizes: S (M)", SourceReference(1, 1)),
+            ExtractedLine("Cast on 60 (66) sts.", SourceReference(1, 2))
+        ))
+        val model = PatternGuidesViewModel("pattern",
+            FakeLibrary(listOf(pattern.copy(pdfUri = "content://pattern.pdf", sizes = "S, M"))), guides, scope,
+            createGuideFromPdf = CreateGuideFromPdfUseCase(FixedText(document), guides, { "n" }),
+            readPatternFile = { ByteArray(1) })
+        val collector = scope.launch { model.uiState.collect {} }
+        withTimeout(5_000) { model.uiState.first { it is PatternGuidesUiState.Content } }
+        model.createGuide("M", fromPattern = true)
+        withTimeout(5_000) { model.pdfSourceReview.first { it != null } }
+
+        model.createDraftFromSelection()
+        val createdId = withTimeout(5_000) { model.createdGuideId.first { it != null } }
+
+        assertEquals("created-1", createdId)
+        assertEquals("Cast on 66 sts. (p.1)", guides.savedDraft?.nodes?.single()?.instructionText)
+        collector.cancel()
+    }
+
     @Test fun sourceEditsInvalidatePreviewAndSavedPatternChangesRefuseCreation() = runBlocking {
         val guides = FakePatternGuides()
         val library = FakeLibrary(listOf(pattern.copy(pdfUri = "content://pattern.pdf", sizes = "S, M")))

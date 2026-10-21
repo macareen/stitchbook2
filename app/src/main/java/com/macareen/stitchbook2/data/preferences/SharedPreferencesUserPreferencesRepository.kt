@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.macareen.stitchbook2.domain.preferences.MeasurementSystem
 import com.macareen.stitchbook2.domain.preferences.ThemeMode
+import com.macareen.stitchbook2.domain.preferences.ToolSizeDisplay
 import com.macareen.stitchbook2.domain.preferences.UserPreferences
 import com.macareen.stitchbook2.domain.preferences.UserPreferencesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 private const val PREFERENCES_NAME = "stitchbook_preferences"
 private const val KEY_THEME_MODE = "theme_mode"
 private const val KEY_MEASUREMENT_SYSTEM = "measurement_system"
+private const val KEY_TOOL_SIZE_DISPLAY = "tool_size_display"
 
 /**
  * Plain platform `SharedPreferences` rather than a new DataStore dependency:
@@ -50,12 +52,18 @@ class SharedPreferencesUserPreferencesRepository(context: Context) : UserPrefere
         _preferences.value = _preferences.value.copy(measurementSystem = system)
     }
 
+    override fun setToolSizeDisplay(display: ToolSizeDisplay) {
+        sharedPreferences.edit { putString(KEY_TOOL_SIZE_DISPLAY, display.storageValue) }
+        _preferences.value = _preferences.value.copy(toolSizeDisplay = display)
+    }
+
     private fun read(): UserPreferences = UserPreferences(
         timerReviewMinutes = sharedPreferences.getInt("timer_review_minutes", 30).takeIf { it in 1..1440 } ?: 30,
         navigationStyle = BottomNavigationStyle.fromStorageValue(sharedPreferences.getString("navigation_style", null)),
         themeMode = ThemeMode.fromStorageValue(sharedPreferences.getString(KEY_THEME_MODE, null)),
         measurementSystem = MeasurementSystem.fromStorageValue(
             sharedPreferences.getString(KEY_MEASUREMENT_SYSTEM, null)
-        )
+        ),
+        toolSizeDisplay = ToolSizeDisplay.fromStorageValue(sharedPreferences.getString(KEY_TOOL_SIZE_DISPLAY, null))
     )
 }

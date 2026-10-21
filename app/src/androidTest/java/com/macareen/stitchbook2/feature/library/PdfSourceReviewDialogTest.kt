@@ -53,7 +53,9 @@ class PdfSourceReviewDialogTest {
                 state = state.copy(preview = ReviewedPdfSource(original, original, PdfSourceSelection(state.regions)))
             }, { created++ }, {})
         } }
-        compose.onNodeWithTag("pdf-source-create").assertIsNotEnabled()
+        compose.onNodeWithTag("pdf-source-quick-create").assertIsEnabled()
+        compose.onNodeWithTag("pdf-source-preview").assertIsDisplayed()
+        compose.onNodeWithText("Create an unpublished draft from the selected pages and areas.", substring = true).assertIsDisplayed()
         compose.onNodeWithTag("pdf-source-review").performScrollToNode(hasText("Adjust area"))
         compose.onNodeWithText("Adjust area").performClick()
         compose.onNodeWithTag("pdf-source-review").performScrollToIndex(0)
@@ -62,6 +64,7 @@ class PdfSourceReviewDialogTest {
                 .fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithContentDescription("Original PDF page with included areas highlighted", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("pdf-source-review").performScrollToNode(hasText("Zoom in"))
         compose.onNodeWithText("Reset zoom").assertIsNotEnabled()
         compose.onNodeWithText("Zoom in").performClick()
         compose.onNodeWithText("Reset zoom").assertIsEnabled().performClick()
@@ -71,9 +74,9 @@ class PdfSourceReviewDialogTest {
         compose.runOnIdle {
             assertEquals(listOf(PdfSourceRegion(2, right = 50), PdfSourceRegion(2, left = 50)), state.regions)
         }
-        compose.onNodeWithTag("pdf-source-review").performScrollToNode(hasTestTag("pdf-source-preview"))
         compose.onNodeWithTag("pdf-source-preview").performClick()
         compose.onNodeWithTag("pdf-source-create").assertIsNotEnabled()
+        compose.onNodeWithText("Review the extracted text above and check the confirmation to enable Create.").assertIsDisplayed()
         compose.onNodeWithTag("pdf-source-review").performScrollToIndex(0)
         compose.onNodeWithText("Previous page").performClick()
         compose.onNodeWithTag("pdf-source-review").performScrollToNode(hasText("p.2 · Cast on 20 (24) sts."))
@@ -85,7 +88,7 @@ class PdfSourceReviewDialogTest {
         compose.onNode(isToggleable()).performClick()
         compose.onNodeWithTag("pdf-source-create").assertIsEnabled()
         compose.runOnIdle { state = state.copy(regions = state.regions.reversed(), preview = null) }
-        compose.onNodeWithTag("pdf-source-create").assertIsNotEnabled()
+        compose.onNodeWithTag("pdf-source-quick-create").assertIsEnabled()
         compose.runOnIdle { assertEquals(0, created) }
         if (InstrumentationRegistry.getArguments().getString("capturePdfSource") == "true") {
             assertTrue(android.os.Build.HARDWARE in listOf("ranchu", "goldfish"))

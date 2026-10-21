@@ -77,6 +77,10 @@ import com.macareen.stitchbook2.domain.model.ToolItem
 import com.macareen.stitchbook2.domain.model.ToolSet
 import com.macareen.stitchbook2.ui.components.LabelPill
 import com.macareen.stitchbook2.ui.components.QuietText
+import com.macareen.stitchbook2.ui.components.LocalMeasurementSystem
+import com.macareen.stitchbook2.ui.components.LocalToolSizeDisplay
+import com.macareen.stitchbook2.domain.preferences.formatToolLength
+import com.macareen.stitchbook2.domain.preferences.formatToolSize
 import com.macareen.stitchbook2.ui.theme.StitchbookSpacing
 import com.macareen.stitchbook2.ui.theme.StitchbookTheme
 import com.macareen.stitchbook2.ui.theme.cardTitle
@@ -667,15 +671,17 @@ private fun ToolItemCard(
     }
 }
 
+@Composable
 private fun sizeDetail(item: ToolItem): String? {
-    val sizePart = item.sizeLabel ?: item.sizeMetricMm?.let { "${formatNumber(it)} mm" }
-    val lengthPart = item.lengthMm?.let { "${formatNumber(it)} mm long" }
+    val sizePart = formatToolSize(item.sizeMetricMm, item.sizeLabel, LocalToolSizeDisplay.current)
+    val lengthPart = item.lengthMm?.let { "${formatToolLength(it, LocalMeasurementSystem.current)} long" }
     return listOfNotNull(sizePart, lengthPart).joinToString(" · ").ifEmpty { null }
 }
 
+@Composable
 private fun cableDetail(item: ToolItem): String? {
-    val stated = item.statedCableLengthMm?.let { "${formatNumber(it)} mm cable" }
-    val assembled = item.approximateAssembledLengthMm?.let { "~${formatNumber(it)} mm assembled" }
+    val stated = item.statedCableLengthMm?.let { "${formatToolLength(it, LocalMeasurementSystem.current)} cable" }
+    val assembled = item.approximateAssembledLengthMm?.let { "~${formatToolLength(it, LocalMeasurementSystem.current)} assembled" }
     return listOfNotNull(stated, item.cableLengthDefinition, assembled)
         .joinToString(" · ")
         .ifEmpty { null }

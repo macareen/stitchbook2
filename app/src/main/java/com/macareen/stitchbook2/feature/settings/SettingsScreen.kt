@@ -56,6 +56,7 @@ import com.macareen.stitchbook2.domain.backup.RestoreMode
 import com.macareen.stitchbook2.domain.preferences.MeasurementSystem
 import com.macareen.stitchbook2.domain.preferences.ThemeMode
 import com.macareen.stitchbook2.domain.preferences.UserPreferences
+import com.macareen.stitchbook2.domain.preferences.ToolSizeDisplay
 import com.macareen.stitchbook2.ui.components.ChoiceChipRow
 import com.macareen.stitchbook2.ui.components.PrimaryActionButton
 import com.macareen.stitchbook2.ui.components.QuietText
@@ -83,6 +84,7 @@ fun SettingsRoute(viewModel: SettingsViewModel, ravelrySection: @Composable () -
         preferences = preferences,
         onThemeModeChanged = viewModel::setThemeMode,
         onMeasurementSystemChanged = viewModel::setMeasurementSystem,
+        onToolSizeDisplayChanged = viewModel::setToolSizeDisplay,
         onNavigationStyleChanged = viewModel::setNavigationStyle,
         onTimerReviewMinutesChanged = viewModel::setTimerReviewMinutes,
         onExport = viewModel::exportBackup,
@@ -110,7 +112,8 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     onTimerReviewMinutesChanged: (Int) -> Unit = {},
     onNavigationStyleChanged: (BottomNavigationStyle) -> Unit = {},
-    ravelrySection: @Composable () -> Unit = {}
+    ravelrySection: @Composable () -> Unit = {},
+    onToolSizeDisplayChanged: (ToolSizeDisplay) -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -170,6 +173,7 @@ fun SettingsScreen(
                 preferences = preferences,
                 onThemeModeChanged = onThemeModeChanged,
                 onMeasurementSystemChanged = onMeasurementSystemChanged,
+                onToolSizeDisplayChanged = onToolSizeDisplayChanged,
                 onNavigationStyleChanged = onNavigationStyleChanged,
                 onTimerReviewMinutesChanged = onTimerReviewMinutesChanged
             )
@@ -273,6 +277,7 @@ private fun PreferencesCard(
     preferences: UserPreferences,
     onThemeModeChanged: (ThemeMode) -> Unit,
     onMeasurementSystemChanged: (MeasurementSystem) -> Unit,
+    onToolSizeDisplayChanged: (ToolSizeDisplay) -> Unit,
     onNavigationStyleChanged: (BottomNavigationStyle) -> Unit,
     onTimerReviewMinutesChanged: (Int) -> Unit
 ) {
@@ -334,6 +339,15 @@ private fun PreferencesCard(
             )
             Spacer(modifier = Modifier.height(StitchbookSpacing.small))
             QuietText(text = stringResource(R.string.settings_measurement_description))
+            Spacer(modifier = Modifier.height(StitchbookSpacing.medium))
+            QuietText(text = stringResource(R.string.settings_tool_size_display_label))
+            ChoiceChipRow(
+                options = ToolSizeDisplay.entries,
+                selected = preferences.toolSizeDisplay,
+                optionLabel = { stringResource(if (it == ToolSizeDisplay.MILLIMETERS_FIRST) R.string.settings_tool_size_mm_first else R.string.settings_tool_size_label_first) },
+                onSelected = onToolSizeDisplayChanged
+            )
+            QuietText(text = stringResource(R.string.settings_tool_size_display_description))
         }
     }
 }
@@ -606,6 +620,7 @@ private fun SettingsScreenPreview() {
             preferences = UserPreferences(),
             onThemeModeChanged = {},
             onMeasurementSystemChanged = {},
+            onToolSizeDisplayChanged = {},
             onExport = {},
             onImport = {},
             onConfirmImport = {},

@@ -137,7 +137,13 @@ internal fun ProjectDashboardBeforeGuides(state: ProjectDashboardState, entries:
 internal fun ProjectDashboardTools(tools: List<ToolItem>, onTools: () -> Unit) {
     ProjectPageSection(stringResource(R.string.project_page_tools), stringResource(R.string.project_page_manage_tools), onTools) {
         if (tools.isEmpty()) QuietText(stringResource(R.string.project_page_no_tools))
-        tools.forEach { Text(listOfNotNull(it.name, it.sizeLabel, it.sizeMetricMm?.let { mm -> "$mm mm" }).joinToString(" \u00b7 ")) }
+        tools.forEach { tool ->
+            Text(listOfNotNull(
+                tool.name,
+                com.macareen.stitchbook2.domain.preferences.formatToolSize(tool.sizeMetricMm, tool.sizeLabel, LocalToolSizeDisplay.current),
+                tool.lengthMm?.let { com.macareen.stitchbook2.domain.preferences.formatToolLength(it, LocalMeasurementSystem.current) }
+            ).joinToString(" \u00b7 "))
+        }
     }
  }
 

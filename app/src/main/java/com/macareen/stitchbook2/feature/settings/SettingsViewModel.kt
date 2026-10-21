@@ -82,6 +82,8 @@ class SettingsViewModel(
 
     fun setMeasurementSystem(system: MeasurementSystem) = preferencesRepository.setMeasurementSystem(system)
 
+    fun setToolSizeDisplay(display: com.macareen.stitchbook2.domain.preferences.ToolSizeDisplay) = preferencesRepository.setToolSizeDisplay(display)
+
     /**
      * Generates the backup JSON and hands it to [onReady] (a caller-supplied
      * write to wherever the user picked via the SAF document-creation

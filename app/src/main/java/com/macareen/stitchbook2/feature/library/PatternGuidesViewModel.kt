@@ -170,9 +170,19 @@ class PatternGuidesViewModel(
     }
 
     fun confirmSourceReview() {
+        createDraftFromSourceReview(requireTextReview = true)
+    }
+
+    /** The fast path creates only an unpublished draft; the Draft editor remains the review step. */
+    fun createDraftFromSelection() {
+        createDraftFromSourceReview(requireTextReview = false)
+    }
+
+    private fun createDraftFromSourceReview(requireTextReview: Boolean) {
         val review = sourceReview.value ?: return
-        val preview = review.preview ?: return
         val useCase = createGuideFromPdf ?: return
+        val currentPreview = review.preview?.takeIf { it.selection.regions == review.regions }
+        if (requireTextReview && (currentPreview == null || review.problem != null)) return
         if (review.busy || review.changed || review.problem != null) return
         sourceReview.value = review.copy(busy = true)
         creation.value = CreationState(isCreating = true)
@@ -183,9 +193,18 @@ class PatternGuidesViewModel(
                     creation.value = CreationState()
                     return@launch
                 }
+                val selectedSource = currentPreview ?: ByteArrayInputStream(review.bytes).use {
+                    useCase.reviewSource(it, review.original, PdfSourceSelection(review.regions))
+                }
+                if (selectedSource.selected.hasNoExtractableText) {
+                    sourceReview.value = review.copy(preview = selectedSource,
+                        problem = "No readable text in this selection. Check the original for charts or missing instructions.")
+                    creation.value = CreationState()
+                    return@launch
+                }
                 val name = PatternNames.guide(review.expected.title, review.size, review.expected.pdfFileName)
                 when (val result = ByteArrayInputStream(review.bytes).use {
-                    useCase.forPattern(libraryItemId, review.size, review.expected.sizes, name, it, preview)
+                    useCase.forPattern(libraryItemId, review.size, review.expected.sizes, name, it, selectedSource)
                 }) {
                     is CreateGuideFromPdfUseCase.Result.Success -> {
                         sourceReview.value = null
