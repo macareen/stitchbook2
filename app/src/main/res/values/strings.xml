@@ -104,7 +104,7 @@
     <string name="stash_field_purchase_source">Purchased From</string>
     <string name="stash_field_purchase_price">Price</string>
     <string name="stash_field_purchase_date">Purchase Date</string>
-    <string name="stash_field_purchase_date_hint">e.g. 2024-03-15</string>
+    <string name="stash_field_purchase_date_hint">YYYY-MM-DD</string>
     <string name="stash_field_notes">Notes</string>
     <string name="save_stash_item">Save Item</string>
     <string name="delete_stash_item_title">Delete stash item?</string>
