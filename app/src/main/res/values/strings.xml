@@ -27,6 +27,9 @@
     <string name="pdf_source_text">Text in reading order</string>
     <string name="pdf_source_confirm">I checked this text and reading order against the original, including sizing and charts. Create an editable draft for review.</string>
     <string name="pdf_source_original">Original PDF page with included areas highlighted</string>
+    <string name="pdf_source_zoom_in">Zoom in</string>
+    <string name="pdf_source_zoom_out">Zoom out</string>
+    <string name="pdf_source_zoom_reset">Reset zoom</string>
     <string name="pdf_source_image_failed">Original page preview unavailable. Do not confirm without checking the original PDF.</string>
     <string name="app_name">Stitchbook</string>
     <string name="navigate_back">Back</string>

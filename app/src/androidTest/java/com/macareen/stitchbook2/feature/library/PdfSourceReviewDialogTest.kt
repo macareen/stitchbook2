@@ -62,6 +62,10 @@ class PdfSourceReviewDialogTest {
                 .fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithContentDescription("Original PDF page with included areas highlighted", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("Reset zoom").assertIsNotEnabled()
+        compose.onNodeWithText("Zoom in").performClick()
+        compose.onNodeWithText("Reset zoom").assertIsEnabled().performClick()
+        compose.onNodeWithText("Zoom out").assertIsNotEnabled()
         compose.onNodeWithTag("pdf-source-review").performScrollToNode(hasText("Split into left then right columns"))
         compose.onNodeWithText("Split into left then right columns").performClick()
         compose.runOnIdle {
