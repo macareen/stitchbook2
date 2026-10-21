@@ -22,6 +22,10 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.macareen.stitchbook2.domain.guide.Guide
 import com.macareen.stitchbook2.domain.model.LibraryItem
 import com.macareen.stitchbook2.domain.parsing.PatternSizes
+import com.macareen.stitchbook2.domain.parsing.ExtractedDocument
+import com.macareen.stitchbook2.domain.parsing.PdfSourceRegion
+import com.macareen.stitchbook2.domain.parsing.PdfSourceSelection
+import com.macareen.stitchbook2.domain.parsing.ReviewedPdfSource
 import com.macareen.stitchbook2.domain.ravelry.DownloadRavelryPdf
 import com.macareen.stitchbook2.domain.repository.GuideRepository
 import com.macareen.stitchbook2.domain.repository.LibraryRepository
@@ -60,6 +64,18 @@ data class PatternPdfReview(
 )
 
 enum class PatternPdfProblem { UNREADABLE, NO_TEXT, ATTACH_FAILED }
+
+data class PdfSourceReview(
+    val expected: LibraryItem,
+    val size: String,
+    val bytes: ByteArray,
+    val original: ExtractedDocument,
+    val regions: List<PdfSourceRegion>,
+    val preview: ReviewedPdfSource? = null,
+    val busy: Boolean = false,
+    val problem: String? = null,
+    val changed: Boolean = false
+)
 
 /** Fetching the pattern's purchased PDF from Ravelry into the pattern folder. */
 data class RavelryPdfState(
@@ -123,6 +139,68 @@ class PatternGuidesViewModel(
     val patternEditReview: StateFlow<PatternEditReview?> = editReview.asStateFlow()
     private val pdfReview = MutableStateFlow<PatternPdfReview?>(null)
     val pdfChangeReview: StateFlow<PatternPdfReview?> = pdfReview.asStateFlow()
+    private val sourceReview = MutableStateFlow<PdfSourceReview?>(null)
+    val pdfSourceReview: StateFlow<PdfSourceReview?> = sourceReview.asStateFlow()
+
+    fun dismissSourceReview() {
+        if (sourceReview.value?.busy != true) sourceReview.value = null
+    }
+
+    fun changeSourceRegions(regions: List<PdfSourceRegion>) {
+        val review = sourceReview.value ?: return
+        if (!review.busy) sourceReview.value = review.copy(regions = regions, preview = null, problem = null)
+    }
+
+    fun previewSource() {
+        val review = sourceReview.value ?: return
+        val useCase = createGuideFromPdf ?: return
+        if (review.busy || review.changed) return
+        sourceReview.value = review.copy(busy = true, problem = null)
+        scope.launch {
+            try {
+                val selection = PdfSourceSelection(review.regions)
+                val preview = ByteArrayInputStream(review.bytes).use { useCase.reviewSource(it, review.original, selection) }
+                sourceReview.value = review.copy(preview = preview,
+                    problem = if (preview.selected.hasNoExtractableText) "No readable text in this selection. Check the original for charts or missing instructions." else null)
+            } catch (error: CancellationException) { throw error
+            } catch (error: Exception) {
+                sourceReview.value = review.copy(problem = error.message ?: "Unable to preview selected regions.")
+            }
+        }
+    }
+
+    fun confirmSourceReview() {
+        val review = sourceReview.value ?: return
+        val preview = review.preview ?: return
+        val useCase = createGuideFromPdf ?: return
+        if (review.busy || review.changed || review.problem != null) return
+        sourceReview.value = review.copy(busy = true)
+        creation.value = CreationState(isCreating = true)
+        scope.launch {
+            try {
+                if (libraryRepository.observeLibraryItem(libraryItemId).first() != review.expected) {
+                    sourceReview.value = review.copy(changed = true)
+                    creation.value = CreationState()
+                    return@launch
+                }
+                val name = PatternNames.guide(review.expected.title, review.size, review.expected.pdfFileName)
+                when (val result = ByteArrayInputStream(review.bytes).use {
+                    useCase.forPattern(libraryItemId, review.size, review.expected.sizes, name, it, preview)
+                }) {
+                    is CreateGuideFromPdfUseCase.Result.Success -> {
+                        sourceReview.value = null
+                        created.value = result.guideId.value
+                    }
+                    else -> sourceReview.value = review.copy(problem = "Unable to create a draft from this selection.")
+                }
+                creation.value = CreationState()
+            } catch (error: CancellationException) { throw error
+            } catch (_: Exception) {
+                sourceReview.value = review.copy(problem = "Unable to create a draft. Your selection is retained.")
+                creation.value = CreationState()
+            }
+        }
+    }
 
     /** The new guide's id once created; the screen opens it in the Draft editor. */
     val createdGuideId: StateFlow<String?> = created.asStateFlow()
@@ -327,7 +405,7 @@ class PatternGuidesViewModel(
     /** Creates the guide for [sizeLabel]; with [fromPattern], filled from the pattern's PDF for that size. */
     fun createGuide(sizeLabel: String, fromPattern: Boolean = false) {
         val content = uiState.value as? PatternGuidesUiState.Content ?: return
-        if (content.isCreating || pdfReview.value != null || editReview.value != null || sizeLabel.isBlank()) return
+        if (content.isCreating || sourceReview.value != null || pdfReview.value != null || editReview.value != null || sizeLabel.isBlank()) return
         creation.value = CreationState(isCreating = true)
         scope.launch {
             try {
@@ -335,11 +413,23 @@ class PatternGuidesViewModel(
                 val pdfUri = content.pattern.pdfUri
                 val useCase = createGuideFromPdf
                 if (fromPattern && pdfUri != null && useCase != null) {
-                    val problem = fillFromPattern(useCase, pdfUri, sizeLabel.trim(), content.pattern.sizes, guideName)
-                    if (problem != null) {
-                        creation.value = CreationState(pdfProblem = problem)
+                    val bytes = readPatternFile(pdfUri)
+                    if (bytes == null) {
+                        creation.value = CreationState(pdfProblem = PatternPdfProblem.UNREADABLE)
                         return@launch
                     }
+                    val original = ByteArrayInputStream(bytes).use { useCase.readSource(it) }
+                    if (original.hasNoExtractableText) {
+                        creation.value = CreationState(pdfProblem = PatternPdfProblem.NO_TEXT)
+                        return@launch
+                    }
+                    val latest = libraryRepository.observeLibraryItem(libraryItemId).first()
+                    if (latest?.pdfUri != pdfUri) {
+                        creation.value = CreationState(failed = true)
+                        return@launch
+                    }
+                    sourceReview.value = PdfSourceReview(latest, sizeLabel.trim(), bytes, original,
+                        (1..original.pageCount).map { PdfSourceRegion(it) })
                 } else {
                     created.value = guideRepository.createPatternGuide(libraryItemId, sizeLabel, guideName).id.value
                 }
@@ -390,24 +480,6 @@ class PatternGuidesViewModel(
                 creation.value = CreationState()
             } catch (error: CancellationException) { throw error
             } catch (_: Exception) { creation.value = CreationState(failed = true) }
-        }
-    }
-
-    private suspend fun fillFromPattern(
-        useCase: CreateGuideFromPdfUseCase,
-        pdfUri: String,
-        sizeLabel: String,
-        knownSizes: String?,
-        guideName: String
-    ): PatternPdfProblem? {
-        val bytes = readPatternFile(pdfUri) ?: return PatternPdfProblem.UNREADABLE
-        return when (val result = useCase.forPattern(libraryItemId, sizeLabel, knownSizes, guideName, ByteArrayInputStream(bytes))) {
-            is CreateGuideFromPdfUseCase.Result.Success -> {
-                created.value = result.guideId.value
-                null
-            }
-            CreateGuideFromPdfUseCase.Result.NoExtractableText -> PatternPdfProblem.NO_TEXT
-            is CreateGuideFromPdfUseCase.Result.ExtractionFailed -> PatternPdfProblem.UNREADABLE
         }
     }
 

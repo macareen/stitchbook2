@@ -21,6 +21,31 @@ class PdfGuideWorkflowTest {
     private val noTextOcr = object : PdfPageOcr {
         override suspend fun recognizeText(page: Bitmap): List<String> = emptyList()
     }
+    @Test fun reviewedColumnsUseCoverSizesAndPublishOnlySelectedWork() = runBlocking<Unit> {
+        val db = Room.inMemoryDatabaseBuilder(context, StitchbookDatabase::class.java).build()
+        try {
+            db.libraryDao().upsert(LibraryItemEntity("pattern", "Sample wrap", "KNITTING", null, null, "", null, false, 0, 0, pdfUri = "content://synthetic/sample.pdf"))
+            val guides = LocalGuideRepository(db.guideDao())
+            val useCase = CreateGuideFromPdfUseCase(PdfBoxTextExtractor(context, noTextOcr), guides,
+                { java.util.UUID.randomUUID().toString() }, LocalLibraryRepository(db.libraryDao()))
+            val bytes = PdfFixtures.buildColumnReviewPdf()
+            val original = useCase.readSource(ByteArrayInputStream(bytes))
+            val preview = useCase.reviewSource(ByteArrayInputStream(bytes), original, PdfSourceSelection(listOf(
+                PdfSourceRegion(2, 0, 0, 50, 50), PdfSourceRegion(2, 50, 0, 100, 50))))
+            assertTrue(guides.observePatternGuides("pattern").first().isEmpty())
+            val result = useCase.forPattern("pattern", "M", null, "Sample M", ByteArrayInputStream(bytes), preview) as CreateGuideFromPdfUseCase.Result.Success
+            assertEquals(0, result.issueCount)
+            val draft = guides.loadDraft(result.guideId)!!
+            assertEquals(listOf("Cast on 24 sts. (p.2)", "Row 1: Knit. (p.2)", "Row 2: Purl. (p.2)", "Bind off. (p.2)"),
+                draft.nodes.mapNotNull { it.instructionText })
+            assertTrue(guides.getGuide(result.guideId)!!.notes!!.contains("left 50%"))
+            val revision = guides.publishDraft(result.guideId)
+            val traversal = GuideTraversal(GuideDefinitionValidator.validate(revision.definition))
+            assertEquals(4, traversal.occurrences().count())
+            assertFalse(draft.nodes.any { it.instructionText?.contains("Advertisement") == true })
+            assertEquals("20 sts over 10 cm", db.libraryDao().observeById("pattern").first()!!.gauge)
+        } finally { db.close() }
+    }
     @Test fun selectedSizeAndPageReferencesSurviveRepeatedCyclesBackJumpAndReload() = runBlocking<Unit> {
         val db = Room.inMemoryDatabaseBuilder(context, StitchbookDatabase::class.java).build()
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)

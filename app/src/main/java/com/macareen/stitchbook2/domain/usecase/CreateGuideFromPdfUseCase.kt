@@ -15,6 +15,8 @@ import com.macareen.stitchbook2.domain.parsing.PatternSizes
 import com.macareen.stitchbook2.domain.parsing.PatternTextParser
 import com.macareen.stitchbook2.domain.parsing.PdfTextExtractionException
 import com.macareen.stitchbook2.domain.parsing.PdfTextExtractor
+import com.macareen.stitchbook2.domain.parsing.PdfSourceSelection
+import com.macareen.stitchbook2.domain.parsing.ReviewedPdfSource
 import com.macareen.stitchbook2.domain.repository.GuideRepository
 import com.macareen.stitchbook2.domain.repository.LibraryRepository
 import java.io.InputStream
@@ -73,6 +75,19 @@ class CreateGuideFromPdfUseCase(
             else emptyList()
     }
 
+    /** Read-only review preparation. Neither operation creates a guide or changes pattern metadata. */
+    suspend fun readSource(pdf: InputStream): ExtractedDocument = withContext(Dispatchers.IO) {
+        textExtractor.extract(pdf)
+    }
+
+    suspend fun reviewSource(pdf: InputStream, original: ExtractedDocument, selection: PdfSourceSelection): ReviewedPdfSource {
+        selection.validatePageCount(original.pageCount)
+        val selected = withContext(Dispatchers.IO) { textExtractor.extract(pdf, selection) }
+        require(selected.pageCount == original.pageCount)
+        require(selected.lines.all { line -> selection.regions.any { it.page == line.source.pageNumber } })
+        return ReviewedPdfSource(original, selected, selection)
+    }
+
     suspend operator fun invoke(projectId: String, guideName: String, pdf: InputStream, preferDocumentTitle: Boolean = false): Result {
         val document = extract(pdf) ?: return Result.NoExtractableText
         if (document is Extraction.Failed) return Result.ExtractionFailed(document.cause)
@@ -95,12 +110,15 @@ class CreateGuideFromPdfUseCase(
         sizeLabel: String,
         knownSizes: String?,
         guideName: String,
-        pdf: InputStream
+        pdf: InputStream,
+        reviewedSource: ReviewedPdfSource? = null
     ): Result {
         val item = libraryRepository?.observeLibraryItem(libraryItemId)?.first()
-        val extraction = extract(pdf) ?: return Result.NoExtractableText
+        val extraction = reviewedSource?.let { Extraction.Read(it.original) } ?: extract(pdf) ?: return Result.NoExtractableText
         if (extraction is Extraction.Failed) return Result.ExtractionFailed(extraction.cause)
         val document = (extraction as Extraction.Read).document
+        val instructions = reviewedSource?.selected ?: document
+        if (instructions.hasNoExtractableText) return Result.NoExtractableText
 
         val originalTitle = item?.title ?: guideName.substringBefore(" \u00b7 ")
         val detectedTitle = PatternDocumentTitle.find(document)
@@ -115,14 +133,23 @@ class CreateGuideFromPdfUseCase(
         val labels = fromPdf?.first ?: knownSizes?.let(PatternSizes::labelsFrom).orEmpty()
         val index = PatternSizes.indexOf(sizeLabel, labels)
         val issueSource = fromPdf?.second?.source ?: document.lines.first().source
+        // A region can start halfway through a section. If removing its context makes a
+        // formerly executable line look like front matter, retain it as an explicit review step.
+        val contextIssues = if (reviewedSource != null) {
+            val originalWork = PatternTextParser.splitReference(document, title).instructions.map { it.text }.toSet()
+            val selectedWork = PatternTextParser.splitReference(instructions, title).instructions.map { it.source }.toSet()
+            instructions.lines.filter { it.text in originalWork && it.source !in selectedWork }.map {
+                ParsingIssue("Selected source lost its instruction context; add or restore this instruction after checking the PDF: ${it.text}", it.source)
+            }
+        } else emptyList()
         val (sized, issues) = when {
-            index != null -> SizeSpecificInstructions.select(document.withoutLine(fromPdf?.second), labels, index).let {
+            index != null -> SizeSpecificInstructions.select(instructions.withoutSizeDeclaration(fromPdf?.second), labels, index).let {
                 it.document to it.issues
             }
-            labels.isEmpty() -> document to listOf(
+            labels.isEmpty() -> instructions to listOf(
                 ParsingIssue("No size list was found, so every size's numbers are kept for size ${sizeLabel.trim()}.", issueSource)
             )
-            else -> document to listOf(
+            else -> instructions to listOf(
                 ParsingIssue(
                     "Size ${sizeLabel.trim()} isn't one of the pattern's sizes (${labels.joinToString(", ")}), so every size's numbers are kept.",
                     issueSource
@@ -131,9 +158,10 @@ class CreateGuideFromPdfUseCase(
         }
         return createDraft(
             document = sized,
-            extraIssues = extractionIssues(document) + issues,
+            extraIssues = extractionIssues(instructions).filter { reviewedSource == null || it.source.pageNumber in reviewedSource.selection.regions.map { r -> r.page } } + issues + contextIssues,
             patternTitle = title,
             selectedSizeCount = labels.size.takeIf { index != null },
+            sourceReview = reviewedSource?.selection?.description(),
             storeReferenceOnGuide = libraryRepository == null,
             onDetails = { fillPatternDetails(item, details, fromPdf?.second?.text, detectedTitle.takeIf { automaticTitle }) }
         ) {
@@ -161,8 +189,9 @@ class CreateGuideFromPdfUseCase(
             SourceReference(page, 1))
     }
 
-    private fun ExtractedDocument.withoutLine(line: ExtractedLine?): ExtractedDocument =
-        if (line == null) this else copy(lines = lines - line)
+    // Region extraction renumbers lines; compare declaration wording, not old coordinates.
+    private fun ExtractedDocument.withoutSizeDeclaration(line: ExtractedLine?): ExtractedDocument =
+        if (line == null) this else copy(lines = lines.filterNot { it.text == line.text })
 
     private sealed interface Extraction {
         data class Read(val document: ExtractedDocument) : Extraction
@@ -188,6 +217,7 @@ class CreateGuideFromPdfUseCase(
         patternTitle: String? = null,
         storeReferenceOnGuide: Boolean = true,
         selectedSizeCount: Int? = null,
+        sourceReview: String? = null,
         onDetails: suspend (PatternDetails) -> Unit = {},
         createGuide: suspend () -> Guide
     ): Result {
@@ -203,7 +233,9 @@ class CreateGuideFromPdfUseCase(
             emptyDraft.copy(rootNodeIds = mapped.rootNodeIds, nodes = mapped.nodes)
         )
 
-        if (storeReferenceOnGuide) com.macareen.stitchbook2.domain.guide.GuideReference.notes(details)?.let { reference ->
+        val referenceNotes = if (storeReferenceOnGuide) com.macareen.stitchbook2.domain.guide.GuideReference.notes(details) else null
+        listOfNotNull(referenceNotes, sourceReview?.let { "Reviewed PDF source order (page coordinates in percent):\n$it\nExcluded areas remain in the original PDF. Check charts and instructions against the source." })
+            .takeIf { it.isNotEmpty() }?.joinToString("\n\n")?.let { reference ->
             guideRepository.updateGuideMetadata(guide.id, guide.name, reference)
         }
         onDetails(details)

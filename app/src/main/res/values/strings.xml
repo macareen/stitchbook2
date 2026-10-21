@@ -1,4 +1,26 @@
 <resources>
+    <string name="pdf_source_title">Review PDF for size %1$s</string>
+    <string name="pdf_source_help">Keep the pages and areas needed for this guide. Read each column as its own region, in order. Trim ads, comments or margins only after checking the original. Charts and partial text may still need manual instructions. Size choices and pattern reference come from the full PDF.</string>
+    <string name="pdf_source_page">Page %1$d of %2$d</string>
+    <string name="pdf_source_add_page">Include this page</string>
+    <string name="pdf_source_order">Reading order</string>
+    <string name="pdf_source_adjust">Adjust area</string>
+    <string name="pdf_source_region">%1$d. Page %2$d · left %3$d%%, top %4$d%%, right %5$d%%, bottom %6$d%%</string>
+    <string name="pdf_source_up">Move up</string>
+    <string name="pdf_source_down">Move down</string>
+    <string name="pdf_source_exclude">Exclude area</string>
+    <string name="pdf_source_edit_region">Edit area %1$d</string>
+    <string name="pdf_source_left">Left edge</string>
+    <string name="pdf_source_top">Top edge</string>
+    <string name="pdf_source_right">Right edge</string>
+    <string name="pdf_source_bottom">Bottom edge</string>
+    <string name="pdf_source_split_columns">Split into left then right columns</string>
+    <string name="pdf_source_preview">Preview selected text</string>
+    <string name="pdf_source_changed">The saved pattern changed. Cancel and start again to review its current source.</string>
+    <string name="pdf_source_text">Text in reading order</string>
+    <string name="pdf_source_confirm">I checked this text and reading order against the original, including sizing and charts. Create an editable draft for review.</string>
+    <string name="pdf_source_original">Original PDF page with included areas highlighted</string>
+    <string name="pdf_source_image_failed">Original page preview unavailable. Do not confirm without checking the original PDF.</string>
     <string name="app_name">Stitchbook</string>
     <string name="navigate_back">Back</string>
     <string name="destination_home">Home</string>

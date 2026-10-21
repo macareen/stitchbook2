@@ -90,6 +90,7 @@ fun PatternGuidesRoute(
     val startedProjectId by viewModel.startedProjectId.collectAsStateWithLifecycle()
     val pdfReview by viewModel.pdfChangeReview.collectAsStateWithLifecycle()
     val editReview by viewModel.patternEditReview.collectAsStateWithLifecycle()
+    val sourceReview by viewModel.pdfSourceReview.collectAsStateWithLifecycle()
     LaunchedEffect(createdGuideId) {
         createdGuideId?.let {
             viewModel.consumeCreatedGuide()
@@ -127,6 +128,10 @@ fun PatternGuidesRoute(
     }
     pdfReview?.let { review ->
         PatternPdfChangeDialog(review, viewModel::dismissPdfChange, { viewModel.confirmPdfChange(review) })
+    }
+    sourceReview?.let { review ->
+        PdfSourceReviewDialog(review, viewModel::changeSourceRegions, viewModel::previewSource,
+            viewModel::confirmSourceReview, viewModel::dismissSourceReview)
     }
 }
 

@@ -27,6 +27,41 @@ import org.junit.Test
 
 class CreateGuideFromPdfUseCaseTest {
 
+    @Test fun aSelectionStartingMidSectionKeepsLostContextAsAnExplicitReviewInstruction() = runBlocking {
+        val original = ExtractedDocument(2, listOf(ExtractedLine("Cast on 24 sts.", SourceReference(1, 1)),
+            ExtractedLine("Bind off.", SourceReference(2, 1))))
+        val repository = FakeGuideRepository()
+        val result = CreateGuideFromPdfUseCase(FakePdfTextExtractor(original), repository, idGenerator()).forPattern(
+            "pattern", "One size", "One size", "Sample", ByteArrayInputStream(ByteArray(0)),
+            com.macareen.stitchbook2.domain.parsing.ReviewedPdfSource(original, original.copy(lines = original.lines.drop(1)),
+                com.macareen.stitchbook2.domain.parsing.PdfSourceSelection(listOf(com.macareen.stitchbook2.domain.parsing.PdfSourceRegion(2))))) as CreateGuideFromPdfUseCase.Result.Success
+        assertTrue(result.issueCount >= 1)
+        assertTrue(repository.lastSavedDraft!!.nodes.any { it.instructionText?.contains("restore this instruction after checking the PDF: Bind off.") == true })
+    }
+
+    @Test fun reviewedSelectionRetainsFullDocumentSizesButOnlyCreatesChosenInstructionsInOrder() = runBlocking {
+        val original = ExtractedDocument(4, listOf(
+            ExtractedLine("Sizes: S, M", SourceReference(1, 1)),
+            ExtractedLine("Cast on 20 (24) sts.", SourceReference(2, 1)),
+            ExtractedLine("Advertisement", SourceReference(3, 1)),
+            ExtractedLine("Row 2: Purl.", SourceReference(4, 1))))
+        val selected = original.copy(lines = listOf(original.lines[3], original.lines[1]))
+        val selection = com.macareen.stitchbook2.domain.parsing.PdfSourceSelection(listOf(
+            com.macareen.stitchbook2.domain.parsing.PdfSourceRegion(4), com.macareen.stitchbook2.domain.parsing.PdfSourceRegion(2)))
+        val repository = FakeGuideRepository()
+        val extractor = object : PdfTextExtractor {
+            override suspend fun extract(input: InputStream): ExtractedDocument = error("Must consume reviewed snapshot")
+        }
+        val useCase = CreateGuideFromPdfUseCase(extractor, repository, idGenerator())
+        val result = useCase.forPattern("pattern", "M", null, "Sample", ByteArrayInputStream(ByteArray(0)),
+            com.macareen.stitchbook2.domain.parsing.ReviewedPdfSource(original, selected, selection)) as CreateGuideFromPdfUseCase.Result.Success
+        assertEquals(0, result.issueCount)
+        assertEquals(listOf("Row 2: Purl. (p.4)", "Cast on 24 sts. (p.2)"), repository.lastSavedDraft!!.nodes.mapNotNull { it.instructionText })
+        val notes = repository.getGuide(result.guideId)!!.notes!!
+        assertTrue(notes.contains("1. p.4"))
+        assertTrue(notes.contains("Excluded areas remain in the original PDF"))
+    }
+
     @Test fun patternSetupCannotOverwriteEditsMadeWhileItsPdfIsRead() = runBlocking {
         val original = LibraryItem("pattern", "Sample", Craft.KNITTING, null, null, emptyList(), null, false, 0, 0,
             pdfUri = "content://sample/old.pdf")
