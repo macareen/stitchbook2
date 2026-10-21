@@ -9,6 +9,7 @@ import com.macareen.stitchbook2.domain.parsing.SourceReference
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
+import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
 import com.tom_roush.pdfbox.pdmodel.graphics.image.LosslessFactory
 import java.io.ByteArrayOutputStream
@@ -78,6 +79,21 @@ internal object PdfFixtures {
             at(40f, 680f, "Row 1: Knit.")
             at(330f, 680f, "Bind off.")
             at(40f, 300f, "Advertisement and reader comments")
+        }
+        ByteArrayOutputStream().also { document.save(it) }.toByteArray()
+    }
+
+    fun buildCroppedPageColumnPdf(): ByteArray = PDDocument().use { document ->
+        val page = PDPage()
+        page.cropBox = PDRectangle(50f, 40f, 500f, 700f)
+        document.addPage(page)
+        PDPageContentStream(document, page).use { stream ->
+            fun at(x: Float, text: String) {
+                stream.beginText(); stream.setFont(PDType1Font.HELVETICA, 12f)
+                stream.newLineAtOffset(x, 600f); stream.showText(text); stream.endText()
+            }
+            at(80f, "Left column only")
+            at(350f, "Right column only")
         }
         ByteArrayOutputStream().also { document.save(it) }.toByteArray()
     }

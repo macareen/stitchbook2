@@ -6,6 +6,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import java.io.ByteArrayInputStream
 import kotlinx.coroutines.runBlocking
+import com.macareen.stitchbook2.domain.parsing.PdfSourceRegion
+import com.macareen.stitchbook2.domain.parsing.PdfSourceSelection
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -62,6 +64,16 @@ class PdfBoxTextExtractorTest {
             "Expected OCR to recognize \"${PdfFixtures.IMAGE_ONLY_PAGE_WORD}\", got: ${document.lines}",
             document.lines.any { it.text.contains(PdfFixtures.IMAGE_ONLY_PAGE_WORD, ignoreCase = true) }
         )
+    }
+
+    @Test
+    fun selectedColumnsUseDisplayedCoordinatesWhenCropBoxOriginIsNonZero() = runBlocking {
+        val selected = extractor().extract(
+            ByteArrayInputStream(PdfFixtures.buildCroppedPageColumnPdf()),
+            PdfSourceSelection(listOf(PdfSourceRegion(page = 1, left = 50, top = 0, right = 100, bottom = 50)))
+        )
+
+        assertEquals(listOf("Right column only"), selected.lines.map { it.text })
     }
 }
 
