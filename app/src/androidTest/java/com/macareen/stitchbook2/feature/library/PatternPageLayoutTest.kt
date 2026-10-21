@@ -63,7 +63,7 @@ class PatternPageLayoutTest {
                 StitchbookTheme(darkTheme = dark) {
                     Surface(Modifier.systemBarsPadding()) {
                         PatternGuidesScreen(PatternGuidesUiState.Content(pattern, listOf(PatternGuideEntry(guide, true)), false, false, completedProjects = 2),
-                            onOpenPdf = {}, onEditGuide = { opened = it }, onCreateGuide = { size, _ -> selected = size })
+                            onOpenPdf = {}, onEditGuide = { opened = it }, onCreateGuide = { size, _, _ -> selected = size })
                     }
                 }
             }

@@ -422,7 +422,7 @@ class PatternGuidesViewModel(
         .stateIn(scope, SharingStarted.WhileSubscribed(5_000), PatternGuidesUiState.Loading)
 
     /** Creates the guide for [sizeLabel]; with [fromPattern], filled from the pattern's PDF for that size. */
-    fun createGuide(sizeLabel: String, fromPattern: Boolean = false) {
+    fun createGuide(sizeLabel: String, fromPattern: Boolean = false, reviewPdfSource: Boolean = false) {
         val content = uiState.value as? PatternGuidesUiState.Content ?: return
         if (content.isCreating || sourceReview.value != null || pdfReview.value != null || editReview.value != null || sizeLabel.isBlank()) return
         creation.value = CreationState(isCreating = true)
@@ -437,18 +437,34 @@ class PatternGuidesViewModel(
                         creation.value = CreationState(pdfProblem = PatternPdfProblem.UNREADABLE)
                         return@launch
                     }
-                    val original = ByteArrayInputStream(bytes).use { useCase.readSource(it) }
-                    if (original.hasNoExtractableText) {
-                        creation.value = CreationState(pdfProblem = PatternPdfProblem.NO_TEXT)
-                        return@launch
-                    }
                     val latest = libraryRepository.observeLibraryItem(libraryItemId).first()
                     if (latest?.pdfUri != pdfUri) {
                         creation.value = CreationState(failed = true)
                         return@launch
                     }
-                    sourceReview.value = PdfSourceReview(latest, sizeLabel.trim(), bytes, original,
-                        (1..original.pageCount).map { PdfSourceRegion(it) })
+                    if (reviewPdfSource) {
+                        val original = ByteArrayInputStream(bytes).use { useCase.readSource(it) }
+                        if (original.hasNoExtractableText) {
+                            creation.value = CreationState(pdfProblem = PatternPdfProblem.NO_TEXT)
+                            return@launch
+                        }
+                        sourceReview.value = PdfSourceReview(latest, sizeLabel.trim(), bytes, original,
+                            (1..original.pageCount).map { PdfSourceRegion(it) })
+                    } else {
+                        when (val result = ByteArrayInputStream(bytes).use {
+                            useCase.forPattern(libraryItemId, sizeLabel.trim(), latest.sizes, guideName, it)
+                        }) {
+                            is CreateGuideFromPdfUseCase.Result.Success -> created.value = result.guideId.value
+                            CreateGuideFromPdfUseCase.Result.NoExtractableText -> {
+                                creation.value = CreationState(pdfProblem = PatternPdfProblem.NO_TEXT)
+                                return@launch
+                            }
+                            is CreateGuideFromPdfUseCase.Result.ExtractionFailed -> {
+                                creation.value = CreationState(pdfProblem = PatternPdfProblem.UNREADABLE)
+                                return@launch
+                            }
+                        }
+                    }
                 } else {
                     created.value = guideRepository.createPatternGuide(libraryItemId, sizeLabel, guideName).id.value
                 }

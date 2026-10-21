@@ -24,7 +24,7 @@ class RemoveGuideScreenTest {
         compose.setContent { StitchbookTheme {
             Surface(Modifier.systemBarsPadding()) {
                 PatternGuidesScreen(PatternGuidesUiState.Content(pattern, listOf(PatternGuideEntry(guide, false)), false, false),
-                    {}, {}, { _, _ -> }, onRemoveGuide = { removed = it })
+                    {}, {}, { _, _, _ -> }, onRemoveGuide = { removed = it })
             }
         } }
         compose.onNodeWithText("Remove guide").performScrollTo().performClick()

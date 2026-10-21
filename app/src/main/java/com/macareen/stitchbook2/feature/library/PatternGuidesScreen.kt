@@ -107,7 +107,9 @@ fun PatternGuidesRoute(
         uiState,
         onOpenPdf,
         onEditGuide,
-        viewModel::createGuide,
+        onCreateGuide = { size, fromPattern, reviewPdfSource ->
+            viewModel.createGuide(size, fromPattern, reviewPdfSource)
+        },
         onStartProject = viewModel::startProject,
         onGetRavelryPdf = viewModel::getRavelryPdf,
         onAttachPdf = viewModel::attachPdf,
@@ -141,7 +143,7 @@ fun PatternGuidesScreen(
     uiState: PatternGuidesUiState,
     onOpenPdf: (String) -> Unit,
     onEditGuide: (String) -> Unit,
-    onCreateGuide: (String, Boolean) -> Unit,
+    onCreateGuide: (String, Boolean, Boolean) -> Unit,
     modifier: Modifier = Modifier,
     onStartProject: () -> Unit = {},
     onGetRavelryPdf: () -> Unit = {},
@@ -172,7 +174,7 @@ private fun Content(
     state: PatternGuidesUiState.Content,
     onOpenPdf: (String) -> Unit,
     onEditGuide: (String) -> Unit,
-    onCreateGuide: (String, Boolean) -> Unit,
+    onCreateGuide: (String, Boolean, Boolean) -> Unit,
     onStartProject: () -> Unit,
     onGetRavelryPdf: () -> Unit,
     onAttachPdf: (PickedDocument) -> Unit,
@@ -356,9 +358,9 @@ private fun Content(
             patternTitle = PatternNames.title(state.pattern.title, state.pattern.pdfFileName),
             sizeChoices = state.sizeChoices,
             canFillFromPattern = state.pattern.pdfUri != null,
-            onCreate = { size, fromPattern ->
+            onCreate = { size, fromPattern, reviewPdfSource ->
                 showNewGuide = false
-                onCreateGuide(size, fromPattern)
+                onCreateGuide(size, fromPattern, reviewPdfSource)
             },
             onDismiss = { showNewGuide = false }
         )
@@ -496,12 +498,13 @@ private fun NewGuideDialog(
     patternTitle: String,
     sizeChoices: List<String>,
     canFillFromPattern: Boolean,
-    onCreate: (String, Boolean) -> Unit,
+    onCreate: (String, Boolean, Boolean) -> Unit,
     onDismiss: () -> Unit,
     initialSize: String = ""
 ) {
     var size by rememberSaveable { mutableStateOf(initialSize) }
     var fromPattern by rememberSaveable { mutableStateOf(canFillFromPattern) }
+    var reviewPdfSource by rememberSaveable { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.pattern_guides_new)) },
@@ -536,11 +539,21 @@ private fun NewGuideDialog(
                             QuietText(text = stringResource(R.string.pattern_guides_fill_from_pdf_hint))
                         }
                     }
+                    if (fromPattern) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = reviewPdfSource, onCheckedChange = { reviewPdfSource = it },
+                                modifier = Modifier.testTag("pattern-guides-review-source"))
+                            Column {
+                                Text(stringResource(R.string.pattern_guides_review_pdf_source), style = MaterialTheme.typography.bodyLarge)
+                                QuietText(text = stringResource(R.string.pattern_guides_review_pdf_source_hint))
+                            }
+                        }
+                    }
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = { onCreate(size, canFillFromPattern && fromPattern) }, enabled = size.isNotBlank()) {
+            TextButton(onClick = { onCreate(size, canFillFromPattern && fromPattern, canFillFromPattern && fromPattern && reviewPdfSource) }, enabled = size.isNotBlank()) {
                 Text(stringResource(R.string.pattern_guides_create))
             }
         },
@@ -571,7 +584,7 @@ private fun PatternGuidesPreview() {
             uiState = PatternGuidesUiState.Content(pattern, listOf(PatternGuideEntry(guide, true)), false, false),
             onOpenPdf = {},
             onEditGuide = {},
-            onCreateGuide = { _, _ -> }
+            onCreateGuide = { _, _, _ -> }
         )
     }
 }

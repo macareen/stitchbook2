@@ -27,7 +27,7 @@ class ArchiveGuideScreenTest {
             PatternGuidesScreen(PatternGuidesUiState.Content(pattern,
                 if (guide.isArchived) emptyList() else listOf(entry), false, false,
                 archivedGuides = if (guide.isArchived) listOf(entry) else emptyList()),
-                {}, {}, { _, _ -> }, onArchiveGuide = { id, archived ->
+                {}, {}, { _, _, _ -> }, onArchiveGuide = { id, archived ->
                     assertEquals("guide", id); guide = guide.copy(isArchived = archived); changes++
                 })
         } } }
