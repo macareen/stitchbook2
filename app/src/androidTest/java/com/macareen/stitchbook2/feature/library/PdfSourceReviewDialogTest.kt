@@ -74,6 +74,13 @@ class PdfSourceReviewDialogTest {
         compose.onNodeWithTag("pdf-source-review").performScrollToNode(hasTestTag("pdf-source-preview"))
         compose.onNodeWithTag("pdf-source-preview").performClick()
         compose.onNodeWithTag("pdf-source-create").assertIsNotEnabled()
+        compose.onNodeWithTag("pdf-source-review").performScrollToIndex(0)
+        compose.onNodeWithText("Previous page").performClick()
+        compose.onNodeWithTag("pdf-source-review").performScrollToNode(hasText("p.2 · Cast on 20 (24) sts."))
+        compose.onNodeWithText("p.2 · Cast on 20 (24) sts.").performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("Page 2 of 2").fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithTag("pdf-source-review").performScrollToNode(hasText("I checked this text", substring = true))
         compose.onNode(isToggleable()).performClick()
         compose.onNodeWithTag("pdf-source-create").assertIsEnabled()
