@@ -30,7 +30,7 @@ fun revisionChangeSeed(review: ReviewedRevisionChange, selected: Set<ExecutionAd
     require(resumeAt == null || traversal.occurrences().any { it.address == resumeAt }) { "Choose a step in the target publication." }
     val completed = if (resumeAt == null) selected else {
         val earlier = if (review.confirmEarlierStepsDone) traversal.occurrences()
-            .takeWhile { it.address != resumeAt }.filter { it.instruction.target == null }.map { it.address }.toSet() else emptySet()
+            .takeWhile { it.address != resumeAt }.filter { traversal.targetCycle(it.address) == null }.map { it.address }.toSet() else emptySet()
         (selected + earlier) - resumeAt
     }
     val first = resumeAt ?: traversal.occurrences().firstOrNull { it.address !in completed }?.address

@@ -98,13 +98,15 @@ object ExecutionStateValidator {
         }
 
         (state.targetWork.keys + state.completedAddresses.filter { address ->
-            runCatching { traversal.resolve(address).instruction.target }.getOrNull() != null
-        }).forEach { address ->
-            val target = runCatching { traversal.resolve(address).instruction.target }.getOrNull()
+            runCatching { traversal.targetCycle(address)?.last == address }.getOrDefault(false)
+        }.mapNotNull { runCatching { traversal.targetCycle(it)?.key }.getOrNull() }).forEach { address ->
+            val cycle = runCatching { traversal.targetCycle(address) }.getOrNull()
+            val target = cycle?.target
             val work = state.targetWork[address]
-            if (target == null || work == null || work.cycle < 1 ||
+            if (target == null || cycle.key != address || work == null || work.cycle < 1 ||
                 work.observations.any { it.cycle < 1 || !target.accepts(it.value) } ||
-                (address in state.completedAddresses) != work.reached ||
+                (cycle.last in state.completedAddresses) != work.reached ||
+                work.reached && !state.completedAddresses.containsAll(cycle.body) ||
                 work.reached && work.observations.lastOrNull { it.cycle == work.cycle }?.value?.let(target::isReachedBy) != true) {
                 errors += ExecutionStateError.InvalidTargetWork(address)
             }

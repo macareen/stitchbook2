@@ -17,6 +17,34 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GuideEntityMappingTest {
+    @Test fun targetDraftRefusesDependentRepeatLabelsAndUnknownAncestorConditions() {
+        val target = com.macareen.stitchbook2.domain.execution.ManualTarget(com.macareen.stitchbook2.domain.execution.TargetUnit.INCHES, 4.5)
+        val draft = validDraft().let { it.copy(nodes = it.nodes.map { node ->
+            if (node.type == DraftNodeType.SECTION) node.copy(target = target) else node
+        }) }
+        val dependent = draft.copy(nodes = draft.nodes.map { node ->
+            if (node.type == DraftNodeType.RANGE) node.copy(type = DraftNodeType.REPEAT, repeatCount = 2, repeatLabel = "While shaping") else node
+        })
+        assertThrows(IllegalArgumentException::class.java) { dependent.toNodeEntities() }
+        val outer = NodeId("outer")
+        val unknownAncestor = draft.copy(rootNodeIds = listOf(outer), nodes = draft.nodes +
+            DraftNode(outer, DraftNodeType.SECTION, title = "Repeat until long enough", children = draft.rootNodeIds))
+        assertThrows(IllegalArgumentException::class.java) { unknownAncestor.toNodeEntities() }
+    }
+    @Test fun sectionTargetPreservesEveryInstructionAndPublishedCopy() {
+        val target = com.macareen.stitchbook2.domain.execution.ManualTarget(com.macareen.stitchbook2.domain.execution.TargetUnit.INCHES, 4.5)
+        val draft = validDraft().let { it.copy(nodes = it.nodes.map { node ->
+            if (node.type == DraftNodeType.SECTION) node.copy(target = target) else node
+        }) }
+        val rows = draft.toNodeEntities()
+        assertEquals(draft, DraftAggregate(draft.entity(), rows).toDomain())
+        val revision = DefinitionRevisionEntity("body-revision", draft.guideId.value, 1, 1)
+        val published = RevisionAggregate(revision, rows.map { it.toRevisionNode(revision.id) }).toDomain()
+        assertEquals(target, published.definition.nodes.filterIsInstance<Section>().single().target)
+        assertEquals(validDraft().nodes.filter { it.type == DraftNodeType.INSTRUCTION }.map { it.instructionText },
+            published.definition.nodes.filterIsInstance<Instruction>().map { it.text })
+        assertEquals(rows, rows.map { it.toRevisionNode(revision.id).toDraftNode(draft.id.value) })
+    }
     @Test fun manualTargetSurvivesDraftPublicationRevisionAndDraftCopy() {
         val target = com.macareen.stitchbook2.domain.execution.ManualTarget(com.macareen.stitchbook2.domain.execution.TargetUnit.CENTIMETRES, 12.5)
         val draft = validDraft().let { it.copy(nodes = it.nodes.map { node ->

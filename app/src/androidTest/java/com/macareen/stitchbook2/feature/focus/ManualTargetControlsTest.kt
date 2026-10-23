@@ -16,6 +16,27 @@ import org.junit.Test
 
 class ManualTargetControlsTest {
     @get:Rule val compose = createComposeRule()
+    @Test fun bodyShowsStepCompletionAndDefersReachedUntilTheFinalStep() {
+        val target = ManualTarget(TargetUnit.CENTIMETRES, 12.0)
+        val state = mutableStateOf(GuideFocusUiState.InProgress("Sample", "project", ExecutionId("body"), 1,
+            "Knit this row", emptyList(), emptyList(), target = target, targetBodyEnd = false, targetCanConfirm = false,
+            targetBodyPosition = "1 / 2", targetWork = TargetWork(observations = listOf(TargetObservation(1, 12.0)))))
+        var completed = 0
+        compose.setContent { StitchbookTheme { Surface(Modifier.systemBarsPadding()) {
+            GuideFocusScreen(state.value, {}, { completed++ }, {}, {}, {}, {}, {}, onConfirmTarget = {})
+        } } }
+        compose.onNodeWithText("Complete").assertIsDisplayed().performClick()
+        compose.onNodeWithText("Cycle done - repeat").assertDoesNotExist()
+        compose.onNodeWithText("Target reached").performScrollTo().assertIsNotEnabled()
+        compose.runOnIdle {
+            assertEquals(1, completed)
+            state.value = state.value.copy(instructionText = "Purl this row", occurrenceKey = "last", targetBodyEnd = true,
+                targetCanConfirm = true, targetBodyPosition = "2 / 2")
+        }
+        compose.onNodeWithText("Complete").assertDoesNotExist()
+        compose.onNodeWithText("Cycle done - repeat").assertIsDisplayed()
+        compose.onNodeWithText("Target reached").performScrollTo().assertIsEnabled()
+    }
     @Test fun lightTargetFlowRequiresRecordedObservationAndSeparateConfirmation() = check(false, 1f)
     @Test fun darkTargetFlowRequiresRecordedObservationAndSeparateConfirmation() = check(true, 1f)
     @Test fun targetControlsRemainReachableAtLargeText() = check(true, 1.8f)

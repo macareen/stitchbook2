@@ -45,7 +45,7 @@ data class GuideProgressSummary(
         fun of(guide: ValidatedGuideDefinition, completedAddresses: Set<ExecutionAddress>): GuideProgressSummary {
             val records = GuideTraversal(guide).occurrenceRecords().toList()
             // Unknown cycle lengths cannot be weighted as recorded stitch work.
-            val hasTargets = records.any { it.instruction.target != null }
+            val hasTargets = guide.definition.nodes.any { it is Section && it.target != null || it is Instruction && it.target != null }
             val stated = records.map { if (hasTargets) null else StitchCount.from(it.instruction.text) }
             val firstStated = stated.firstOrNull { it != null }
             var carried = firstStated

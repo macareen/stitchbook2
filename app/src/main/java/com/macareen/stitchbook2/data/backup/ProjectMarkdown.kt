@@ -231,6 +231,7 @@ private fun StringBuilder.guidesSection(projectId: String, graph: GuideBackupGra
         graph.executions.filter { it.guideId == guide.id && it.projectId == projectId && it.pieceId == null }
             .sortedBy { it.createdAt }.forEach { targetWorkSection(it, graph) }
         val children = nodes.groupBy { it.parentNodeId }.mapValues { (_, list) -> list.sortedBy { it.childOrder } }
+        val hasTargetBodies = nodes.any { it.type == "SECTION" && it.targetJson != null }
         fun write(parentId: String?, depth: Int) {
             children[parentId].orEmpty().forEach { node ->
                 val indent = "  ".repeat(depth)
@@ -245,6 +246,7 @@ private fun StringBuilder.guidesSection(projectId: String, graph: GuideBackupGra
                     else -> node.instructionText.orEmpty().trim()
                 }
                 line("$indent- $text")
+                if (hasTargetBodies) line("$indent  Step ID: ${node.nodeId}")
                 node.targetJson?.let { json ->
                     val target = com.macareen.stitchbook2.domain.execution.ManualTargets.decode(json)
                     line("$indent  Repeat this cycle until ${target.description()}; total cycles unknown; explicit confirmation required.")
@@ -288,7 +290,12 @@ private fun StringBuilder.targetWorkSection(execution: com.macareen.stitchbook2.
     com.macareen.stitchbook2.domain.execution.TargetWorkCodec.decode(execution.targetWorkJson,
         com.macareen.stitchbook2.domain.execution.DefinitionRevisionId(execution.definitionRevisionId)).forEach { (address, work) ->
         val node = revision?.nodes?.firstOrNull { it.nodeId == address.instructionNodeId.value }
-        val target = node?.targetJson?.let(com.macareen.stitchbook2.domain.execution.ManualTargets::decode)
+        val cycle = revision?.let { record ->
+            com.macareen.stitchbook2.domain.execution.GuideTraversal(
+                com.macareen.stitchbook2.domain.execution.GuideDefinitionValidator.validate(
+                    com.macareen.stitchbook2.domain.backup.backupDefinition(record))).targetCycle(address)
+        }
+        val target = cycle?.target
         line("Target work: execution ${execution.id}, revision ${execution.definitionRevisionId}, step ${address.instructionNodeId.value}, ${address.ancestryFrames}.")
         node?.instructionText?.let { line(it) }
         line("Target ${target?.description()}; cycle ${work.cycle}; total cycles unknown; reached confirmed: ${work.reached}.")

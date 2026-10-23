@@ -84,6 +84,11 @@ internal fun validateGuides(
         if (revision.revisionNumber < 1) invalid(BackupRecordType.GUIDE_REVISIONS, revision.id, "Revision number must be 1 or more.")
         if (revision.nodes.any { it.targetJson != null } && incoming.formatVersion < 6) invalid(BackupRecordType.GUIDE_REVISIONS, revision.id, "Manual targets require backup format 6.")
         nodeTreeProblems(revision.nodes).forEach { invalid(BackupRecordType.GUIDE_REVISIONS, revision.id, it) }
+        if (revision.nodes.any { it.type == "SECTION" && it.targetJson != null }) {
+            if (incoming.formatVersion < 7 || runCatching {
+                com.macareen.stitchbook2.domain.execution.GuideDefinitionValidator.validate(backupDefinition(revision))
+            }.isFailure) invalid(BackupRecordType.GUIDE_REVISIONS, revision.id, "Invalid target body or backup format older than 7.")
+        }
     }
     graph.revisions.groupBy { it.guideId to it.revisionNumber }.filterValues { it.size > 1 }.forEach { (key, duplicates) ->
         duplicates.forEach { invalid(BackupRecordType.GUIDE_REVISIONS, it.id, "Guide \"${key.first}\" has more than one revision ${key.second}.") }
@@ -99,6 +104,10 @@ internal fun validateGuides(
         }
         if (draft.nodes.any { it.targetJson != null } && incoming.formatVersion < 6) invalid(BackupRecordType.GUIDE_DRAFTS, draft.id, "Manual targets require backup format 6.")
         nodeTreeProblems(draft.nodes).forEach { invalid(BackupRecordType.GUIDE_DRAFTS, draft.id, it) }
+        if (draft.nodes.any { it.type == "SECTION" && it.targetJson != null }) {
+            if (incoming.formatVersion < 7 || !validateDraftTargetBody(draft))
+                invalid(BackupRecordType.GUIDE_DRAFTS, draft.id, "Invalid target body or backup format older than 7.")
+        }
     }
     graph.drafts.groupBy { it.guideId }.filterValues { it.size > 1 }.forEach { (guideId, duplicates) ->
         duplicates.forEach { invalid(BackupRecordType.GUIDE_DRAFTS, it.id, "Guide \"$guideId\" has more than one draft.") }
@@ -188,7 +197,7 @@ private fun nodeTreeProblems(nodes: List<GuideNodeRecord>): List<String> {
     ids.groupingBy { it }.eachCount().filterValues { it > 1 }.keys.forEach { problems += "Step \"$it\" appears more than once." }
     val idSet = ids.toSet()
     nodes.forEach { node ->
-        if (node.targetJson != null && (node.type != "INSTRUCTION" || runCatching {
+        if (node.targetJson != null && (node.type !in setOf("INSTRUCTION", "SECTION") || runCatching {
                 com.macareen.stitchbook2.domain.execution.ManualTargets.decode(node.targetJson)
             }.isFailure)) problems += "Invalid manual target on step ${node.nodeId}."
         if (node.type !in GUIDE_NODE_TYPES) problems += "Step \"${node.nodeId}\" has unknown type \"${node.type}\"."

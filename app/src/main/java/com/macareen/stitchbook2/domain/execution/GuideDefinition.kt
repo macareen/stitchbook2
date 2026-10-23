@@ -11,7 +11,8 @@ sealed interface GuideContainer : GuideNode {
 class Section(
     override val id: NodeId,
     val title: String,
-    children: List<NodeId>
+    children: List<NodeId>,
+    val target: ManualTarget? = null
 ) : GuideContainer {
     override val children: List<NodeId> = children.toList()
 
@@ -19,14 +20,14 @@ class Section(
         return other is Section &&
             id == other.id &&
             title == other.title &&
-            children == other.children
+            children == other.children && target == other.target
     }
 
     override fun hashCode(): Int {
         var result = id.hashCode()
         result = 31 * result + title.hashCode()
         result = 31 * result + children.hashCode()
-        return result
+        return 31 * result + (target?.hashCode() ?: 0)
     }
 }
 

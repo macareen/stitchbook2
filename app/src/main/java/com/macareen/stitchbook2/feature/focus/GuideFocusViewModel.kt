@@ -130,7 +130,10 @@ sealed interface GuideFocusUiState {
         val castOnCount: Int = 0,
         val occurrenceKey: String = "",
         val target: com.macareen.stitchbook2.domain.execution.ManualTarget? = null,
-        val targetWork: com.macareen.stitchbook2.domain.execution.TargetWork = com.macareen.stitchbook2.domain.execution.TargetWork()
+        val targetWork: com.macareen.stitchbook2.domain.execution.TargetWork = com.macareen.stitchbook2.domain.execution.TargetWork(),
+        val targetBodyEnd: Boolean = true,
+        val targetCanConfirm: Boolean = true,
+        val targetBodyPosition: String? = null
     ) : GuideFocusUiState
 
     data class Completed(
@@ -584,6 +587,7 @@ class GuideFocusViewModel(
             "An ACTIVE execution must have a current address."
         }
         val instruction = validated.node(currentAddress.instructionNodeId) as Instruction
+        val targetCycle = traversal.targetCycle(currentAddress)
 
         val breadcrumbs = traversal.ancestryNodePath(currentAddress)
             .mapNotNull { nodeId -> (validated.node(nodeId) as? Section)?.title }
@@ -610,8 +614,11 @@ class GuideFocusViewModel(
             // The page shows on the Pattern button, so steps read without their "(p.N)".
             instructionText = withoutSourcePage(instruction.text),
             referenceNotes = referenceNotes,
-            target = instruction.target,
-            targetWork = execution.state.targetWork[currentAddress] ?: com.macareen.stitchbook2.domain.execution.TargetWork(),
+            target = targetCycle?.target,
+            targetWork = execution.state.targetWork[targetCycle?.key] ?: com.macareen.stitchbook2.domain.execution.TargetWork(),
+            targetBodyEnd = targetCycle == null || currentAddress == targetCycle.last,
+            targetCanConfirm = targetCycle?.canConfirm(execution.state) ?: true,
+            targetBodyPosition = targetCycle?.takeIf { it.body.size > 1 }?.let { "${it.body.indexOf(currentAddress) + 1} / ${it.body.size}" },
             castOnCount = execution.state.castOnCounts[currentAddress] ?: 0,
             occurrenceKey = currentAddress.toString(),
             breadcrumbs = breadcrumbs,

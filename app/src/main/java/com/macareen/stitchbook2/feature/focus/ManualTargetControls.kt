@@ -10,7 +10,7 @@ import com.macareen.stitchbook2.domain.execution.*
 
 @Composable
 internal fun ManualTargetControls(target: ManualTarget, work: TargetWork, occurrenceKey: String,
-    busy: Boolean, onObserve: (Double) -> Unit, onConfirm: () -> Unit) {
+    busy: Boolean, onObserve: (Double) -> Unit, onConfirm: () -> Unit, canConfirm: Boolean = true, bodyPosition: String? = null) {
     var value by rememberSaveable(occurrenceKey, work.cycle) { mutableStateOf("") }
     var confirming by rememberSaveable(occurrenceKey, work.cycle) { mutableStateOf(false) }
     val observed = work.observations.lastOrNull { it.cycle == work.cycle }?.value
@@ -18,12 +18,13 @@ internal fun ManualTargetControls(target: ManualTarget, work: TargetWork, occurr
     Column {
         Text(stringResource(R.string.manual_target_heading, target.description(), work.cycle), style = MaterialTheme.typography.titleMedium)
         Text(stringResource(R.string.manual_target_unknown))
+        bodyPosition?.let { Text(stringResource(R.string.manual_target_body_position, it)) }
         OutlinedTextField(value, { value = it }, enabled = !busy,
             label = { Text(stringResource(R.string.manual_target_observation, target.unit.label)) },
             isError = value.isNotBlank() && parsed == null)
         TextButton(onClick = { parsed?.let(onObserve) }, enabled = !busy && parsed != null) { Text(stringResource(R.string.manual_target_record)) }
         observed?.let { Text(stringResource(R.string.manual_target_latest, formatTargetValue(it), target.unit.label)) }
-        TextButton(onClick = { confirming = true }, enabled = !busy && observed != null && target.isReachedBy(observed)) {
+        TextButton(onClick = { confirming = true }, enabled = !busy && canConfirm && observed != null && target.isReachedBy(observed)) {
             Text(stringResource(R.string.manual_target_reached))
         }
         if (work.observations.isNotEmpty()) {

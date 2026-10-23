@@ -26,6 +26,7 @@ class InvalidExecutionAddressException(
 class GuideTraversal(
     private val guide: ValidatedGuideDefinition
 ) {
+    private val targetCycles = mutableMapOf<ExecutionAddress, TargetCycle?>()
     fun occurrences(): Sequence<ExecutableOccurrence> {
         return occurrenceRecords().map { record ->
             ExecutableOccurrence(
@@ -36,6 +37,25 @@ class GuideTraversal(
     }
 
     fun first(): ExecutableOccurrence = occurrences().first()
+
+    /** A finite body is traversed structurally once; its unknown cycle cursor belongs to execution work. */
+    fun targetCycle(address: ExecutionAddress): TargetCycle? {
+        if (targetCycles.containsKey(address)) return targetCycles[address]
+        val path = ancestryNodePath(address)
+        val section = path.mapNotNull { guide.node(it) as? Section }.singleOrNull { it.target != null }
+        if (section == null) {
+            val cycle = resolve(address).instruction.target?.let { TargetCycle(it, listOf(address)) }
+            targetCycles[address] = cycle
+            return cycle
+        }
+        val outerFrames = address.ancestryFrames.takeWhile { frame ->
+            path.indexOf(frame.containerNodeId) < path.indexOf(section.id)
+        }
+        val body = walk(section.id, outerFrames, emptyList()).map { it.address }.toList()
+        val cycle = TargetCycle(requireNotNull(section.target), body, section.id)
+        body.forEach { targetCycles[it] = cycle }
+        return cycle
+    }
 
     fun last(): ExecutableOccurrence = occurrences().last()
 
@@ -239,3 +259,10 @@ internal data class OccurrenceRecord(
     val instruction: Instruction,
     val nodePath: List<NodeId>
 )
+
+data class TargetCycle(val target: ManualTarget, val body: List<ExecutionAddress>, val containerId: NodeId? = null) {
+    val key: ExecutionAddress get() = body.first()
+    val last: ExecutionAddress get() = body.last()
+    fun canConfirm(state: ExecutionState): Boolean = state.currentAddress == last &&
+        body.dropLast(1).all { it in state.completedAddresses }
+}
