@@ -1,4 +1,8 @@
 <resources>
+    <string name="draft_review_label">Needs review</string>
+    <string name="draft_show_wording">Show full wording</string>
+    <string name="draft_show_less">Show less</string>
+    <string name="draft_step_options">Step options</string>
     <string name="draft_replay_section">Use section instructions</string>
     <string name="draft_replay_help">Replace this reminder with a fresh copy of a section’s actual steps, including ranges and repeats. Choose the source and check every instruction. Original steps and existing published progress are preserved. Publish and review the revision to use the change in current work.</string>
     <string name="draft_replay_no_sections">No section can be copied here yet. Organize the first piece’s instructions into a section, then open this review again.</string>

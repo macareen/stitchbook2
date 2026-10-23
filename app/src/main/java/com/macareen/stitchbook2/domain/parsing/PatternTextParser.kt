@@ -60,7 +60,7 @@ object PatternTextParser {
 
     /** A line that begins its own step, so a wrapped line is never glued onto it from above. */
     internal fun startsNewLine(text: String): Boolean =
-        SECTION_LINE.matches(text) || isRowLabelOnly(text) || TOTAL_REPEAT_PREFIX.containsMatchIn(text) || REPEAT_LINE.matches(text) || ROW_RANGE_LINE.matches(text) ||
+        SECTION_LINE.matches(text) || isRowLabelOnly(text) || PdfTargetSuggestions.startsBodyReference(text) || TOTAL_REPEAT_PREFIX.containsMatchIn(text) || REPEAT_LINE.matches(text) || ROW_RANGE_LINE.matches(text) ||
             ROW_SINGLE_LINE.matches(text) || NOTE_PREFIX.containsMatchIn(text) || BULLET.containsMatchIn(text) || headingTitle(text) != null ||
             PatternMetadataSplitter.startsDetailsLine(text) || PatternPieceReplay.startsReference(text)
 
