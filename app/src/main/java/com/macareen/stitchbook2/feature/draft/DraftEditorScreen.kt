@@ -66,6 +66,8 @@ fun DraftEditorRoute(
     returningToWork: Boolean = false
 ) {
     var targetNode by remember { mutableStateOf<DraftNode?>(null) }
+    var targetSuggestion by remember { mutableStateOf<com.macareen.stitchbook2.domain.execution.ManualTarget?>(null) }
+    var targetVersion by remember { mutableStateOf<Long?>(null) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val replayReview by viewModel.sectionReplayReview.collectAsStateWithLifecycle()
 
@@ -83,13 +85,20 @@ fun DraftEditorRoute(
         onRepeatInstruction = viewModel::repeatInstruction,
         returningToWork = returningToWork,
         onMoveReferences = viewModel::moveReferences,
-        onEditTarget = { targetNode = it },
+        onEditTarget = { node ->
+            val content = uiState as? DraftEditorUiState.Content
+            targetNode = node
+            targetVersion = content?.draftVersion
+            targetSuggestion = content?.rows?.firstOrNull { it.node.id == node.id }?.suggestedTarget
+        },
         onReplaySection = viewModel::requestSectionReplay
     )
     targetNode?.let { node ->
         ManualTargetDialog(node.target, (uiState as? DraftEditorUiState.Content)?.isSaving == true,
             (uiState as? DraftEditorUiState.Content)?.errorMessage,
-            { target -> viewModel.setTarget(node, target) { targetNode = null } }, { targetNode = null })
+            { target -> viewModel.setTarget(node, target, targetVersion) { targetNode = null } }, { targetNode = null },
+            suggestion = targetSuggestion,
+            sourceText = node.instructionText)
     }
     replayReview?.let { review ->
         SectionReplayDialog(review, (uiState as? DraftEditorUiState.Content)?.isSaving == true,
@@ -484,7 +493,8 @@ private fun DraftOutlineRowItem(
             Spacer(modifier = Modifier.height(StitchbookSpacing.extraSmall))
             if (row.node.type == DraftNodeType.INSTRUCTION) {
                 androidx.compose.foundation.layout.FlowRow {
-                    TextButton(onClick = onTarget, enabled = !isSaving) { Text(stringResource(R.string.manual_target_title)) }
+                    val suggestion = row.suggestedTarget != null
+                    TextButton(onClick = onTarget, enabled = !isSaving) { Text(stringResource(if (suggestion) R.string.pdf_target_review_action else R.string.manual_target_title)) }
                     TextButton(onClick = onRepeat, enabled = !isSaving) { Text(stringResource(R.string.draft_repeat_instruction)) }
                     TextButton(onClick = onReplaySection, enabled = !isSaving) { Text(stringResource(R.string.draft_replay_section)) }
                 }

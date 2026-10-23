@@ -796,6 +796,9 @@
     <string name="pattern_details_reading">Reading pattern details…</string>
     <string name="pattern_details_read_failed">Could not read pattern details. Your PDF and edits are kept. You can try again.</string>
     <string name="manual_target_title">Repeat until a target</string>
+    <string name="pdf_target_review_action">Review suggested target</string>
+    <string name="pdf_target_suggestion_help">This suggestion has not changed the step. Check the original PDF and selected size, including where to measure from. The text must describe one complete cycle with no dependent or simultaneous work. Save only after review; publishing remains a separate action.</string>
+    <string name="pdf_target_review_checked">I checked the source, selected size, cycle and target</string>
     <string name="manual_target_help">This step describes one complete cycle of work. Repeat it as needed, record measurements or stitch counts, then confirm the target. Review the text before publishing. Use a separate step for each independent target.</string>
     <string name="manual_target_value">Target (%1$s)</string>
     <string name="manual_target_remove">Remove target</string>

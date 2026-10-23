@@ -34,7 +34,8 @@ object ParsedPatternMapper {
         val nodes = mutableListOf<DraftNode>()
         val rootIds = mutableListOf<NodeId>()
         // Each leaf keeps its page: traversal can return to it inside later repeat cycles.
-        fun withProvenance(text: String, source: SourceReference): String = "$text (p.${source.pageNumber})"
+        fun withProvenance(text: String, source: SourceReference): String =
+            if (PdfTargetSuggestions.needsReview(text)) "$text ${formatSource(source)}" else "$text (p.${source.pageNumber})"
 
         // A heading, range, or repeat with nothing under it is dropped: it would
         // only block publishing, and its words carry no step to work.
