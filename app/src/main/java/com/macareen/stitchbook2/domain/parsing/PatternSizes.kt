@@ -21,26 +21,31 @@ object PatternSizes {
     )
     private val MEASUREMENT_VALUES = Regex("""^([\d\s.,/()\[\];-]+?)\s*(?:cm|in(?:ches)?|\")(?:\s|$)""", RegexOption.IGNORE_CASE)
 
-    // A count, a decimal, a mixed or plain fraction, or a dash for "not in this size".
-    private const val VALUE = """(?:\d+/\d+|\d+(?:\.\d+)?(?:\s\d+/\d+|[¼½¾⅛⅜⅝⅞])?(?:st|nd|rd|th)?|[-–—])"""
+    // Keep size labels scalar; an instruction alternative may also be a complete range.
+    private const val NUMBER_VALUE = """(?:\d+/\d+|\d+(?:\.\d+)?(?:\s\d+/\d+|[¼½¾⅛⅜⅝⅞])?(?:st|nd|rd|th)?)"""
+    private const val VALUE = """(?:$NUMBER_VALUE|[-–—])"""
+    private const val ALTERNATIVE = """(?:$NUMBER_VALUE(?:\s*[-–—]\s*$NUMBER_VALUE)?|[-–—])"""
 
     private val SIZE_HEADING = Regex("""^(?:finished\s+)?sizes?\s*[:\-\u2013\u2014]?\s*$""", RegexOption.IGNORE_CASE)
     private const val LABEL = """(?:\d+X|\d*X*[SML]|[A-Z]|$VALUE)"""
     private val ALTERNATING_LABELS = Regex("""^($LABEL(?:\s*[(\[]\s*$LABEL\s*[)\]]|\s+$LABEL)+)(?:\s*(?:cm|in(?:ches)?|[\"])?\s*)$""", RegexOption.IGNORE_CASE)
 
-    private val VALUE_TOKEN = Regex(VALUE, RegexOption.IGNORE_CASE)
+    private val ALTERNATIVE_TOKEN = Regex(ALTERNATIVE, RegexOption.IGNORE_CASE)
     private val SINGLE_VALUE = Regex("^$VALUE$")
     private val LABEL_TOKEN = Regex(LABEL, RegexOption.IGNORE_CASE)
     private val NUMERIC_RUN: Regex = run {
-        val inside = "$VALUE(?:\\s*[,;]\\s*$VALUE)*"
+        val inside = "$ALTERNATIVE(?:\\s*[,;]\\s*$ALTERNATIVE)*"
         val group = "(?:\\(\\s*$inside\\s*\\)|\\[\\s*$inside\\s*\\])"
-        Regex("(?<![\\d./(])($VALUE(?:\\s*[,;]?\\s*$group|\\s*[,;]\\s+$VALUE|\\s+$VALUE)+)", RegexOption.IGNORE_CASE)
+        Regex("(?<![\\d./(])($ALTERNATIVE(?:\\s*[,;]?\\s*$group|\\s*[,;]\\s+$ALTERNATIVE|\\s+$ALTERNATIVE)+)", RegexOption.IGNORE_CASE)
     }
 
     private val boundedLabel = Regex("($LABEL)(?![\\p{L}\\d])", RegexOption.IGNORE_CASE)
     private val canonicalLabel = Regex("^$LABEL$", RegexOption.IGNORE_CASE)
     private val namedLabel = Regex("""^[\p{L}\d]+(?:[ –-][\p{L}\d]+){0,2}$""")
     private val annotatedSize = Regex("""(?i)(?<![\p{L}\d])(\d*X*[SML])\s*\([^)]*(?:cm|inches?|[”\"])[^)]*\)""")
+
+    private fun hasDistinctLabels(labels: List<String>): Boolean =
+        labels.map { it.normalized() }.distinct().size == labels.size
 
     /** Trim prose after a complete size declaration; never consume an incomplete annotation. */
     private fun declarationPrefix(text: String): String {
@@ -97,7 +102,7 @@ object PatternSizes {
             // OCR can interleave neighbouring columns between a heading and its list.
             // A complete annotated label list is evidence on its own; prose is not.
             val annotated = annotatedSize.findAll(text).map { it.groupValues[1] }.toList()
-            if (annotated.size >= 2 && annotated.distinct().size == annotated.size &&
+            if (annotated.size >= 2 && hasDistinctLabels(annotated) &&
                 annotatedSize.replace(text, "").all { it.isWhitespace() || it in ",;" })
                 return@mapIndexedNotNull annotated to line
             val explicit = SIZES_LINE.matchEntire(text)
@@ -105,10 +110,12 @@ object PatternSizes {
             if (SIZE_HEADING.matches(line.text.trim())) {
                 document.lines.drop(index + 1).take(8)
                     .takeWhile { !Regex("""^(?:abbreviations?|materials?|gauge|pattern|instructions?|needles?|hooks?)\s*:?\s*$""", RegexOption.IGNORE_CASE).matches(it.text.trim()) }
-                    .mapNotNull { source -> labelsFrom(source.text).takeIf { labels -> labels.isNotEmpty() && labels.all(canonicalLabel::matches) }?.let { it to source } }
+                    .mapNotNull { source -> labelsFrom(source.text).takeIf { labels ->
+                        labels.isNotEmpty() && labels.all(canonicalLabel::matches) && hasDistinctLabels(labels)
+                    }?.let { it to source } }
                     .firstOrNull()
             } else inline?.groupValues?.get(1)?.let(::labelsFrom)?.takeIf {
-                it.isNotEmpty() && it.all { label -> canonicalLabel.matches(label) ||
+                it.isNotEmpty() && hasDistinctLabels(it) && it.all { label -> canonicalLabel.matches(label) ||
                     (explicit != null && namedLabel.matches(label)) }
             }?.let { it to line }
         }
@@ -117,8 +124,9 @@ object PatternSizes {
             ?: canonical.firstOrNull() ?: candidates.firstOrNull()
     }
 
-    /** Where [label] sits in [labels], ignoring case and spacing, or null when it isn't one of them. */
+    /** Where [label] sits in [labels], or null if absent or the list has ambiguous duplicate labels. */
     fun indexOf(label: String, labels: List<String>): Int? {
+        if (!hasDistinctLabels(labels)) return null
         val wanted = label.normalized()
         return labels.indexOfFirst { it.normalized() == wanted }.takeIf { it >= 0 }
     }
@@ -133,7 +141,7 @@ object PatternSizes {
             val marker = Regex("""(?i)\bmarker\s*$""").containsMatchIn(text.substring(0, match.range.first))
             val leading = if (marker) Regex("""^\d+\s+""").find(match.value)?.value.orEmpty() else ""
             val sequence = match.value.removePrefix(leading)
-            val values = VALUE_TOKEN.findAll(sequence).map { it.value }.toList()
+            val values = ALTERNATIVE_TOKEN.findAll(sequence).map { it.value }.toList()
             // Some PDFs contain an extra repeated alternative. If every value agrees,
             // the selected result is invariant; differing oversized runs stay untouched.
             val invariant = values.size > sizeCount && values.distinct().size == 1
@@ -150,7 +158,7 @@ object PatternSizes {
             when (node) {
                 is ParsedInstruction -> {
                     val ambiguous = NUMERIC_RUN.findAll(node.text).any { match ->
-                        val values = VALUE_TOKEN.findAll(match.value).map { it.value }.toList()
+                        val values = ALTERNATIVE_TOKEN.findAll(match.value).map { it.value }.toList()
                         ('(' in match.value || '[' in match.value) && values.size >= 2 && values.size != sizeCount && !(values.size > sizeCount && values.distinct().size == 1)
                     }
                     if (ambiguous) listOf(ParsingIssue("Check this instruction's unresolved size numbers in the original pattern before following it.", node.source)) else emptyList()

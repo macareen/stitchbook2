@@ -149,6 +149,9 @@ class CreateGuideFromPdfUseCase(
             labels.isEmpty() -> instructions to listOf(
                 ParsingIssue("No size list was found, so every size's numbers are kept for size ${sizeLabel.trim()}.", issueSource)
             )
+            labels.any { PatternSizes.indexOf(it, labels) == null } -> instructions to listOf(
+                ParsingIssue("The size list has duplicate labels (${labels.joinToString(", ")}), so every size's numbers are kept. Check the original pattern before following size ${sizeLabel.trim()}.", issueSource)
+            )
             else -> instructions to listOf(
                 ParsingIssue(
                     "Size ${sizeLabel.trim()} isn't one of the pattern's sizes (${labels.joinToString(", ")}), so every size's numbers are kept.",

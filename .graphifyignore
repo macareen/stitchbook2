@@ -1,0 +1,18 @@
+# Only repository code belongs in the local graph.
+.git/
+.gradle/
+.idea/
+.claude/
+.agents/
+.graphify-venv/
+.graphify-cache/
+graphify-out/
+**/build/
+app/schemas/
+local.properties
+*.jks
+*.keystore
+*.pdf
+*.png
+*.jpg
+*.jpeg

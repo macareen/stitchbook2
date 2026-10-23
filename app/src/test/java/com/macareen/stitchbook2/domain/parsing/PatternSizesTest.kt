@@ -20,6 +20,18 @@ class PatternSizesTest {
         assertNull(PatternSizes.findInDocument(document("S (15 cm), S (18 cm)")))
     }
 
+    @Test fun duplicateSizeLabelsAreNotOfferedAsSelectableSizes() {
+        assertNull(PatternSizes.findInDocument(document("Sizes: S (s, M)")))
+        assertNull(PatternSizes.findInDocument(document("SIZES", "S (M, S)")))
+        assertNull(PatternSizes.findInDocument(document("S (6/15 cm) M (7/18 cm) S (8/21 cm)")))
+    }
+
+    @Test fun savedSizeListsWithDuplicateLabelsCannotSelectAPosition() {
+        assertNull(PatternSizes.indexOf("S", listOf("S", " s ", "M")))
+        assertNull(PatternSizes.indexOf("M", listOf("S", "s", "M")))
+        assertNull(PatternSizes.indexOf("0-3 months", listOf("0-3 months", "0-3  MONTHS")))
+    }
+
     @Test fun dimensionsAndBracketedUnitConversionsAreNotSizeChoices() {
         assertNull(PatternSizes.findInDocument(document(
             "Measurements: 5 1/2” (14 cm) diameter base x 15 3/8” (39 cm) height (without handles)")))
@@ -222,6 +234,40 @@ class PatternSizesTest {
         (0 until 9).forEach { index -> assertEquals("Slip 1 stitch.", PatternSizes.resolve(same, index, 9)) }
         val differing = "Slip 1 (1) 1 (1) 1 (1) 1 (1) 1 (2) stitches."
         assertEquals(differing, PatternSizes.resolve(differing, 3, 9))
+    }
+
+    @Test fun aSizeRangeIsOneAlternativeIncludingItsOriginalDashAndFractions() {
+        val text = "Work to 10–12 (14, 16) cm, then repeat 2-3 [3–4; 4—5] times."
+        val expected = listOf(
+            "Work to 10–12 cm, then repeat 2-3 times.",
+            "Work to 14 cm, then repeat 3–4 times.",
+            "Work to 16 cm, then repeat 4—5 times."
+        )
+        expected.forEachIndexed { index, selected -> assertEquals(selected, PatternSizes.resolve(text, index, 3)) }
+        assertEquals("Work to 2 1/2 – 3 in.", PatternSizes.resolve("Work to 2 – 2 1/2 (2 1/2 – 3, 3 – 3 1/2) in.", 1, 3))
+        assertEquals("Work to 1/2-3/4 in.", PatternSizes.resolve("Work to 1/4-1/2 (1/2-3/4, 3/4-1) in.", 1, 3))
+    }
+
+    @Test fun incompleteRangeAlternativesStayWholeAndNeedSourceLinkedReview() {
+        val text = "Work to 10-12 (14-16) cm."
+        val source = SourceReference(2, 5)
+        val parsed = ParsedPattern(listOf(ParsedInstruction(text, source)), emptyList())
+        assertEquals(text, PatternSizes.resolve(text, 1, 3))
+        assertEquals(source, PatternSizes.unresolvedIssues(parsed, 3).single().source)
+        assertTrue(PatternSizes.unresolvedIssues(parsed, 2).isEmpty())
+        val tooMany = "Work to 10-12 (12-14, 14-16) 16-18 cm."
+        assertEquals(tooMany, PatternSizes.resolve(tooMany, 1, 3))
+        assertEquals(source, PatternSizes.unresolvedIssues(
+            ParsedPattern(listOf(ParsedInstruction(tooMany, source)), emptyList()), 3
+        ).single().source)
+        assertEquals("Repeat rows 2-4 (RS), then work 3 rounds (24 sts).",
+            PatternSizes.resolve("Repeat rows 2-4 (RS), then work 3 rounds (24 sts).", 1, 3))
+    }
+
+    @Test fun endpointAlternativesAndIndependentScalarGroupsStillResolve() {
+        assertEquals("Work to 12-14 cm, then make 6 motifs.",
+            PatternSizes.resolve("Work to 10 (12, 14)-12 (14, 16) cm, then make 4 (6, 8) motifs.", 1, 3))
+        assertEquals("Work to 12-14 cm.", PatternSizes.resolve("Work to 10-12 (12-14) 14-16 cm.", 1, 3))
     }
 
     private fun document(vararg lines: String) = ExtractedDocument(

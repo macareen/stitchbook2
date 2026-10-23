@@ -373,6 +373,64 @@ class CreateGuideFromPdfUseCaseTest {
         assertTrue(texts.any { it.startsWith("Cast on 60 (66, 72) sts.") })
         assertTrue(texts.toString(), texts.any { "Size XL isn't one of the pattern's sizes (S, M, L)" in it })
     }
+
+    @Test
+    fun `duplicate saved size labels preserve all counts and create a review instruction`() = runBlocking {
+        val document = ExtractedDocument(1, listOf(
+            ExtractedLine("Cast on 60 (66, 72) sts.", SourceReference(1, 1))
+        ))
+        val repository = FakeGuideRepository()
+        val useCase = CreateGuideFromPdfUseCase(FakePdfTextExtractor(document), repository, idGenerator())
+
+        val result = useCase.forPattern("pattern-1", "S", "S, s, M", "Cardigan · S", ByteArrayInputStream(ByteArray(0)))
+
+        assertEquals(1, (result as CreateGuideFromPdfUseCase.Result.Success).issueCount)
+        val texts = repository.lastSavedDraft!!.nodes.mapNotNull { it.instructionText }
+        assertTrue(texts.toString(), texts.any { it.startsWith("Cast on 60 (66, 72) sts.") })
+        val draft = requireNotNull(repository.lastSavedDraft)
+        val firstInstruction = draft.nodes.single { it.id == draft.rootNodeIds.first() }.instructionText.orEmpty()
+        assertTrue(firstInstruction, firstInstruction.contains("size list has duplicate labels"))
+        assertTrue(firstInstruction, firstInstruction.contains("p.1 l.1"))
+    }
+
+    @Test
+    fun `size specific measurement ranges survive draft creation with their source`() = runBlocking {
+        val document = ExtractedDocument(2, listOf(
+            ExtractedLine("Sizes: S (M, L)", SourceReference(1, 1)),
+            ExtractedLine("BODY", SourceReference(2, 1)),
+            ExtractedLine("Cast on 20 (24, 28) sts.", SourceReference(2, 2)),
+            ExtractedLine("Work even until piece measures 10–12 (12–14, 14–16) cm.", SourceReference(2, 3))
+        ))
+        listOf("S" to "10–12", "M" to "12–14", "L" to "14–16").forEach { (size, range) ->
+            val repository = FakeGuideRepository()
+            val useCase = CreateGuideFromPdfUseCase(FakePdfTextExtractor(document), repository, idGenerator())
+            val result = useCase.forPattern("pattern-1", size, null, "Sample · $size", ByteArrayInputStream(ByteArray(0)))
+
+            assertEquals(0, (result as CreateGuideFromPdfUseCase.Result.Success).issueCount)
+            val texts = requireNotNull(repository.lastSavedDraft).nodes.mapNotNull { it.instructionText }
+            assertTrue(texts.toString(), "Work even until piece measures $range cm. (p.2)" in texts)
+        }
+    }
+
+    @Test
+    fun `incomplete measurement range lists stay intact and lead with review`() = runBlocking {
+        val document = ExtractedDocument(1, listOf(
+            ExtractedLine("Sizes: S (M, L)", SourceReference(1, 1)),
+            ExtractedLine("BODY", SourceReference(1, 2)),
+            ExtractedLine("Work even until piece measures 10-12 (14-16) cm.", SourceReference(1, 3))
+        ))
+        val repository = FakeGuideRepository()
+        val useCase = CreateGuideFromPdfUseCase(FakePdfTextExtractor(document), repository, idGenerator())
+        val result = useCase.forPattern("pattern-1", "M", null, "Sample · M", ByteArrayInputStream(ByteArray(0)))
+
+        assertEquals(1, (result as CreateGuideFromPdfUseCase.Result.Success).issueCount)
+        val draft = requireNotNull(repository.lastSavedDraft)
+        val texts = draft.nodes.mapNotNull { it.instructionText }
+        assertTrue(texts.toString(), "Work even until piece measures 10-12 (14-16) cm. (p.1)" in texts)
+        val first = draft.nodes.single { it.id == draft.rootNodeIds.first() }.instructionText.orEmpty()
+        assertTrue(first, first.contains("unresolved size numbers"))
+        assertTrue(first, first.contains("p.1 l.3"))
+    }
 }
 
 private class FakePdfTextExtractor(private val document: ExtractedDocument) : PdfTextExtractor {

@@ -1,5 +1,9 @@
 # Stitchbook Roadmap
 
+## UI design reference skills
+
+Curated external design/interaction skills and UI reference catalogs for future Compose work are documented in [docs/UI_DESIGN_REFERENCES.md](docs/UI_DESIGN_REFERENCES.md). UI Skills and the Apple Design skill are the recommended skill sources, with Android-specific adaptation; Refero, Cult UI and Watermelon are visual references only. Manus was reviewed and is not currently recommended. These are not app dependencies and must not displace the PDF-to-guide priority or Stitchbook's established product guardrails.
+
 This roadmap sequences product work; it is not a promise of dates. Each phase should leave the application buildable, tested in proportion to risk, and documented. Later-phase data should not be modeled prematurely unless an earlier feature requires it.
 
 ## Current priority: reliable PDF-to-guide execution
@@ -18,6 +22,8 @@ Next steps, in order:
 5. Add manual charts, piece subsection selection and explicit mirroring as extensions of the same guide/tracking model, with portable records and conservative parsing afterward.
 
 Batch a couple of coherent changes before broader verification. Use narrow unit checks while implementing, then one combined relevant test/lint/build/device pass for the batch; repeat only failed or directly affected checks after a fix.
+
+2026-10-23 selected-size range slice: numeric dash ranges now stay together as one alternative during size selection, including mixed/plain fractions and alternating groups. Incomplete or oversized ambiguous range lists remain visible with source-linked review instructions. Focused tests cover all three selected sizes through PDF draft creation and preservation of incomplete wording. Worded ranges, unit interpretation, real-pattern fidelity and true target-loop execution remain open. Follow the user's latest verification preference: test affected behavior and changed files; reserve full-suite reruns for a demonstrated need.
 
 Every phase that adds durable user records must also extend the current versioned, user-accessible safety export and its compatibility tests. This incremental export is intentionally smaller than Phase 10's complete library backup/restore. Every UI phase must also meet the existing accessibility baseline—scalable text, meaningful semantics, usable focus order, adequate contrast, and appropriate touch targets—rather than deferring accessibility to Phase 14.
 
