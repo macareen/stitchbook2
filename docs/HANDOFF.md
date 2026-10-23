@@ -2,6 +2,14 @@
 
 This is the canonical, repository-accessible handoff. Read this and AGENTS.md at the start of each session. Keep the current checkpoint and next steps up to date. Historical local journals remain private; this portable record omits host paths, device identifiers, private fixtures and transient tool logs.
 
+## October 23 publication checkpoint — PR134
+
+The user requested committing, pushing and merging all pending work, then a complete continuation prompt. All26 reviewed files were committed as `666f8ae63293231c9e94cd648ee628ddba0da34c` on `codex/size-ranges-and-project-guidance` and pushed to the verified `macareen/stitchbook2` origin. This includes duplicate-label/range parsing and tests, architecture/roadmap/handoff updates, pinned repository-local Graphify scripts/skill/guidance, ignore rules and UI-reference notes. Staged checks found no credential signatures, private media, signing files, local SDK settings, generated graph/environment/cache or build outputs. No app source edits or redundant Android tests were added during publication.
+
+PR134: https://github.com/macareen/stitchbook2/pull/134. Before this documentation-only checkpoint, GitHub's PR head and remote branch matched source commit `666f8ae`; base was `c1fd64ccf5c1203e08db89b1c2f5b920a11717c2`/main, with MERGEABLE/CLEAN and no configured status checks. Recheck the final documentation head before squash-merging, retain the branch, fast-forward main, and verify its tree matches the retained branch. The chat's final continuation prompt will carry the verified merge commit; future sessions should independently check actual Git/PR state.
+
+Publication verification reuses the completed60 affected tests/debug build and the earlier831-test/full-lint baseline described below. No full-suite rerun was requested or needed. `git diff --cached --check` passed. The pinned `.\scripts\refresh-graphify.ps1` completed again with430 cached/unchanged code files,0 re-extracted,6,725 nodes/22,313 edges/244 communities, with no LLM calls. The sandboxed GitHub CLI initially could not access its stored login; host-access verification authenticated the intended account and fetch/push/PR operations succeeded. The connected GitHub account also verified as macareen. No unresolved publication blocker remained at this checkpoint.
+
 ## October 23 continuation — selected-size numeric ranges
 
 Latest user verification preference: focus on changed files and affected behavior; avoid repeated full-suite runs. This supersedes broader historical batching preferences below. Continued from the existing local duplicate-label changes on `main`/`origin/main` at `c1fd64c`. Concurrent Graphify tooling, README/AGENTS/ignore changes and the UI-reference documents were preserved; no staging, commit, push or device installation was performed.
