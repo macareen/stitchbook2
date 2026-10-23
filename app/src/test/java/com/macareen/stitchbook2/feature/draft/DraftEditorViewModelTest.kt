@@ -38,6 +38,27 @@ import org.junit.Test
  * the repository test suites.
  */
 class DraftEditorViewModelTest {
+    @Test fun pdfBodySuggestionRequiresCurrentCompleteReviewAndPreservesInstructions() {
+        val model = viewModel(FakeGuideRepository(guide.copy(sizeLabel = "M"), emptyDraft()))
+        model.addNode(DraftNodeType.INSTRUCTION, null, instructionText = "Row 1: Knit. (p.2)")
+        model.addNode(DraftNodeType.INSTRUCTION, null, instructionText = "Row 2: Purl. (p.2)")
+        model.addNode(DraftNodeType.INSTRUCTION, null, instructionText = "Repeat rows 1-2 until piece measures 12 cm. (p.2 l.3)")
+        val before = contentState(model)
+        val condition = before.rows.single { it.suggestedTarget != null }
+        assertTrue(model.isTargetBodyReview(condition.node))
+        assertTrue(model.targetReviewText(condition.node).contains("Row 1: Knit."))
+        assertTrue(model.targetReviewText(condition.node).contains("Row 2: Purl."))
+        model.updateNode(before.rows.first().node.id, instructionText = "Row 1: Knit 2. (p.2)")
+        model.setTarget(condition.node, condition.suggestedTarget, before.draftVersion) { error("Stale suggestion saved") }
+        assertTrue(contentState(model).rows.all { it.node.target == null })
+        val current = contentState(model)
+        val review = current.rows.single { it.suggestedTarget != null }
+        model.setTarget(review.node, review.suggestedTarget, current.draftVersion) {}
+        val after = contentState(model)
+        assertEquals(current.rows.map { it.node }, after.rows.filter { it.node.type == DraftNodeType.INSTRUCTION }.map { it.node })
+        assertEquals(1, after.rows.count { it.node.target != null })
+    }
+
     @Test fun sectionTargetReviewPreservesBodyAndRejectsStaleOrDependentWork() {
         val model = viewModel(FakeGuideRepository(guide, emptyDraft()))
         model.addNode(DraftNodeType.SECTION, null, title = "Body")

@@ -8,6 +8,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performClick
 import com.macareen.stitchbook2.ui.theme.StitchbookTheme
 import org.junit.Rule
@@ -20,6 +21,30 @@ import org.junit.Test
  * plain-language copy and the Publish/Start-Continue action hierarchy.
  */
 class DraftEditorScreenTest {
+    @Test fun reviewWarningsExpandWithoutWorkActionsAtLargeText() {
+        val warning = "Check this condition against the PDF; no target was inferred: " +
+            "Keep the complete original unsupported wording visible for review. ".repeat(4) + "(p.2 l.3)"
+        setContent(DraftEditorUiState.Content(guideName = "A long sample guide name for a selected size", rows = listOf(
+            DraftOutlineRow(com.macareen.stitchbook2.domain.guide.DraftNode(
+                com.macareen.stitchbook2.domain.execution.NodeId("warning"),
+                com.macareen.stitchbook2.domain.guide.DraftNodeType.INSTRUCTION,
+                instructionText = "Review needed: $warning"), 0, false, false)
+        )), largeText = true)
+        composeTestRule.onNodeWithText("Needs review").assertIsDisplayed()
+        composeTestRule.onAllNodesWithText("Repeat until a target").assertCountEquals(0)
+        composeTestRule.onAllNodesWithText("Repeat this instruction").assertCountEquals(0)
+        composeTestRule.onNodeWithText("Show full wording").performClick()
+        composeTestRule.onNodeWithText(warning).assertExists()
+        composeTestRule.onNodeWithText("Show less").performScrollTo().performClick()
+        composeTestRule.onNodeWithText("Show full wording").performScrollTo().assertIsDisplayed()
+        composeTestRule.runOnIdle {
+            val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+            java.io.File(instrumentation.targetContext.getExternalFilesDir(null), "pdf-body-editor-large.png").outputStream().use {
+                instrumentation.uiAutomation.takeScreenshot().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+            }
+        }
+    }
+
     @Test fun nestedDraftKeepsActionsOnSeparateLinesAndShowsContainerTypes() {
         val id = com.macareen.stitchbook2.domain.execution.NodeId("step")
         setContent(DraftEditorUiState.Content(guideName = "Sample cardigan", rows = listOf(
@@ -46,8 +71,10 @@ class DraftEditorScreenTest {
     @get:Rule
     val composeTestRule = createComposeRule()
 
-    private fun setContent(state: DraftEditorUiState) {
+    private fun setContent(state: DraftEditorUiState, largeText: Boolean = false) {
         composeTestRule.setContent {
+            val density = androidx.compose.ui.platform.LocalDensity.current
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(density.density, if (largeText) 1.8f else density.fontScale)) {
             StitchbookTheme {
                 Surface(Modifier.systemBarsPadding()) {
                 DraftEditorScreen(
@@ -63,6 +90,7 @@ class DraftEditorScreenTest {
                     onStartOrContinue = {}
                 )
                 }
+            }
             }
         }
     }

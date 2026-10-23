@@ -99,7 +99,7 @@ fun DraftEditorRoute(
             { target -> viewModel.setTarget(node, target, targetVersion) { targetNode = null } }, { targetNode = null },
             suggestion = targetSuggestion,
             sourceText = viewModel.targetReviewText(node),
-            bodyReview = node.type == DraftNodeType.SECTION)
+            bodyReview = viewModel.isTargetBodyReview(node))
     }
     replayReview?.let { review ->
         SectionReplayDialog(review, (uiState as? DraftEditorUiState.Content)?.isSaving == true,
@@ -242,7 +242,7 @@ private fun DraftEditorContent(
     var pendingDelete by remember { mutableStateOf<DraftNode?>(null) }
 
     Column(modifier = modifier.fillMaxSize().padding(StitchbookSpacing.large)) {
-        Text(text = state.guideName, style = MaterialTheme.typography.headlineMedium)
+        Text(text = state.guideName, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         Spacer(modifier = Modifier.height(StitchbookSpacing.small))
         if (state.isPublished) QuietText(stringResource(R.string.draft_work_preserved))
         androidx.compose.foundation.layout.FlowRow {
@@ -463,6 +463,9 @@ private fun DraftOutlineRowItem(
     onRepeat: () -> Unit,
     onReplaySection: () -> Unit
 ) {
+    var expanded by rememberSaveable(row.node.id.value) { mutableStateOf(false) }
+    var showActions by rememberSaveable(row.node.id.value) { mutableStateOf(false) }
+    val isReview = row.node.instructionText.orEmpty().startsWith("Review needed:")
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -489,18 +492,27 @@ private fun DraftOutlineRowItem(
             if (row.node.type != DraftNodeType.INSTRUCTION) {
                 Text(text = row.node.type.label(), style = MaterialTheme.typography.labelMedium)
             }
-            com.macareen.stitchbook2.feature.focus.InstructionBlocks(row.node.summary(), MaterialTheme.typography.bodyLarge)
+            if (isReview) {
+                Text(stringResource(R.string.draft_review_label), style = MaterialTheme.typography.labelLarge)
+                Text(row.node.summary().removePrefix("Review needed: "), style = MaterialTheme.typography.bodyMedium,
+                    maxLines = if (expanded) Int.MAX_VALUE else 3, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                TextButton(onClick = { expanded = !expanded }) { Text(stringResource(if (expanded) R.string.draft_show_less else R.string.draft_show_wording)) }
+            } else com.macareen.stitchbook2.feature.focus.InstructionBlocks(row.node.summary(), MaterialTheme.typography.bodyLarge)
             row.node.target?.let { Text("${stringResource(R.string.manual_target_title)}: ${it.description()}") }
             Spacer(modifier = Modifier.height(StitchbookSpacing.extraSmall))
             if (row.node.type == DraftNodeType.SECTION) {
                 TextButton(onClick = onTarget, enabled = !isSaving) { Text(stringResource(R.string.manual_target_body_action)) }
             }
-            if (row.node.type == DraftNodeType.INSTRUCTION) {
+            if (row.node.type == DraftNodeType.INSTRUCTION && !isReview) {
                 androidx.compose.foundation.layout.FlowRow {
                     val suggestion = row.suggestedTarget != null
-                    TextButton(onClick = onTarget, enabled = !isSaving) { Text(stringResource(if (suggestion) R.string.pdf_target_review_action else R.string.manual_target_title)) }
+                    if (suggestion) TextButton(onClick = onTarget, enabled = !isSaving) { Text(stringResource(R.string.pdf_target_review_action)) }
+                    TextButton(onClick = { showActions = !showActions }) { Text(stringResource(R.string.draft_step_options)) }
+                    if (showActions) {
+                    if (!suggestion) TextButton(onClick = onTarget, enabled = !isSaving) { Text(stringResource(R.string.manual_target_title)) }
                     TextButton(onClick = onRepeat, enabled = !isSaving) { Text(stringResource(R.string.draft_repeat_instruction)) }
                     TextButton(onClick = onReplaySection, enabled = !isSaving) { Text(stringResource(R.string.draft_replay_section)) }
+                    }
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {

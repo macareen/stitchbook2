@@ -178,14 +178,24 @@ class DraftEditorViewModel(
             showError("This step changed. Close and reopen the target editor.")
             return
         }
-        val updated = current.copy(nodes = current.nodes.map { if (it.id == expected.id) it.copy(target = target) else it })
+        val suggestion = if (cachedGuide?.sizeLabel != null) com.macareen.stitchbook2.domain.parsing.PdfTargetSuggestions.bodySuggestions(current.nodes, current.rootNodeIds)[expected.id] else null
+        val updated = if (suggestion != null && target != null)
+            com.macareen.stitchbook2.domain.parsing.PdfTargetSuggestions.applyBody(current, suggestion, NodeId(newNodeId()), target)
+        else current.copy(nodes = current.nodes.map { if (it.id == expected.id) it.copy(target = target) else it })
         com.macareen.stitchbook2.domain.guide.DraftTargetCycles.problem(updated)?.let { showError(it); return }
         persist(updated, onSaved)
     }
 
     fun targetReviewText(node: DraftNode): String = draft?.let {
-        com.macareen.stitchbook2.domain.guide.DraftTargetCycles.reviewText(it, node.id)
+        val suggestion = com.macareen.stitchbook2.domain.parsing.PdfTargetSuggestions.bodySuggestions(it.nodes, it.rootNodeIds)[node.id]
+        if (suggestion == null) com.macareen.stitchbook2.domain.guide.DraftTargetCycles.reviewText(it, node.id)
+        else "Complete selected-size body (in order):\n" + suggestion.bodyIds.joinToString("\n") { id ->
+            com.macareen.stitchbook2.domain.guide.DraftTargetCycles.reviewText(it, id)
+        } + "\nOriginal condition (kept as a source step after the body):\n${node.instructionText}"
     }.orEmpty()
+
+    fun isTargetBodyReview(node: DraftNode): Boolean = node.type == DraftNodeType.SECTION ||
+        draft?.let { com.macareen.stitchbook2.domain.parsing.PdfTargetSuggestions.bodySuggestions(it.nodes, it.rootNodeIds).containsKey(node.id) } == true
 
     /** Wraps only this instruction; its identity/text and all siblings stay intact. */
     fun repeatInstruction(nodeId: NodeId, count: Int) {
@@ -509,7 +519,7 @@ class DraftEditorViewModel(
     private fun outlineRows(draft: GuideDraft): List<DraftOutlineRow> {
         val byId = draft.nodes.associateBy { it.id }
         val rows = mutableListOf<DraftOutlineRow>()
-        val suggestions = if (cachedGuide?.sizeLabel != null) com.macareen.stitchbook2.domain.parsing.PdfTargetSuggestions.forNodes(draft.nodes) else emptyMap()
+        val suggestions = if (cachedGuide?.sizeLabel != null) com.macareen.stitchbook2.domain.parsing.PdfTargetSuggestions.forNodes(draft.nodes, draft.rootNodeIds) else emptyMap()
 
         fun visit(nodeId: NodeId, depth: Int, siblings: List<NodeId>) {
             val node = byId[nodeId] ?: return
