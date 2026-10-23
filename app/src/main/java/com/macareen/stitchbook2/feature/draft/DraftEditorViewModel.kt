@@ -34,7 +34,8 @@ data class DraftOutlineRow(
     val node: DraftNode,
     val depth: Int,
     val canMoveUp: Boolean,
-    val canMoveDown: Boolean
+    val canMoveDown: Boolean,
+    val suggestedTarget: com.macareen.stitchbook2.domain.execution.ManualTarget? = null
 )
 
 data class SectionReplayReview(val expected: GuideDraft, val targetId: NodeId, val choices: List<SectionReplayChoice>)
@@ -53,7 +54,8 @@ sealed interface DraftEditorUiState {
         /** Whether [ExecutionRepository.getActiveExecution] currently returns an ACTIVE Execution. */
         val hasActiveExecution: Boolean = false,
         val referenceNotes: String? = null,
-        val referenceCandidates: List<String> = emptyList()
+        val referenceCandidates: List<String> = emptyList(),
+        val draftVersion: Long = 0
     ) : DraftEditorUiState
 }
 
@@ -139,6 +141,7 @@ class DraftEditorViewModel(
                     referenceNotes = referenceNotes,
                     referenceCandidates = draft?.let { com.macareen.stitchbook2.domain.guide.GuideReferenceCleanup.preview(it).movedTexts }.orEmpty(),
                     rows = outlineRows(loadedDraft),
+                    draftVersion = loadedDraft.version,
                     isPublished = isPublished,
                     hasActiveExecution = hasActiveExecution
                 )
@@ -168,10 +171,10 @@ class DraftEditorViewModel(
         }
     }
 
-    fun setTarget(expected: DraftNode, target: com.macareen.stitchbook2.domain.execution.ManualTarget?, onSaved: () -> Unit) {
+    fun setTarget(expected: DraftNode, target: com.macareen.stitchbook2.domain.execution.ManualTarget?, expectedVersion: Long? = null, onSaved: () -> Unit) {
         val current = draft ?: return
         if (isSaving()) return
-        if (current.nodes.firstOrNull { it.id == expected.id } != expected || expected.type != DraftNodeType.INSTRUCTION) {
+        if ((expectedVersion != null && current.version != expectedVersion) || current.nodes.firstOrNull { it.id == expected.id } != expected || expected.type != DraftNodeType.INSTRUCTION) {
             showError("This step changed. Close and reopen the target editor.")
             return
         }
@@ -386,6 +389,7 @@ class DraftEditorViewModel(
                 referenceNotes = referenceNotes,
                 referenceCandidates = draft?.let { com.macareen.stitchbook2.domain.guide.GuideReferenceCleanup.preview(it).movedTexts }.orEmpty(),
                 rows = outlineRows(updated),
+                draftVersion = updated.version,
                 isSaving = true
             )
 
@@ -416,6 +420,7 @@ class DraftEditorViewModel(
             referenceNotes = referenceNotes,
             referenceCandidates = draft?.let { com.macareen.stitchbook2.domain.guide.GuideReferenceCleanup.preview(it).movedTexts }.orEmpty(),
             rows = outlineRows(current),
+            draftVersion = current.version,
             isPublished = previous?.isPublished == true,
             hasActiveExecution = previous?.hasActiveExecution == true
         )
@@ -430,6 +435,7 @@ class DraftEditorViewModel(
             referenceNotes = referenceNotes,
             referenceCandidates = draft?.let { com.macareen.stitchbook2.domain.guide.GuideReferenceCleanup.preview(it).movedTexts }.orEmpty(),
             rows = outlineRows(unchanged),
+            draftVersion = unchanged.version,
             isSaving = false,
             errorMessage = message,
             isPublished = previous?.isPublished == true,
@@ -458,6 +464,7 @@ class DraftEditorViewModel(
             referenceNotes = referenceNotes,
             referenceCandidates = draft?.let { com.macareen.stitchbook2.domain.guide.GuideReferenceCleanup.preview(it).movedTexts }.orEmpty(),
             rows = outlineRows(reloaded),
+            draftVersion = reloaded.version,
             isSaving = false,
             errorMessage = "This changed elsewhere. Showing the current draft.",
             isPublished = isPublished,
@@ -481,6 +488,7 @@ class DraftEditorViewModel(
             referenceNotes = referenceNotes,
             referenceCandidates = draft?.let { com.macareen.stitchbook2.domain.guide.GuideReferenceCleanup.preview(it).movedTexts }.orEmpty(),
             rows = outlineRows(reloaded),
+            draftVersion = reloaded.version,
             isPublished = true,
             hasActiveExecution = hasActiveExecution
         )
@@ -495,6 +503,7 @@ class DraftEditorViewModel(
     private fun outlineRows(draft: GuideDraft): List<DraftOutlineRow> {
         val byId = draft.nodes.associateBy { it.id }
         val rows = mutableListOf<DraftOutlineRow>()
+        val suggestions = if (cachedGuide?.sizeLabel != null) com.macareen.stitchbook2.domain.parsing.PdfTargetSuggestions.forNodes(draft.nodes) else emptyMap()
 
         fun visit(nodeId: NodeId, depth: Int, siblings: List<NodeId>) {
             val node = byId[nodeId] ?: return
@@ -503,7 +512,8 @@ class DraftEditorViewModel(
                 node = node,
                 depth = depth,
                 canMoveUp = index > 0,
-                canMoveDown = index < siblings.lastIndex
+                canMoveDown = index < siblings.lastIndex,
+                suggestedTarget = suggestions[nodeId]
             )
             node.children.forEach { childId -> visit(childId, depth + 1, node.children) }
         }

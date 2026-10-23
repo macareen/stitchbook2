@@ -8,6 +8,7 @@ import com.macareen.stitchbook2.domain.parsing.ExtractedDocument
 import com.macareen.stitchbook2.domain.parsing.ExtractedLine
 import com.macareen.stitchbook2.domain.parsing.SourceReference
 import com.macareen.stitchbook2.domain.parsing.ParsedPatternMapper
+import com.macareen.stitchbook2.domain.parsing.PdfTargetSuggestions
 import com.macareen.stitchbook2.domain.parsing.ParsingIssue
 import com.macareen.stitchbook2.domain.parsing.PatternDetails
 import com.macareen.stitchbook2.domain.parsing.SizeSpecificInstructions
@@ -165,6 +166,7 @@ class CreateGuideFromPdfUseCase(
             patternTitle = title,
             selectedSizeCount = labels.size.takeIf { index != null },
             sourceReview = reviewedSource?.selection?.description(),
+            targetSource = instructions,
             storeReferenceOnGuide = libraryRepository == null,
             onDetails = { fillPatternDetails(item, details, fromPdf?.second?.text, detectedTitle.takeIf { automaticTitle }) }
         ) {
@@ -221,11 +223,13 @@ class CreateGuideFromPdfUseCase(
         storeReferenceOnGuide: Boolean = true,
         selectedSizeCount: Int? = null,
         sourceReview: String? = null,
+        targetSource: ExtractedDocument = document,
         onDetails: suspend (PatternDetails) -> Unit = {},
         createGuide: suspend () -> Guide
     ): Result {
         val (steps, details) = PatternTextParser.parseWithDetails(document, patternTitle)
-        val parsed = steps.copy(issues = extraIssues + steps.issues + selectedSizeCount?.let { PatternSizes.unresolvedIssues(steps, it) }.orEmpty())
+        val parsed = steps.copy(issues = extraIssues + steps.issues +
+            selectedSizeCount?.let { PatternSizes.unresolvedIssues(steps, it) }.orEmpty() + PdfTargetSuggestions.reviewIssues(steps.rootNodes))
         val mapped = ParsedPatternMapper.toDraftNodes(parsed, newNodeId, reviewIssuesFirst = true)
 
         val guide = createGuide()
@@ -237,7 +241,8 @@ class CreateGuideFromPdfUseCase(
         )
 
         val referenceNotes = if (storeReferenceOnGuide) com.macareen.stitchbook2.domain.guide.GuideReference.notes(details) else null
-        listOfNotNull(referenceNotes, sourceReview?.let { "Reviewed PDF source order (page coordinates in percent):\n$it\nExcluded areas remain in the original PDF. Check charts and instructions against the source." })
+        val targetWording = PdfTargetSuggestions.sourceNotes(targetSource)
+        listOfNotNull(referenceNotes, targetWording, sourceReview?.let { "Reviewed PDF source order (page coordinates in percent):\n$it\nExcluded areas remain in the original PDF. Check charts and instructions against the source." })
             .takeIf { it.isNotEmpty() }?.joinToString("\n\n")?.let { reference ->
             guideRepository.updateGuideMetadata(guide.id, guide.name, reference)
         }

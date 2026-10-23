@@ -27,6 +27,39 @@ import org.junit.Test
 
 class CreateGuideFromPdfUseCaseTest {
 
+    @Test fun selectedSizeConditionsArePlainDraftsWithOriginalSourceWordingAndNoAutomaticTargets() = runBlocking {
+        val raw = "Knit all stitches until piece measures 10 (12, 14) cm."
+        val original = ExtractedDocument(1, listOf(ExtractedLine("Sizes: S, M, L", SourceReference(1, 1)),
+            ExtractedLine("Section: Body", SourceReference(1, 2)), ExtractedLine(raw, SourceReference(1, 3))))
+        listOf("S" to 10.0, "M" to 12.0, "L" to 14.0).forEach { (size, value) ->
+            val repository = FakeGuideRepository()
+            val result = CreateGuideFromPdfUseCase(FakePdfTextExtractor(original), repository, idGenerator()).forPattern(
+                "pattern", size, null, "Sample $size", ByteArrayInputStream(ByteArray(0))) as CreateGuideFromPdfUseCase.Result.Success
+            val draft = repository.lastSavedDraft!!
+            assertTrue(draft.nodes.all { it.target == null })
+            assertEquals(com.macareen.stitchbook2.domain.execution.ManualTarget(com.macareen.stitchbook2.domain.execution.TargetUnit.CENTIMETRES, value),
+                com.macareen.stitchbook2.domain.parsing.PdfTargetSuggestions.forNodes(draft.nodes).values.single())
+            assertTrue(draft.nodes.single { it.instructionText != null }.instructionText!!.endsWith("(p.1 l.3)"))
+            assertTrue(repository.getGuide(result.guideId)!!.notes!!.contains("(p.1 l.3) $raw"))
+            assertEquals(0, result.issueCount)
+        }
+    }
+
+    @Test fun unresolvedTerminationAndSeparateSimultaneousWorkRemainVisibleForReview() = runBlocking {
+        val lines = listOf("Sizes: S, M", "Section: Body", "Knit all stitches until piece measures 10 (12) cm.",
+            "At the same time, shape the neckline.", "Repeat rows 1-4 until desired length.")
+        val original = ExtractedDocument(1, lines.mapIndexed { index, line -> ExtractedLine(line, SourceReference(1, index + 1)) })
+        val repository = FakeGuideRepository()
+        val result = CreateGuideFromPdfUseCase(FakePdfTextExtractor(original), repository, idGenerator()).forPattern(
+            "pattern", "M", null, "Sample", ByteArrayInputStream(ByteArray(0))) as CreateGuideFromPdfUseCase.Result.Success
+        val draft = repository.lastSavedDraft!!
+        assertTrue(result.issueCount >= 2)
+        assertTrue(com.macareen.stitchbook2.domain.parsing.PdfTargetSuggestions.forNodes(draft.nodes).isEmpty())
+        assertTrue(draft.nodes.any { it.instructionText?.contains("At the same time, shape the neckline.") == true })
+        assertTrue(draft.nodes.any { it.instructionText?.startsWith("Review needed: Check this condition") == true })
+        assertTrue(draft.nodes.all { it.target == null })
+    }
+
     @Test fun aSelectionStartingMidSectionKeepsLostContextAsAnExplicitReviewInstruction() = runBlocking {
         val original = ExtractedDocument(2, listOf(ExtractedLine("Cast on 24 sts.", SourceReference(1, 1)),
             ExtractedLine("Bind off.", SourceReference(2, 1))))
@@ -406,9 +439,11 @@ class CreateGuideFromPdfUseCaseTest {
             val useCase = CreateGuideFromPdfUseCase(FakePdfTextExtractor(document), repository, idGenerator())
             val result = useCase.forPattern("pattern-1", size, null, "Sample · $size", ByteArrayInputStream(ByteArray(0)))
 
-            assertEquals(0, (result as CreateGuideFromPdfUseCase.Result.Success).issueCount)
+            assertEquals(1, (result as CreateGuideFromPdfUseCase.Result.Success).issueCount)
             val texts = requireNotNull(repository.lastSavedDraft).nodes.mapNotNull { it.instructionText }
-            assertTrue(texts.toString(), "Work even until piece measures $range cm. (p.2)" in texts)
+            assertTrue(texts.toString(), "Work even until piece measures $range cm. (p.2 l.3)" in texts)
+            assertTrue(texts.any { it.startsWith("Review needed: Check this condition") })
+            assertTrue(repository.lastSavedDraft!!.nodes.all { it.target == null })
         }
     }
 
@@ -423,10 +458,12 @@ class CreateGuideFromPdfUseCaseTest {
         val useCase = CreateGuideFromPdfUseCase(FakePdfTextExtractor(document), repository, idGenerator())
         val result = useCase.forPattern("pattern-1", "M", null, "Sample · M", ByteArrayInputStream(ByteArray(0)))
 
-        assertEquals(1, (result as CreateGuideFromPdfUseCase.Result.Success).issueCount)
+        assertEquals(2, (result as CreateGuideFromPdfUseCase.Result.Success).issueCount)
         val draft = requireNotNull(repository.lastSavedDraft)
         val texts = draft.nodes.mapNotNull { it.instructionText }
-        assertTrue(texts.toString(), "Work even until piece measures 10-12 (14-16) cm. (p.1)" in texts)
+        assertTrue(texts.toString(), "Work even until piece measures 10-12 (14-16) cm. (p.1 l.3)" in texts)
+        assertTrue(texts.any { it.startsWith("Review needed: Check this condition") })
+        assertTrue(draft.nodes.all { it.target == null })
         val first = draft.nodes.single { it.id == draft.rootNodeIds.first() }.instructionText.orEmpty()
         assertTrue(first, first.contains("unresolved size numbers"))
         assertTrue(first, first.contains("p.1 l.3"))

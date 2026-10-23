@@ -38,6 +38,33 @@ import org.junit.Test
  * the repository test suites.
  */
 class DraftEditorViewModelTest {
+    @Test fun suggestedTargetRequiresASizeGuideAndNoOutstandingDraftWarnings() {
+        val repository = FakeGuideRepository(guide.copy(sizeLabel = "M"), emptyDraft())
+        val model = viewModel(repository)
+        model.addNode(DraftNodeType.INSTRUCTION, null, instructionText = "Knit one row until piece measures 12 cm. (p.2 l.3)")
+        val cycle = contentState(model).rows.single().node
+        assertEquals(12.0, contentState(model).rows.single().suggestedTarget!!.value, 0.0)
+        assertNull(cycle.target)
+        model.addNode(DraftNodeType.INSTRUCTION, null, instructionText = "Review needed: Check source context.")
+        assertTrue(contentState(model).rows.all { it.suggestedTarget == null })
+        val standalone = viewModel(FakeGuideRepository(guide, emptyDraft()))
+        standalone.addNode(DraftNodeType.INSTRUCTION, null, instructionText = cycle.instructionText)
+        assertNull(contentState(standalone).rows.single().suggestedTarget)
+    }
+
+    @Test fun targetReviewRejectsChangesElsewhereInTheDraft() {
+        val repository = FakeGuideRepository(guide.copy(sizeLabel = "M"), emptyDraft())
+        val model = viewModel(repository)
+        model.addNode(DraftNodeType.INSTRUCTION, null, instructionText = "Knit one row until piece measures 12 cm. (p.2 l.3)")
+        val reviewed = contentState(model)
+        val row = reviewed.rows.single()
+        model.addNode(DraftNodeType.INSTRUCTION, null, instructionText = "At the same time, shape neckline.")
+        val saves = repository.saveCallCount
+        model.setTarget(row.node, row.suggestedTarget, reviewed.draftVersion) { error("Stale review saved") }
+        assertEquals(saves, repository.saveCallCount)
+        assertTrue(contentState(model).rows.all { it.node.target == null })
+    }
+
     @Test fun targetAuthoringKeepsOriginalWordingAndRejectsStaleEditorSnapshots() {
         val repository = FakeGuideRepository(guide, emptyDraft())
         val model = viewModel(repository, FakeExecutionRepository())
