@@ -71,6 +71,77 @@ class ExecutionRepositoryTest {
         database.close()
     }
 
+    @Test fun manualTargetSavedPlaceRetainsCyclesAcrossReviewedRevisionChanges() = runBlocking<Unit> {
+        val guide = createGuideWithSimpleRevision("g", "d", "r1")
+        enqueueIds("d2")
+        val draft = guideRepository.createDraftFromLatestRevision(guide)
+        val target = com.macareen.stitchbook2.domain.execution.ManualTarget(com.macareen.stitchbook2.domain.execution.TargetUnit.CENTIMETRES, 12.5)
+        guideRepository.saveDraft(draft.copy(nodes = draft.nodes.map { if (it.type == DraftNodeType.INSTRUCTION) it.copy(target = target) else it }))
+        enqueueIds("r2", "work")
+        val oldRevision = guideRepository.publishDraft(guide)
+        var source = executionRepository.createExecution(guide, oldRevision.id, "project-g")
+        source = executionRepository.observeTarget(source.state.executionId, source.version, 4.0).execution
+        source = executionRepository.applyComplete(source.state.executionId, source.version).execution
+        enqueueIds("d3")
+        val nextDraft = guideRepository.createDraftFromLatestRevision(guide)
+        guideRepository.saveDraft(nextDraft.copy(nodes = nextDraft.nodes.map { if (it.type == DraftNodeType.INSTRUCTION) it.copy(target = target.copy(value = 15.0)) else it }))
+        enqueueIds("r3", "new-work")
+        val nextRevision = guideRepository.publishDraft(guide)
+        val review = com.macareen.stitchbook2.domain.execution.ReviewedRevisionChange("project-g", source,
+            oldRevision.definition, oldRevision.revisionNumber, nextRevision.definition, nextRevision.revisionNumber)
+        val next = executionRepository.applyReviewedRevision(review, emptySet())
+        assertTrue(next.state.targetWork.isEmpty())
+        val saved = executionRepository.loadExecution(source.state.executionId)!!
+        assertEquals(source.state.targetWork, saved.state.targetWork)
+        assertEquals(2, saved.state.targetWork[saved.state.currentAddress]!!.cycle)
+        val resumed = executionRepository.resumeReviewedPlace(com.macareen.stitchbook2.domain.execution.ReviewedSavedPlace(
+            "project-g", next, nextRevision.definition, saved, oldRevision.definition))
+        assertEquals(saved.state.targetWork, resumed.state.targetWork)
+        assertEquals(oldRevision.id, resumed.state.definitionRevisionId)
+    }
+
+    @Test fun manualTargetsPersistGuardWritesAndSurviveJsonRestoreAndFreshPieceWork() = runBlocking<Unit> {
+        val guide = createGuideWithSimpleRevision("g", "d", "r1")
+        enqueueIds("new-draft")
+        val draft = guideRepository.createDraftFromLatestRevision(guide)
+        val target = com.macareen.stitchbook2.domain.execution.ManualTarget(com.macareen.stitchbook2.domain.execution.TargetUnit.STITCHES, 30.0)
+        guideRepository.saveDraft(draft.copy(nodes = draft.nodes.map {
+            if (it.type == DraftNodeType.INSTRUCTION) it.copy(target = target) else it
+        }))
+        enqueueIds("r2")
+        val revision = guideRepository.publishDraft(guide)
+        enqueueIds("left", "right")
+        val left = executionRepository.createPiece("project-g", guide, "Left")
+        val right = executionRepository.createPiece("project-g", guide, "Right")
+        enqueueIds("left-work", "right-work")
+        val first = executionRepository.createPieceExecution(left.id, revision.id)
+        val other = executionRepository.createPieceExecution(right.id, revision.id)
+        var work = executionRepository.observeTarget(first.state.executionId, first.version, 12.0).execution
+        assertEquals(first.updatedAt, work.updatedAt)
+        assertSuspendThrows<ExecutionVersionConflictException> { executionRepository.observeTarget(first.state.executionId, first.version, 30.0) }
+        assertSuspendThrows<IllegalArgumentException> { executionRepository.confirmTarget(work.state.executionId, work.version) }
+        assertEquals(work, executionRepository.loadExecution(work.state.executionId))
+        work = executionRepository.applyComplete(work.state.executionId, work.version).execution
+        assertEquals(first.state.currentAddress, work.state.currentAddress)
+        assertEquals(2, work.state.targetWork[first.state.currentAddress]!!.cycle)
+        work = executionRepository.observeTarget(work.state.executionId, work.version, 30.0).execution
+        val reached = executionRepository.confirmTarget(work.state.executionId, work.version).execution
+        assertTrue(reached.state.targetWork[first.state.currentAddress]!!.reached)
+        assertTrue(executionRepository.loadExecution(other.state.executionId)!!.state.targetWork.isEmpty())
+        val store = com.macareen.stitchbook2.data.backup.RoomGuideBackupStore(database.guideBackupDao())
+        val source = com.macareen.stitchbook2.domain.backup.BackupSnapshot(6).withGuideGraph(store.load())
+        val decoded = com.macareen.stitchbook2.data.backup.decodeBackup(com.macareen.stitchbook2.data.backup.encodeBackup(source, now))
+        store.replace(decoded.guideGraph()!!)
+        assertEquals(reached, executionRepository.loadExecution(reached.state.executionId))
+        assertEquals(target, (guideRepository.loadRevision(revision.id)!!.definition.nodes.filterIsInstance<com.macareen.stitchbook2.domain.execution.Instruction>().single()).target)
+        val reopened = executionRepository.applyPrevious(reached.state.executionId, reached.version).execution
+        assertEquals(first.state.currentAddress, reopened.state.currentAddress)
+        assertTrue(!reopened.state.targetWork[first.state.currentAddress]!!.reached)
+        assertEquals(2, reopened.state.targetWork[first.state.currentAddress]!!.observations.size)
+        val markdown = com.macareen.stitchbook2.data.backup.projectMarkdown(database.projectDao().observeById("project-g").first()!!.toDomain(), source, now)
+        assertTrue(markdown.contains("30 stitches")); assertTrue(markdown.contains("Cycle 2: 30 stitches"))
+    }
+
     @Test fun castOnCountsPersistPerPieceAndOccurrenceWithoutRestartingStepTiming() = runBlocking<Unit> {
         val guide = createGuideWithSimpleRevision("g", "d", "r1")
         enqueueIds("new-draft")

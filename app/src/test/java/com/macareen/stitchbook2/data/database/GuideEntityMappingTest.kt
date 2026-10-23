@@ -17,6 +17,19 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GuideEntityMappingTest {
+    @Test fun manualTargetSurvivesDraftPublicationRevisionAndDraftCopy() {
+        val target = com.macareen.stitchbook2.domain.execution.ManualTarget(com.macareen.stitchbook2.domain.execution.TargetUnit.CENTIMETRES, 12.5)
+        val draft = validDraft().let { it.copy(nodes = it.nodes.map { node ->
+            if (node.type == DraftNodeType.INSTRUCTION) node.copy(target = target) else node
+        }) }
+        val rows = draft.toNodeEntities()
+        assertEquals(draft, DraftAggregate(draft.entity(), rows).toDomain())
+        val revision = DefinitionRevisionEntity("manual-revision", draft.guideId.value, 1, 1)
+        val published = RevisionAggregate(revision, rows.map { it.toRevisionNode(revision.id) }).toDomain()
+        assertTrue(published.definition.nodes.filterIsInstance<Instruction>().all { it.target == target })
+        assertEquals(rows, rows.map { it.toRevisionNode(revision.id).toDraftNode(draft.id.value) })
+    }
+
     @Test fun guideArchiveMetadataRoundTripsWithItsPatternAssociation() {
         val guide = com.macareen.stitchbook2.domain.guide.Guide(GuideId("guide"), null, "Sample", null, 1, 2, "pattern", "L", true)
         assertEquals(guide, guide.toEntity().toDomain())

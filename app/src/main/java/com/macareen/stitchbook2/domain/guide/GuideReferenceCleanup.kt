@@ -23,7 +23,7 @@ object GuideReferenceCleanup {
         fun visit(id: NodeId, inReference: Boolean): NodeId? {
             val node = requireNotNull(byId[id])
             val context = inReference || node.title?.let(referenceHeading::matches) == true
-            if (node.type == DraftNodeType.INSTRUCTION) {
+            if (node.type == DraftNodeType.INSTRUCTION && node.target == null) {
                 val text = node.instructionText.orEmpty()
                 val term = definition.matches(text) && !referencePrefix.containsMatchIn(text) && !action.containsMatchIn(text) && !Regex("^(?:Review needed|Note|Tip|Warning|Caution):", RegexOption.IGNORE_CASE).containsMatchIn(text)
                 if (term || glossaryPrefix.containsMatchIn(text) || referencePrefix.containsMatchIn(text) || context && !action.containsMatchIn(text) && !Regex("^(?:Review needed|Note|Tip|Warning|Caution):", RegexOption.IGNORE_CASE).containsMatchIn(text)) {

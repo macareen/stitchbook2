@@ -128,7 +128,9 @@ sealed interface GuideFocusUiState {
         val timer: FocusTimer = FocusTimer.NOT_RUNNING,
         val referenceNotes: String? = null,
         val castOnCount: Int = 0,
-        val occurrenceKey: String = ""
+        val occurrenceKey: String = "",
+        val target: com.macareen.stitchbook2.domain.execution.ManualTarget? = null,
+        val targetWork: com.macareen.stitchbook2.domain.execution.TargetWork = com.macareen.stitchbook2.domain.execution.TargetWork()
     ) : GuideFocusUiState
 
     data class Completed(
@@ -255,6 +257,16 @@ class GuideFocusViewModel(
                 _uiState.value = current.copy(isStartingNext = false, startNextFailed = true)
             }
         )
+    }
+
+    fun onObserveTarget(value: Double) = applyTransition { id, version -> executionRepository.observeTarget(id, version, value) }
+    fun onConfirmTarget() {
+        val projectId = (_uiState.value as? GuideFocusUiState.InProgress)?.projectId.orEmpty()
+        applyTransition { id, version ->
+            startTimerIfIdle(projectId)
+            markProjectActive(projectId)
+            executionRepository.confirmTarget(id, version)
+        }
     }
 
     fun onAdjustCastOn(amount: Int) {
@@ -598,6 +610,8 @@ class GuideFocusViewModel(
             // The page shows on the Pattern button, so steps read without their "(p.N)".
             instructionText = withoutSourcePage(instruction.text),
             referenceNotes = referenceNotes,
+            target = instruction.target,
+            targetWork = execution.state.targetWork[currentAddress] ?: com.macareen.stitchbook2.domain.execution.TargetWork(),
             castOnCount = execution.state.castOnCounts[currentAddress] ?: 0,
             occurrenceKey = currentAddress.toString(),
             breadcrumbs = breadcrumbs,

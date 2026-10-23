@@ -82,6 +82,7 @@ internal fun validateGuides(
         requireGuide(BackupRecordType.GUIDE_REVISIONS, revision.id, revision.guideId)
         requireSameGuideLocally(BackupRecordType.GUIDE_REVISIONS, revision.id, revision.guideId)
         if (revision.revisionNumber < 1) invalid(BackupRecordType.GUIDE_REVISIONS, revision.id, "Revision number must be 1 or more.")
+        if (revision.nodes.any { it.targetJson != null } && incoming.formatVersion < 6) invalid(BackupRecordType.GUIDE_REVISIONS, revision.id, "Manual targets require backup format 6.")
         nodeTreeProblems(revision.nodes).forEach { invalid(BackupRecordType.GUIDE_REVISIONS, revision.id, it) }
     }
     graph.revisions.groupBy { it.guideId to it.revisionNumber }.filterValues { it.size > 1 }.forEach { (key, duplicates) ->
@@ -96,6 +97,7 @@ internal fun validateGuides(
                 invalid(BackupRecordType.GUIDE_DRAFTS, draft.id, "Builds on revision \"$baseId\", which isn't a revision of the same guide in the file.")
             }
         }
+        if (draft.nodes.any { it.targetJson != null } && incoming.formatVersion < 6) invalid(BackupRecordType.GUIDE_DRAFTS, draft.id, "Manual targets require backup format 6.")
         nodeTreeProblems(draft.nodes).forEach { invalid(BackupRecordType.GUIDE_DRAFTS, draft.id, it) }
     }
     graph.drafts.groupBy { it.guideId }.filterValues { it.size > 1 }.forEach { (guideId, duplicates) ->
@@ -120,6 +122,12 @@ internal fun validateGuides(
             else if (piece.projectId != execution.projectId || piece.guideId != execution.guideId) invalid(BackupRecordType.EXECUTIONS, execution.id, "Progress belongs to a different piece scope.")
         }
         val key = execution.id
+        val targetRevision = revisionsById[execution.definitionRevisionId]
+        if (execution.targetWorkJson != "[]" || targetRevision?.nodes?.any { it.targetJson != null } == true) {
+            if (incoming.formatVersion < 6 || targetRevision == null || !validateTargetBackup(execution, targetRevision)) {
+                invalid(BackupRecordType.EXECUTIONS, key, "Invalid manual target work or backup format older than 6.")
+            }
+        }
         if (execution.castOnCountsJson != "[]") {
             val revision = revisionsById[execution.definitionRevisionId]
             if (incoming.formatVersion < 5 || revision == null || !validateCastOnBackup(execution, revision)) {
@@ -180,6 +188,9 @@ private fun nodeTreeProblems(nodes: List<GuideNodeRecord>): List<String> {
     ids.groupingBy { it }.eachCount().filterValues { it > 1 }.keys.forEach { problems += "Step \"$it\" appears more than once." }
     val idSet = ids.toSet()
     nodes.forEach { node ->
+        if (node.targetJson != null && (node.type != "INSTRUCTION" || runCatching {
+                com.macareen.stitchbook2.domain.execution.ManualTargets.decode(node.targetJson)
+            }.isFailure)) problems += "Invalid manual target on step ${node.nodeId}."
         if (node.type !in GUIDE_NODE_TYPES) problems += "Step \"${node.nodeId}\" has unknown type \"${node.type}\"."
         if (node.parentNodeId != null && node.parentNodeId !in idSet) {
             problems += "Step \"${node.nodeId}\" sits under \"${node.parentNodeId}\", which isn't in the same guide."

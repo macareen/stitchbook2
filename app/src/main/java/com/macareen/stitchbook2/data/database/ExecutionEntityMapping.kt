@@ -111,6 +111,7 @@ fun ExecutionAggregate.toDomain(): PersistedExecution {
         currentAddress = currentAddress,
         completedAddresses = completedAddresses,
         status = execution.status.toExecutionStatus(),
+        targetWork = com.macareen.stitchbook2.domain.execution.TargetWorkCodec.decode(execution.targetWorkJson, revisionId),
         castOnCounts = com.macareen.stitchbook2.domain.execution.CastOnCounts.decode(execution.castOnCountsJson, revisionId)
     )
 
@@ -138,6 +139,7 @@ fun ExecutionState.toExecutionEntity(
     completedAt: Long?,
     version: Long
 ) = ExecutionEntity(
+    targetWorkJson = com.macareen.stitchbook2.domain.execution.TargetWorkCodec.encode(targetWork),
     castOnCountsJson = com.macareen.stitchbook2.domain.execution.CastOnCounts.encode(castOnCounts),
     id = executionId.value,
     guideId = guideId.value,

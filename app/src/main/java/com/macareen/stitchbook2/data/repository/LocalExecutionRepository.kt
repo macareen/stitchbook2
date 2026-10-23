@@ -25,6 +25,12 @@ class LocalExecutionRepository(
     private val currentTimeMillis: () -> Long = System::currentTimeMillis
 ) : ExecutionRepository {
 
+    override suspend fun observeTarget(executionId: ExecutionId, expectedVersion: Long, value: Double): PersistedExecutionTransitionResult =
+        translatingVersionConflict(executionId) { executionDao.observeTarget(executionId.value, expectedVersion, value).toDomainResult() }
+
+    override suspend fun confirmTarget(executionId: ExecutionId, expectedVersion: Long): PersistedExecutionTransitionResult =
+        translatingVersionConflict(executionId) { executionDao.confirmTarget(executionId.value, expectedVersion, currentTimeMillis()).toDomainResult() }
+
     override suspend fun adjustCastOn(executionId: ExecutionId, expectedVersion: Long, amount: Int): PersistedExecutionTransitionResult =
         translatingVersionConflict(executionId) { executionDao.applyCastOn(executionId.value, expectedVersion, amount).toDomainResult() }
 

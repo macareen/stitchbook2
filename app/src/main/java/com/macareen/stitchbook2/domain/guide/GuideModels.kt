@@ -45,7 +45,8 @@ data class DraftNode(
     val rangeEndInclusive: Int? = null,
     val repeatCount: Int? = null,
     val repeatLabel: String? = null,
-    val children: List<NodeId> = emptyList()
+    val children: List<NodeId> = emptyList(),
+    val target: com.macareen.stitchbook2.domain.execution.ManualTarget? = null
 )
 
 data class GuideDraft(

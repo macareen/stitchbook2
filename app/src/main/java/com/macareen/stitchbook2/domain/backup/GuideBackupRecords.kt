@@ -41,7 +41,8 @@ data class GuideNodeRecord(
     val rangeStartInclusive: Int?,
     val rangeEndInclusive: Int?,
     val repeatCount: Int?,
-    val repeatLabel: String?
+    val repeatLabel: String?,
+    val targetJson: String? = null
 )
 
 data class GuideDraftRecord(
@@ -91,7 +92,8 @@ data class ExecutionRecord(
     val currentFrames: List<AddressFrameRecord>,
     val completedOccurrences: List<CompletedOccurrenceRecord>,
     val pieceId: String? = null,
-    val castOnCountsJson: String = "[]"
+    val castOnCountsJson: String = "[]",
+    val targetWorkJson: String = "[]"
 )
 
 /** Which execution is resumed for a guide in one project ("" for the guide on its own). */
@@ -160,6 +162,7 @@ fun GuideDraftRecord.canonical(): GuideDraftRecord = copy(nodes = nodes.canonica
 fun GuideRevisionRecord.canonical(): GuideRevisionRecord = copy(nodes = nodes.canonicalNodes())
 
 fun ExecutionRecord.canonical(): ExecutionRecord = copy(
+    targetWorkJson = com.macareen.stitchbook2.domain.execution.TargetWorkCodec.encode(com.macareen.stitchbook2.domain.execution.TargetWorkCodec.decode(targetWorkJson, com.macareen.stitchbook2.domain.execution.DefinitionRevisionId(definitionRevisionId))),
     castOnCountsJson = com.macareen.stitchbook2.domain.execution.CastOnCounts.encode(
         com.macareen.stitchbook2.domain.execution.CastOnCounts.decode(castOnCountsJson,
             com.macareen.stitchbook2.domain.execution.DefinitionRevisionId(definitionRevisionId))),

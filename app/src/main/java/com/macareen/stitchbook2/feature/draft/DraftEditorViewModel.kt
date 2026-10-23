@@ -168,6 +168,16 @@ class DraftEditorViewModel(
         }
     }
 
+    fun setTarget(expected: DraftNode, target: com.macareen.stitchbook2.domain.execution.ManualTarget?, onSaved: () -> Unit) {
+        val current = draft ?: return
+        if (isSaving()) return
+        if (current.nodes.firstOrNull { it.id == expected.id } != expected || expected.type != DraftNodeType.INSTRUCTION) {
+            showError("This step changed. Close and reopen the target editor.")
+            return
+        }
+        persist(current.copy(nodes = current.nodes.map { if (it.id == expected.id) it.copy(target = target) else it }), onSaved)
+    }
+
     /** Wraps only this instruction; its identity/text and all siblings stay intact. */
     fun repeatInstruction(nodeId: NodeId, count: Int) {
         val current = draft ?: return

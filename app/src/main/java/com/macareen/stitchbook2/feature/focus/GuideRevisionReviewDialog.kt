@@ -51,6 +51,10 @@ fun GuideRevisionReviewDialog(state: GuideRevisionReviewState, onSelect: (Execut
                     if (change == null) item { Text(stringResource(R.string.revision_review_latest)) }
                     else {
                         item { Text(stringResource(R.string.revision_review_target, change.targetRevisionNumber), style = MaterialTheme.typography.titleMedium) }
+                        if (change.sourceDefinition.nodes.filterIsInstance<Instruction>().any { it.target != null } ||
+                            change.targetDefinition.nodes.filterIsInstance<Instruction>().any { it.target != null }) item {
+                            Text(stringResource(R.string.manual_target_revision_help))
+                        }
                         item {
                             Text(stringResource(R.string.revision_position_title), style = MaterialTheme.typography.titleMedium)
                             Text(stringResource(R.string.revision_position_help))

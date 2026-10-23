@@ -420,6 +420,19 @@ abstract class ExecutionDao {
         return applyTransition(executionId, expectedVersion, timestamp) { engine, state -> engine.adjustCastOn(state, amount) }
     }
 
+    @Query("UPDATE executions SET target_work = :json WHERE id = :id")
+    abstract suspend fun updateTargetWork(id: String, json: String)
+
+    @Transaction
+    open suspend fun observeTarget(executionId: String, expectedVersion: Long, value: Double): ExecutionTransitionRow {
+        val timestamp = requireNotNull(getExecutionEntity(executionId)).updatedAt
+        return applyTransition(executionId, expectedVersion, timestamp) { engine, state -> engine.observeTarget(state, value) }
+    }
+
+    @Transaction
+    open suspend fun confirmTarget(executionId: String, expectedVersion: Long, now: Long): ExecutionTransitionRow =
+        applyTransition(executionId, expectedVersion, now) { engine, state -> engine.confirmTarget(state) }
+
     // ---- Transitions ----
 
     @Transaction
@@ -508,6 +521,7 @@ abstract class ExecutionDao {
         )
         if (updated != 1) throw ExecutionConflictException(executionId)
 
+        updateTargetWork(executionId, com.macareen.stitchbook2.domain.execution.TargetWorkCodec.encode(newState.targetWork))
         updateCastOnCounts(executionId, com.macareen.stitchbook2.domain.execution.CastOnCounts.encode(newState.castOnCounts))
         deleteCurrentFrameEntities(executionId)
         val newCurrentFrames = newState.toCurrentFrameEntities()

@@ -795,4 +795,19 @@
     <string name="pattern_details_read">Read PDF details</string>
     <string name="pattern_details_reading">Reading pattern details…</string>
     <string name="pattern_details_read_failed">Could not read pattern details. Your PDF and edits are kept. You can try again.</string>
+    <string name="manual_target_title">Repeat until a target</string>
+    <string name="manual_target_help">This step describes one complete cycle of work. Repeat it as needed, record measurements or stitch counts, then confirm the target. Review the text before publishing. Use a separate step for each independent target.</string>
+    <string name="manual_target_value">Target (%1$s)</string>
+    <string name="manual_target_remove">Remove target</string>
+    <string name="manual_target_heading">Target: %1$s - Cycle %2$d</string>
+    <string name="manual_target_unknown">Total cycles unknown. Previous undoes a cycle here; from cycle 1 it returns to the previous step. Observations are kept.</string>
+    <string name="manual_target_observation">Observed now (%1$s)</string>
+    <string name="manual_target_record">Record observation</string>
+    <string name="manual_target_latest">This cycle: %1$s %2$s</string>
+    <string name="manual_target_reached">Target reached</string>
+    <string name="manual_target_confirm">Confirm that %1$s has been reached and continue to the next unfinished step.</string>
+    <string name="manual_target_history">Recent observations (full history in export)</string>
+    <string name="manual_target_history_item">Cycle %1$d: %2$s %3$s</string>
+    <string name="manual_target_cycle_done">Cycle done - repeat</string>
+    <string name="manual_target_revision_help">Target steps need new observations and confirmation in this publication. Earlier-step completion and matching-step carryover exclude targets. All previous cycles and observations stay with the saved publication.</string>
 </resources>

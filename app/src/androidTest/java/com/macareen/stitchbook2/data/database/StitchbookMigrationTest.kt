@@ -18,7 +18,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Bump alongside `StitchbookDatabase.version`; every migration chain below must reach it. */
-private const val CURRENT_SCHEMA_VERSION = 26
+private const val CURRENT_SCHEMA_VERSION = 27
 
 @RunWith(AndroidJUnit4::class)
 class StitchbookMigrationTest {
@@ -85,6 +85,27 @@ class StitchbookMigrationTest {
         if (::database.isInitialized) database.close()
         context.deleteDatabase(DATABASE_NAME)
         context.deleteDatabase(HELPER_DATABASE_NAME)
+    }
+
+    @Test fun migrationTwentySixToTwentySevenPreservesWorkAndAddsOnlyEmptyTargets() {
+        migrationHelper.createDatabase(HELPER_DATABASE_NAME, 26).use { db ->
+            db.execSQL("INSERT INTO guides (id, project_id, library_item_id, size_label, name, notes, created_at, updated_at) VALUES ('g', NULL, NULL, 'L', 'Keep guide', 'Keep reference', 1, 2)")
+            db.execSQL("INSERT INTO definition_revisions(id, guide_id, revision_number, created_at) VALUES ('r', 'g', 1, 2)")
+            db.execSQL("INSERT INTO revision_nodes(revision_id,node_id,parent_node_id,child_order,type,instruction_text) VALUES ('r','step',NULL,0,'INSTRUCTION','Original instruction')")
+            db.execSQL("INSERT INTO guide_drafts(id,guide_id,base_revision_id,created_at,updated_at,version) VALUES ('d','g','r',1,2,3)")
+            db.execSQL("INSERT INTO draft_nodes(draft_id,node_id,parent_node_id,child_order,type,instruction_text) VALUES ('d','step',NULL,0,'INSTRUCTION','Draft instruction')")
+            db.execSQL("INSERT INTO executions(id, guide_id, definition_revision_id, status, current_instruction_node_id, created_at, updated_at, completed_at, version, project_id, piece_id,cast_on_counts) VALUES ('e', 'g', 'r', 'ACTIVE', 'step', 3, 4, NULL, 7, NULL, NULL,'[]')")
+            db.execSQL("INSERT INTO active_executions(guide_id,project_key,execution_id,piece_key) VALUES ('g','','e','')")
+        }
+        migrationHelper.runMigrationsAndValidate(HELPER_DATABASE_NAME, 27, true, MIGRATION_26_27).use { db ->
+            db.query("SELECT version,current_instruction_node_id,cast_on_counts,target_work,updated_at FROM executions WHERE id='e'").use {
+                assertTrue(it.moveToFirst()); assertEquals(7,it.getInt(0)); assertEquals("step",it.getString(1)); assertEquals("[]",it.getString(2)); assertEquals("[]",it.getString(3)); assertEquals(4L,it.getLong(4))
+            }
+            for (table in listOf("draft_nodes", "revision_nodes")) db.query("SELECT instruction_text,manual_target FROM $table").use {
+                assertTrue(it.moveToFirst()); assertTrue(it.getString(0).endsWith("instruction")); assertTrue(it.isNull(1))
+            }
+            db.query("SELECT execution_id FROM active_executions").use { assertTrue(it.moveToFirst()); assertEquals("e",it.getString(0)) }
+        }
     }
 
     @Test fun migrationTwentyFiveToTwentySixPreservesSavedPlaceAndAddsEmptyCounts() {
@@ -807,7 +828,8 @@ class StitchbookMigrationTest {
             MIGRATION_22_23,
             MIGRATION_23_24,
             MIGRATION_24_25,
-            MIGRATION_25_26
+            MIGRATION_25_26,
+            MIGRATION_26_27
         ).use { db ->
             db.query(
                 "SELECT name, notes, description, construction_method, custom_type_label, start_date, target_date, completed_date FROM projects WHERE id = 'existing-project'"

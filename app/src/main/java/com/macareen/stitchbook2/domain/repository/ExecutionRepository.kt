@@ -35,6 +35,9 @@ class ExecutionVersionConflictException(
  * reimplements traversal or transition rules.
  */
 interface ExecutionRepository {
+    suspend fun observeTarget(executionId: ExecutionId, expectedVersion: Long, value: Double): PersistedExecutionTransitionResult = throw UnsupportedOperationException()
+    suspend fun confirmTarget(executionId: ExecutionId, expectedVersion: Long): PersistedExecutionTransitionResult = throw UnsupportedOperationException()
+
     suspend fun adjustCastOn(executionId: ExecutionId, expectedVersion: Long, amount: Int): PersistedExecutionTransitionResult =
         throw UnsupportedOperationException("Cast-on tracking unavailable")
 

@@ -85,7 +85,8 @@ class Repeat(
 
 data class Instruction(
     override val id: NodeId,
-    val text: String
+    val text: String,
+    val target: ManualTarget? = null
 ) : GuideNode
 
 class GuideDefinition(

@@ -70,6 +70,7 @@ internal fun GuideGraphRows.toGraph(): GuideBackupGraph {
             ExecutionRecord(
                 id = execution.id,
                 castOnCountsJson = execution.castOnCountsJson,
+                targetWorkJson = execution.targetWorkJson,
                 guideId = execution.guideId,
                 definitionRevisionId = execution.definitionRevisionId,
                 projectId = execution.projectId,
@@ -129,7 +130,8 @@ internal fun GuideBackupGraph.toRows(): GuideGraphRows = GuideGraphRows(
                 rangeStartInclusive = it.rangeStartInclusive,
                 rangeEndInclusive = it.rangeEndInclusive,
                 repeatCount = it.repeatCount,
-                repeatLabel = it.repeatLabel
+                repeatLabel = it.repeatLabel,
+                targetJson = it.targetJson
             )
         }
     },
@@ -148,7 +150,8 @@ internal fun GuideBackupGraph.toRows(): GuideGraphRows = GuideGraphRows(
                 rangeStartInclusive = it.rangeStartInclusive,
                 rangeEndInclusive = it.rangeEndInclusive,
                 repeatCount = it.repeatCount,
-                repeatLabel = it.repeatLabel
+                repeatLabel = it.repeatLabel,
+                targetJson = it.targetJson
             )
         }
     },
@@ -165,7 +168,8 @@ internal fun GuideBackupGraph.toRows(): GuideGraphRows = GuideGraphRows(
             version = it.version,
             projectId = it.projectId,
             pieceId = it.pieceId,
-            castOnCountsJson = it.castOnCountsJson
+            castOnCountsJson = it.castOnCountsJson,
+            targetWorkJson = it.targetWorkJson
         )
     },
     currentFrames = executions.flatMap { execution ->
@@ -199,10 +203,10 @@ internal fun GuideBackupGraph.toRows(): GuideGraphRows = GuideGraphRows(
 
 private fun DraftNodeEntity.toRecord() = GuideNodeRecord(
     nodeId, parentNodeId, childOrder, type, title, instructionText,
-    rangeUnitLabel, rangeStartInclusive, rangeEndInclusive, repeatCount, repeatLabel
+    rangeUnitLabel, rangeStartInclusive, rangeEndInclusive, repeatCount, repeatLabel, targetJson
 )
 
 private fun RevisionNodeEntity.toRecord() = GuideNodeRecord(
     nodeId, parentNodeId, childOrder, type, title, instructionText,
-    rangeUnitLabel, rangeStartInclusive, rangeEndInclusive, repeatCount, repeatLabel
+    rangeUnitLabel, rangeStartInclusive, rangeEndInclusive, repeatCount, repeatLabel, targetJson
 )

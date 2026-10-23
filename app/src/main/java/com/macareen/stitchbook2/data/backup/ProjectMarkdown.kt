@@ -190,6 +190,7 @@ private fun StringBuilder.guidesSection(projectId: String, graph: GuideBackupGra
             val progress = graph.executions.filter { it.pieceId == piece.id }.sortedBy { it.createdAt }
             if (progress.isEmpty()) line("Not started.")
             progress.forEach { execution ->
+                targetWorkSection(execution, graph)
                 val revision = graph.revisions.firstOrNull { it.id == execution.definitionRevisionId }
                 com.macareen.stitchbook2.domain.execution.CastOnCounts.decode(execution.castOnCountsJson,
                     com.macareen.stitchbook2.domain.execution.DefinitionRevisionId(execution.definitionRevisionId)).forEach { (address, count) ->
@@ -226,6 +227,9 @@ private fun StringBuilder.guidesSection(projectId: String, graph: GuideBackupGra
                 }
                 line()
             }
+        // Keep every target execution, including saved places and older revisions, accessible.
+        graph.executions.filter { it.guideId == guide.id && it.projectId == projectId && it.pieceId == null }
+            .sortedBy { it.createdAt }.forEach { targetWorkSection(it, graph) }
         val children = nodes.groupBy { it.parentNodeId }.mapValues { (_, list) -> list.sortedBy { it.childOrder } }
         fun write(parentId: String?, depth: Int) {
             children[parentId].orEmpty().forEach { node ->
@@ -241,6 +245,10 @@ private fun StringBuilder.guidesSection(projectId: String, graph: GuideBackupGra
                     else -> node.instructionText.orEmpty().trim()
                 }
                 line("$indent- $text")
+                node.targetJson?.let { json ->
+                    val target = com.macareen.stitchbook2.domain.execution.ManualTargets.decode(json)
+                    line("$indent  Repeat this cycle until ${target.description()}; total cycles unknown; explicit confirmation required.")
+                }
                 write(node.nodeId, depth + 1)
             }
         }
@@ -272,4 +280,20 @@ private fun markdownDuration(millis: Long): String {
 private fun formatQuantity(value: Double): String {
     val rounded = roundQuantity(value)
     return if (rounded == Math.floor(rounded)) rounded.toLong().toString() else rounded.toString()
+}
+
+
+private fun StringBuilder.targetWorkSection(execution: com.macareen.stitchbook2.domain.backup.ExecutionRecord, graph: GuideBackupGraph) {
+    val revision = graph.revisions.firstOrNull { it.id == execution.definitionRevisionId }
+    com.macareen.stitchbook2.domain.execution.TargetWorkCodec.decode(execution.targetWorkJson,
+        com.macareen.stitchbook2.domain.execution.DefinitionRevisionId(execution.definitionRevisionId)).forEach { (address, work) ->
+        val node = revision?.nodes?.firstOrNull { it.nodeId == address.instructionNodeId.value }
+        val target = node?.targetJson?.let(com.macareen.stitchbook2.domain.execution.ManualTargets::decode)
+        line("Target work: execution ${execution.id}, revision ${execution.definitionRevisionId}, step ${address.instructionNodeId.value}, ${address.ancestryFrames}.")
+        node?.instructionText?.let { line(it) }
+        line("Target ${target?.description()}; cycle ${work.cycle}; total cycles unknown; reached confirmed: ${work.reached}.")
+        work.observations.forEach { observation ->
+            line("- Cycle ${observation.cycle}: ${com.macareen.stitchbook2.domain.execution.formatTargetValue(observation.value)} ${target?.unit?.label.orEmpty()}")
+        }
+    }
 }
