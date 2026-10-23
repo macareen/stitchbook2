@@ -87,3 +87,16 @@ Before finishing a change:
 4. Add or update tests for nontrivial domain or data behavior.
 5. Update `README.md`, `PRODUCT_SPEC.md`, `ROADMAP.md`, or `ARCHITECTURE.md` when behavior or architectural decisions change.
 6. Report files changed, commands run, results, and any remaining risks or skipped checks.
+
+## Graphify code searches and refresh
+
+Use the repository-local Graphify index for all future code searches. See
+[docs/GRAPHIFY.md](docs/GRAPHIFY.md) for installation, commands and coverage limits.
+The installed upstream skill is [.codex/skills/graphify/SKILL.md](.codex/skills/graphify/SKILL.md).
+These repository-specific rules take precedence over its generic defaults:
+
+- Before every new code search, run `.\scripts\graphify.ps1 query "<question or symbols>"`; use `explain`, `path` and `affected` for focused navigation and relationships. Follow returned locations to current source. Prefer scoped queries over reading the full report.
+- If the graph is missing, follow docs/GRAPHIFY.md and rebuild it. If results are incomplete, ambiguous, truncated or absent, refine the query, then use targeted `rg`/file reads for gaps and verify live source. XML resources, some Kotlin constructs and build scripts have incomplete coverage; never treat an absent edge as proof that a dependency does not exist.
+- After each substantial coherent chunk of work and before handoff, run `.\scripts\refresh-graphify.ps1` and record its result in docs/HANDOFF.md. Refresh after branch changes or stale results as needed. Do not finish substantial code work with a knowingly stale graph without reporting the failure.
+- Use local code-only extraction and no LLM labeling. Do not enable semantic/cloud extraction or upload private inputs. Keep generated graphify-out/, the virtual environment and cache ignored; new checkouts regenerate them.
+- Use the scripts so the pinned repo environment is selected without global PATH changes. No background service, Git hook, or global Codex configuration is needed. Existing restrictions on subagents remain in force.

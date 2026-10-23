@@ -13,3 +13,8 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Reproducible local Graphify tooling and generated index
+/.graphify-venv/
+/.graphify-cache/
+/graphify-out/

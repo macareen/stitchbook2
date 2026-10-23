@@ -13,6 +13,9 @@ Everything works offline with no account or subscription, and a full JSON backup
 
 ## Core principles
 
+For repository code searches, use the local Graphify index and refresh it after
+substantial work; see [Graphify setup and workflow](docs/GRAPHIFY.md) and `AGENTS.md`.
+
 - **Local first:** essential functions should work offline.
 - **User-owned data:** imported patterns, photos, notes, inventories, and project records must remain accessible outside the app.
 - **No mandatory account or subscription:** optional integrations must not become prerequisites.
