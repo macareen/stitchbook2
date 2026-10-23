@@ -76,10 +76,12 @@ class ExecutionState(
     } else {
         ExecutionStatus.ACTIVE
     },
-    castOnCounts: Map<ExecutionAddress, Int> = emptyMap()
+    castOnCounts: Map<ExecutionAddress, Int> = emptyMap(),
+    targetWork: Map<ExecutionAddress, TargetWork> = emptyMap()
 ) {
     val completedAddresses: Set<ExecutionAddress> = completedAddresses.toSet()
     val castOnCounts: Map<ExecutionAddress, Int> = castOnCounts.toMap()
+    val targetWork: Map<ExecutionAddress, TargetWork> = targetWork.mapValues { (_, work) -> work.copy(observations = work.observations.toList()) }
 
     val isComplete: Boolean
         get() = status == ExecutionStatus.COMPLETED
@@ -91,7 +93,8 @@ class ExecutionState(
         currentAddress: ExecutionAddress? = this.currentAddress,
         completedAddresses: Set<ExecutionAddress> = this.completedAddresses,
         status: ExecutionStatus = this.status,
-        castOnCounts: Map<ExecutionAddress, Int> = this.castOnCounts
+        castOnCounts: Map<ExecutionAddress, Int> = this.castOnCounts,
+        targetWork: Map<ExecutionAddress, TargetWork> = this.targetWork
     ) = ExecutionState(
         executionId = executionId,
         guideId = guideId,
@@ -99,7 +102,8 @@ class ExecutionState(
         currentAddress = currentAddress,
         completedAddresses = completedAddresses,
         status = status,
-        castOnCounts = castOnCounts
+        castOnCounts = castOnCounts,
+        targetWork = targetWork
     )
 
     override fun equals(other: Any?): Boolean {
@@ -109,7 +113,7 @@ class ExecutionState(
             definitionRevisionId == other.definitionRevisionId &&
             currentAddress == other.currentAddress &&
             completedAddresses == other.completedAddresses &&
-            status == other.status && castOnCounts == other.castOnCounts
+            status == other.status && castOnCounts == other.castOnCounts && targetWork == other.targetWork
     }
 
     override fun hashCode(): Int {
@@ -120,6 +124,7 @@ class ExecutionState(
         result = 31 * result + completedAddresses.hashCode()
         result = 31 * result + status.hashCode()
         result = 31 * result + castOnCounts.hashCode()
+        result = 31 * result + targetWork.hashCode()
         return result
     }
 }

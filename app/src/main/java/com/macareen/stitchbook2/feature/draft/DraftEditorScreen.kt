@@ -65,6 +65,7 @@ fun DraftEditorRoute(
     onStartOrContinue: () -> Unit,
     returningToWork: Boolean = false
 ) {
+    var targetNode by remember { mutableStateOf<DraftNode?>(null) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val replayReview by viewModel.sectionReplayReview.collectAsStateWithLifecycle()
 
@@ -82,8 +83,14 @@ fun DraftEditorRoute(
         onRepeatInstruction = viewModel::repeatInstruction,
         returningToWork = returningToWork,
         onMoveReferences = viewModel::moveReferences,
+        onEditTarget = { targetNode = it },
         onReplaySection = viewModel::requestSectionReplay
     )
+    targetNode?.let { node ->
+        ManualTargetDialog(node.target, (uiState as? DraftEditorUiState.Content)?.isSaving == true,
+            (uiState as? DraftEditorUiState.Content)?.errorMessage,
+            { target -> viewModel.setTarget(node, target) { targetNode = null } }, { targetNode = null })
+    }
     replayReview?.let { review ->
         SectionReplayDialog(review, (uiState as? DraftEditorUiState.Content)?.isSaving == true,
             (uiState as? DraftEditorUiState.Content)?.errorMessage,
@@ -123,6 +130,7 @@ fun DraftEditorScreen(
     onDone: () -> Unit,
     onStartOrContinue: () -> Unit,
     modifier: Modifier = Modifier,
+    onEditTarget: (DraftNode) -> Unit = {},
     onRepeatInstruction: (NodeId, Int) -> Unit = { _, _ -> },
     returningToWork: Boolean = false,
     onMoveReferences: () -> Unit = {},
@@ -167,6 +175,7 @@ fun DraftEditorScreen(
                 onDismissError = onDismissError,
                 onDone = onDone,
                 onStartOrContinue = onStartOrContinue,
+                onEditTarget = onEditTarget,
                 onRepeatInstruction = onRepeatInstruction,
                 returningToWork = returningToWork,
                 onMoveReferences = onMoveReferences,
@@ -209,6 +218,7 @@ private fun DraftEditorContent(
     onDone: () -> Unit,
     onStartOrContinue: () -> Unit,
     modifier: Modifier = Modifier,
+    onEditTarget: (DraftNode) -> Unit,
     onRepeatInstruction: (NodeId, Int) -> Unit,
     returningToWork: Boolean,
     onMoveReferences: () -> Unit,
@@ -267,6 +277,7 @@ private fun DraftEditorContent(
                         onMoveUp = { onMoveUp(row.node.id) },
                         onMoveDown = { onMoveDown(row.node.id) },
                         onAddInside = { dialogState = EditorDialogState.ChoosingType(row.node.id) },
+                        onTarget = { onEditTarget(row.node) },
                         onRepeat = { repeatNodeId = row.node.id.value; repeatCount = "7" },
                         onReplaySection = { onReplaySection(row.node.id) }
                     )
@@ -438,6 +449,7 @@ private fun DraftOutlineRowItem(
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
     onAddInside: () -> Unit,
+    onTarget: () -> Unit,
     onRepeat: () -> Unit,
     onReplaySection: () -> Unit
 ) {
@@ -468,9 +480,11 @@ private fun DraftOutlineRowItem(
                 Text(text = row.node.type.label(), style = MaterialTheme.typography.labelMedium)
             }
             com.macareen.stitchbook2.feature.focus.InstructionBlocks(row.node.summary(), MaterialTheme.typography.bodyLarge)
+            row.node.target?.let { Text("${stringResource(R.string.manual_target_title)}: ${it.description()}") }
             Spacer(modifier = Modifier.height(StitchbookSpacing.extraSmall))
             if (row.node.type == DraftNodeType.INSTRUCTION) {
                 androidx.compose.foundation.layout.FlowRow {
+                    TextButton(onClick = onTarget, enabled = !isSaving) { Text(stringResource(R.string.manual_target_title)) }
                     TextButton(onClick = onRepeat, enabled = !isSaving) { Text(stringResource(R.string.draft_repeat_instruction)) }
                     TextButton(onClick = onReplaySection, enabled = !isSaving) { Text(stringResource(R.string.draft_replay_section)) }
                 }

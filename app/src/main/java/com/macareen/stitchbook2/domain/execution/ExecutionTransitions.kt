@@ -50,6 +50,43 @@ class ExecutionEngine private constructor(
 
     fun complete(state: ExecutionState): ExecutionTransitionResult {
         validate(state)
+        val address = state.currentAddress
+        if (address != null && traversal.resolve(address).instruction.target != null) {
+            validate(state)
+            val work = state.targetWork[address] ?: TargetWork()
+            val changed = state.copy(targetWork = state.targetWork +
+                (address to work.copy(cycle = Math.addExact(work.cycle, 1), reached = false)))
+            validate(changed)
+            return ExecutionTransitionResult.Changed(changed)
+        }
+        return finishOccurrence(state)
+    }
+
+    fun observeTarget(state: ExecutionState, value: Double): ExecutionTransitionResult {
+        validate(state)
+        val address = requireNotNull(state.currentAddress)
+        val target = requireNotNull(traversal.resolve(address).instruction.target)
+        require(target.accepts(value)) { "Enter a non-negative observation in the target's units." }
+        val work = state.targetWork[address] ?: TargetWork()
+        val changed = state.copy(targetWork = state.targetWork + (address to work.copy(
+            observations = work.observations + TargetObservation(work.cycle, value), reached = false)))
+        validate(changed)
+        return ExecutionTransitionResult.Changed(changed)
+    }
+
+    fun confirmTarget(state: ExecutionState): ExecutionTransitionResult {
+        validate(state)
+        val address = requireNotNull(state.currentAddress)
+        val target = requireNotNull(traversal.resolve(address).instruction.target)
+        val work = requireNotNull(state.targetWork[address])
+        require(work.observations.lastOrNull { it.cycle == work.cycle }?.value?.let(target::isReachedBy) == true) {
+            "Record a current-cycle observation that meets the target before confirming."
+        }
+        return finishOccurrence(state, targetConfirmed = true)
+    }
+
+    private fun finishOccurrence(state: ExecutionState, targetConfirmed: Boolean = false): ExecutionTransitionResult {
+        validate(state)
         if (state.status == ExecutionStatus.COMPLETED) {
             return ExecutionTransitionResult.NoChange(
                 state = state,
@@ -66,6 +103,7 @@ class ExecutionEngine private constructor(
         val updatedState = state.copy(
             currentAddress = nextAddress,
             completedAddresses = completedAddresses,
+            targetWork = if (targetConfirmed) state.targetWork + (currentAddress to requireNotNull(state.targetWork[currentAddress]).copy(reached = true)) else state.targetWork,
             status = if (nextAddress == null) {
                 ExecutionStatus.COMPLETED
             } else {
@@ -78,6 +116,13 @@ class ExecutionEngine private constructor(
 
     fun previous(state: ExecutionState): ExecutionTransitionResult {
         validate(state)
+        state.currentAddress?.let { address ->
+            val work = state.targetWork[address]
+            if (traversal.resolve(address).instruction.target != null && work != null && work.cycle > 1) {
+                return ExecutionTransitionResult.Changed(state.copy(targetWork = state.targetWork +
+                    (address to work.copy(cycle = work.cycle - 1, reached = false))))
+            }
+        }
         val previousAddress = when (state.status) {
             ExecutionStatus.ACTIVE -> {
                 traversal.previous(checkNotNull(state.currentAddress))?.address
@@ -96,6 +141,7 @@ class ExecutionEngine private constructor(
         val updatedState = state.copy(
             currentAddress = previousAddress,
             completedAddresses = state.completedAddresses - previousAddress,
+            targetWork = reopenedTargetWork(state, previousAddress),
             status = ExecutionStatus.ACTIVE
         )
         validate(updatedState)
@@ -120,6 +166,9 @@ class ExecutionEngine private constructor(
 
         val updatedState = state.copy(
             currentAddress = targetAddress,
+            completedAddresses = if (traversal.resolve(targetAddress).instruction.target != null)
+                state.completedAddresses - targetAddress else state.completedAddresses,
+            targetWork = reopenedTargetWork(state, targetAddress),
             status = ExecutionStatus.ACTIVE
         )
         validate(updatedState)
@@ -128,6 +177,11 @@ class ExecutionEngine private constructor(
 
     private fun validate(state: ExecutionState) {
         ExecutionStateValidator.validate(state, guide)
+    }
+
+    private fun reopenedTargetWork(state: ExecutionState, address: ExecutionAddress): Map<ExecutionAddress, TargetWork> {
+        val work = state.targetWork[address] ?: return state.targetWork
+        return state.targetWork + (address to work.copy(reached = false))
     }
 
     private fun nextIncompleteAddress(

@@ -37,7 +37,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         JournalEntryEntity::class,
         CraftingSessionEntity::class
     ],
-    version = 26,
+    version = 27,
     exportSchema = true
 )
 abstract class StitchbookDatabase : RoomDatabase() {
@@ -107,7 +107,8 @@ val ALL_MIGRATIONS: Array<Migration>
         MIGRATION_22_23,
         MIGRATION_23_24,
         MIGRATION_24_25,
-        MIGRATION_25_26
+        MIGRATION_25_26,
+        MIGRATION_26_27
     )
 
 val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -1147,5 +1148,14 @@ val MIGRATION_24_25 = object : Migration(24, 25) {
 val MIGRATION_25_26 = object : Migration(25, 26) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE executions ADD COLUMN cast_on_counts TEXT NOT NULL DEFAULT '[]'")
+    }
+}
+
+/** Add opt-in manual targets without changing existing definitions or work. */
+val MIGRATION_26_27 = object : Migration(26, 27) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE draft_nodes ADD COLUMN manual_target TEXT")
+        db.execSQL("ALTER TABLE revision_nodes ADD COLUMN manual_target TEXT")
+        db.execSQL("ALTER TABLE executions ADD COLUMN target_work TEXT NOT NULL DEFAULT '[]'")
     }
 }

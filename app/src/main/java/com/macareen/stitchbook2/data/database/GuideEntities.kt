@@ -181,7 +181,8 @@ data class DraftNodeEntity(
     @ColumnInfo(name = "range_start_inclusive") val rangeStartInclusive: Int?,
     @ColumnInfo(name = "range_end_inclusive") val rangeEndInclusive: Int?,
     @ColumnInfo(name = "repeat_count") val repeatCount: Int?,
-    @ColumnInfo(name = "repeat_label") val repeatLabel: String?
+    @ColumnInfo(name = "repeat_label") val repeatLabel: String?,
+    @ColumnInfo(name = "manual_target") val targetJson: String? = null
 )
 
 @Entity(
@@ -222,5 +223,6 @@ data class RevisionNodeEntity(
     @ColumnInfo(name = "range_start_inclusive") val rangeStartInclusive: Int?,
     @ColumnInfo(name = "range_end_inclusive") val rangeEndInclusive: Int?,
     @ColumnInfo(name = "repeat_count") val repeatCount: Int?,
-    @ColumnInfo(name = "repeat_label") val repeatLabel: String?
+    @ColumnInfo(name = "repeat_label") val repeatLabel: String?,
+    @ColumnInfo(name = "manual_target") val targetJson: String? = null
 )

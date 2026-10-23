@@ -148,6 +148,8 @@ fun GuideFocusRoute(viewModel: GuideFocusViewModel, onOpenPattern: (PatternPage)
         onToggleTimer = viewModel::onToggleTimer,
         onReviewVersions = viewModel.revisionReview::open,
         onEditGuide = onEditGuide,
+        onObserveTarget = viewModel::onObserveTarget,
+        onConfirmTarget = viewModel::onConfirmTarget,
         onAdjustCastOn = viewModel::onAdjustCastOn
     )
     revisionReview?.let { GuideRevisionReviewDialog(it, viewModel.revisionReview::select,
@@ -171,6 +173,8 @@ fun GuideFocusScreen(
     onToggleTimer: () -> Unit = {},
     onReviewVersions: () -> Unit = {},
     onEditGuide: () -> Unit = {},
+    onObserveTarget: (Double) -> Unit = {},
+    onConfirmTarget: () -> Unit = {},
     onAdjustCastOn: (Int) -> Unit = {}
 ) {
     when (uiState) {
@@ -212,6 +216,8 @@ fun GuideFocusScreen(
             onToggleTimer = onToggleTimer,
             onReviewVersions = onReviewVersions,
             onEditGuide = onEditGuide,
+            onObserveTarget = onObserveTarget,
+            onConfirmTarget = onConfirmTarget,
             onAdjustCastOn = onAdjustCastOn,
             modifier = modifier
         )
@@ -326,6 +332,8 @@ private fun InProgressContent(
     onToggleTimer: () -> Unit,
     onReviewVersions: () -> Unit,
     onEditGuide: () -> Unit,
+    onObserveTarget: (Double) -> Unit,
+    onConfirmTarget: () -> Unit,
     onAdjustCastOn: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -445,6 +453,9 @@ private fun InProgressContent(
                         TextButton(onClick = { showDetail = !showDetail }) { Text(stringResource(R.string.focus_step_note)) }
                         if (showDetail) Text(it, style = MaterialTheme.typography.bodyMedium)
                     }
+                    state.target?.let { target ->
+                        ManualTargetControls(target, state.targetWork, "${state.executionId.value}:${state.occurrenceKey}", state.isBusy, onObserveTarget, onConfirmTarget)
+                    }
                     state.feedback?.let { feedback ->
                         QuietText(text = focusFeedbackText(feedback))
                     }
@@ -507,13 +518,15 @@ private fun InProgressContent(
                 if (stacked) {
                     Column(verticalArrangement = Arrangement.spacedBy(StitchbookSpacing.small)) {
                         FocusActionButton(false, state.isBusy, onPrevious, Modifier.fillMaxWidth())
-                        FocusActionButton(true, state.isBusy, onComplete, Modifier.fillMaxWidth())
+                        if (state.target == null) FocusActionButton(true, state.isBusy, onComplete, Modifier.fillMaxWidth())
+                        else TextButton(onClick = onComplete, enabled = !state.isBusy) { Text(stringResource(R.string.manual_target_cycle_done)) }
                     }
                 } else {
                     Row(horizontalArrangement = Arrangement.spacedBy(StitchbookSpacing.small),
                         verticalAlignment = Alignment.CenterVertically) {
                         FocusActionButton(false, state.isBusy, onPrevious, Modifier.weight(0.4f))
-                        FocusActionButton(true, state.isBusy, onComplete, Modifier.weight(0.6f))
+                        if (state.target == null) FocusActionButton(true, state.isBusy, onComplete, Modifier.weight(0.6f))
+                        else TextButton(onClick = onComplete, enabled = !state.isBusy, modifier = Modifier.weight(0.6f)) { Text(stringResource(R.string.manual_target_cycle_done)) }
                     }
                 }
             }

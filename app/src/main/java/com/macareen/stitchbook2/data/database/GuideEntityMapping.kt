@@ -90,6 +90,7 @@ fun DraftAggregate.toDomain(): GuideDraft {
                 rangeEndInclusive = row.rangeEndInclusive,
                 repeatCount = row.repeatCount,
                 repeatLabel = row.repeatLabel,
+                target = row.targetJson?.let(com.macareen.stitchbook2.domain.execution.ManualTargets::decode),
                 children = childrenByParent[row.nodeId].orEmpty()
             )
         }
@@ -97,6 +98,7 @@ fun DraftAggregate.toDomain(): GuideDraft {
 }
 
 fun GuideDraft.toNodeEntities(): List<DraftNodeEntity> {
+    require(nodes.all { it.target == null || it.type == DraftNodeType.INSTRUCTION })
     val placement = nodePlacement()
     return nodes.map { node ->
         val location = checkNotNull(placement[node.id])
@@ -112,7 +114,8 @@ fun GuideDraft.toNodeEntities(): List<DraftNodeEntity> {
             rangeStartInclusive = node.rangeStartInclusive,
             rangeEndInclusive = node.rangeEndInclusive,
             repeatCount = node.repeatCount,
-            repeatLabel = node.repeatLabel
+            repeatLabel = node.repeatLabel,
+            targetJson = node.target?.let(com.macareen.stitchbook2.domain.execution.ManualTargets::encode)
         )
     }
 }
@@ -173,7 +176,8 @@ fun DraftNodeEntity.toRevisionNode(revisionId: String) = RevisionNodeEntity(
     rangeStartInclusive = rangeStartInclusive,
     rangeEndInclusive = rangeEndInclusive,
     repeatCount = repeatCount,
-    repeatLabel = repeatLabel
+    repeatLabel = repeatLabel,
+    targetJson = targetJson
 )
 
 fun RevisionNodeEntity.toDraftNode(draftId: String) = DraftNodeEntity(
@@ -188,7 +192,8 @@ fun RevisionNodeEntity.toDraftNode(draftId: String) = DraftNodeEntity(
     rangeStartInclusive = rangeStartInclusive,
     rangeEndInclusive = rangeEndInclusive,
     repeatCount = repeatCount,
-    repeatLabel = repeatLabel
+    repeatLabel = repeatLabel,
+    targetJson = targetJson
 )
 
 private fun DraftNode.toExecutableNode(): GuideNode {
@@ -221,7 +226,8 @@ private fun DraftNode.toExecutableNode(): GuideNode {
         DraftNodeType.INSTRUCTION -> Instruction(
             id = id,
             text = instructionText
-                ?: invalidDraft(id, "Instruction text is missing.")
+                ?: invalidDraft(id, "Instruction text is missing."),
+            target = target
         )
     }
 }
@@ -260,7 +266,8 @@ private fun RevisionNodeEntity.toExecutableNode(
         DraftNodeType.INSTRUCTION -> Instruction(
             id = nodeId,
             text = instructionText
-                ?: malformed(nodeId, "Instruction text is missing.")
+                ?: malformed(nodeId, "Instruction text is missing."),
+            target = targetJson?.let(com.macareen.stitchbook2.domain.execution.ManualTargets::decode)
         )
     }
 }

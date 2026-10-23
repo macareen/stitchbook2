@@ -36,7 +36,7 @@ object RevisionProgressComparison {
             val next = newByAddress[address]
             val reason = when {
                 next == null -> UnmatchedProgressReason.REMOVED_OCCURRENCE
-                old.instruction.text != next.instruction.text -> UnmatchedProgressReason.CHANGED_INSTRUCTION
+                old.instruction != next.instruction || old.instruction.target != null -> UnmatchedProgressReason.CHANGED_INSTRUCTION
                 context(old, sourceGuide) != context(next, targetGuide) -> UnmatchedProgressReason.CHANGED_CONTEXT
                 else -> null
             }

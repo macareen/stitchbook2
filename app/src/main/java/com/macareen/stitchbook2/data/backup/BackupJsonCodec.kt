@@ -660,6 +660,7 @@ private fun GuideNodeRecord.toJson(): JSONObject = JSONObject().apply {
     put("rangeUnitLabel", rangeUnitLabel ?: JSONObject.NULL)
     put("rangeStartInclusive", rangeStartInclusive ?: JSONObject.NULL)
     put("rangeEndInclusive", rangeEndInclusive ?: JSONObject.NULL)
+    put("manualTarget", targetJson?.let(::JSONObject) ?: JSONObject.NULL)
     put("repeatCount", repeatCount ?: JSONObject.NULL)
     put("repeatLabel", repeatLabel ?: JSONObject.NULL)
 }
@@ -674,6 +675,7 @@ private fun JSONObject.toGuideNodeRecord(): GuideNodeRecord = GuideNodeRecord(
     rangeUnitLabel = optNullableString("rangeUnitLabel"),
     rangeStartInclusive = optNullableInt("rangeStartInclusive"),
     rangeEndInclusive = optNullableInt("rangeEndInclusive"),
+    targetJson = if (has("manualTarget") && !isNull("manualTarget")) getJSONObject("manualTarget").toString() else null,
     repeatCount = optNullableInt("repeatCount"),
     repeatLabel = optNullableString("repeatLabel")
 )
@@ -729,6 +731,7 @@ private fun JSONObject.toAddressFrameRecord(): AddressFrameRecord = AddressFrame
 
 internal fun ExecutionRecord.toJson(): JSONObject = JSONObject().apply {
     put("castOnCounts", JSONArray(castOnCountsJson))
+    put("targetWork", JSONArray(targetWorkJson))
     put("id", id)
     put("guideId", guideId)
     put("definitionRevisionId", definitionRevisionId)
@@ -755,6 +758,7 @@ internal fun ExecutionRecord.toJson(): JSONObject = JSONObject().apply {
 }
 
 internal fun JSONObject.toExecutionRecord(): ExecutionRecord = ExecutionRecord(
+    targetWorkJson = if (has("targetWork")) getJSONArray("targetWork").toString() else "[]",
     castOnCountsJson = if (has("castOnCounts")) getJSONArray("castOnCounts").toString() else "[]",
     id = getString("id"),
     guideId = getString("guideId"),

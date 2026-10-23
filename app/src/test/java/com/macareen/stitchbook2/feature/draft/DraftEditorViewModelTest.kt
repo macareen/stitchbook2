@@ -38,6 +38,26 @@ import org.junit.Test
  * the repository test suites.
  */
 class DraftEditorViewModelTest {
+    @Test fun targetAuthoringKeepsOriginalWordingAndRejectsStaleEditorSnapshots() {
+        val repository = FakeGuideRepository(guide, emptyDraft())
+        val model = viewModel(repository, FakeExecutionRepository())
+        model.addNode(DraftNodeType.INSTRUCTION, null, instructionText = "Work rows 1-4 until long enough. (p.2)")
+        val original = contentState(model).rows.single().node
+        val target = com.macareen.stitchbook2.domain.execution.ManualTarget(com.macareen.stitchbook2.domain.execution.TargetUnit.INCHES, 5.5)
+        var saved = false
+        model.setTarget(original, target) { saved = true }
+        assertTrue(saved)
+        val updated = contentState(model).rows.single().node
+        assertEquals(original.instructionText, updated.instructionText)
+        assertEquals(target, updated.target)
+        val saves = repository.saveCallCount
+        model.setTarget(original, null) {}
+        assertEquals(saves, repository.saveCallCount)
+        assertEquals(target, contentState(model).rows.single().node.target)
+        model.setTarget(updated, null) {}
+        assertNull(contentState(model).rows.single().node.target)
+    }
+
 
     @Test fun reviewedSectionReplayCopiesActualWorkAndDoesNotPublishOrTouchActiveWork() {
         val repository = FakeGuideRepository(guide, emptyDraft()).apply { hasPublishedRevision = true }
