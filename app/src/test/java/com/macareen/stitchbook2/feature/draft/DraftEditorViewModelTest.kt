@@ -38,6 +38,30 @@ import org.junit.Test
  * the repository test suites.
  */
 class DraftEditorViewModelTest {
+    @Test fun sectionTargetReviewPreservesBodyAndRejectsStaleOrDependentWork() {
+        val model = viewModel(FakeGuideRepository(guide, emptyDraft()))
+        model.addNode(DraftNodeType.SECTION, null, title = "Body")
+        val section = contentState(model).rows.single().node
+        model.addNode(DraftNodeType.INSTRUCTION, section.id, instructionText = "Knit (p.2 l.1)")
+        model.addNode(DraftNodeType.INSTRUCTION, section.id, instructionText = "Purl (p.2 l.2)")
+        val reviewed = contentState(model)
+        val body = reviewed.rows.first().node
+        val originals = reviewed.rows.drop(1).map { it.node }
+        val target = com.macareen.stitchbook2.domain.execution.ManualTarget(com.macareen.stitchbook2.domain.execution.TargetUnit.CENTIMETRES, 12.0)
+        model.setTarget(body, target, reviewed.draftVersion) {}
+        assertEquals(target, contentState(model).rows.first().node.target)
+        assertEquals(originals, contentState(model).rows.drop(1).map { it.node })
+        val current = contentState(model)
+        model.setTarget(current.rows.first().node, null, current.draftVersion) {}
+        val before = contentState(model)
+        model.updateNode(originals.last().id, instructionText = "Purl while shaping")
+        model.setTarget(before.rows.first().node, target, before.draftVersion) { error("Stale body review saved") }
+        assertNull(contentState(model).rows.first().node.target)
+        val dependent = contentState(model)
+        model.setTarget(dependent.rows.first().node, target, dependent.draftVersion) { error("Dependent body saved") }
+        assertNull(contentState(model).rows.first().node.target)
+        assertTrue(contentState(model).errorMessage!!.contains("independent"))
+    }
     @Test fun suggestedTargetRequiresASizeGuideAndNoOutstandingDraftWarnings() {
         val repository = FakeGuideRepository(guide.copy(sizeLabel = "M"), emptyDraft())
         val model = viewModel(repository)

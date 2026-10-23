@@ -13,6 +13,28 @@ import org.junit.Test
 
 class ManualTargetDialogTest {
     @get:Rule val compose = createComposeRule()
+    @Test fun sectionBodyRequiresReviewAndShowsAllSourceStepsAtLargeText() {
+        var saved: ManualTarget? = null
+        val target = ManualTarget(TargetUnit.CENTIMETRES, 12.0)
+        compose.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, 1.8f)) {
+                StitchbookTheme(darkTheme = true) { ManualTargetDialog(target, false, null, { saved = it }, {},
+                    sourceText = "Body\nRow 1: Knit. (p.2 l.1)\nRow 2: Purl. (p.2 l.2)", bodyReview = true) }
+            }
+        }
+        compose.onNodeWithText("Save").assertIsNotEnabled()
+        compose.onNodeWithText("Body\nRow 1: Knit. (p.2 l.1)\nRow 2: Purl. (p.2 l.2)").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("I checked the source, selected size, cycle and target").performScrollTo().performClick()
+        compose.runOnIdle {
+            val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+            java.io.File(instrumentation.targetContext.getExternalFilesDir(null), "target-body-review-large.png").outputStream().use {
+                instrumentation.uiAutomation.takeScreenshot().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+            }
+        }
+        compose.onNodeWithText("Save").performClick()
+        compose.runOnIdle { assertEquals(target, saved) }
+    }
     @Test fun suggestionNeedsExplicitSourceReviewAndCancelDoesNotConvert() {
         var saved: ManualTarget? = null
         var dismissed = false

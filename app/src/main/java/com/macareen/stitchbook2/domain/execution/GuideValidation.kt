@@ -28,6 +28,7 @@ sealed interface GuideDefinitionError {
     data class CycleDetected(val nodeId: NodeId) : GuideDefinitionError
     data class MultipleParents(val nodeId: NodeId) : GuideDefinitionError
     data class UnreachableNode(val nodeId: NodeId) : GuideDefinitionError
+    data class UnsupportedTargetBody(val nodeId: NodeId) : GuideDefinitionError
 }
 
 class InvalidGuideDefinitionException(
@@ -207,6 +208,48 @@ object GuideDefinitionValidator {
 
         if (errors.isNotEmpty()) {
             throw InvalidGuideDefinitionException(errors.distinct())
+        }
+
+        // First container-target slice: one independent, finite body. Legacy instruction targets keep their semantics.
+        val cycles = definition.nodes.filterIsInstance<Section>().filter { it.target != null }
+        if (cycles.isNotEmpty()) {
+            val cycle = cycles.first()
+            val dependent = Regex("""\b(?:until|while|at the same time|simultaneously|as before|as established|depending|unless)\b""", RegexOption.IGNORE_CASE)
+            val simultaneous = Regex("""\b(?:while|at the same time|simultaneously|depending|unless)\b""", RegexOption.IGNORE_CASE)
+            fun size(id: NodeId): Long {
+                val node = nodesById.getValue(id)
+                val children = (node as? GuideContainer)?.children?.sumOf(::size)?.coerceAtMost(10_001) ?: 1
+                val multiplier = when (node) {
+                    is Range -> node.endInclusive.toLong() - node.startInclusive + 1
+                    is Repeat -> node.count.toLong()
+                    else -> 1L
+                }
+                return (children * multiplier).coerceAtMost(10_001)
+            }
+            fun unsupported(id: NodeId): Boolean = when (val node = nodesById.getValue(id)) {
+                is Instruction -> node.target != null || dependent.containsMatchIn(node.text) || node.text.startsWith("Review needed:")
+                is Section -> node.target != null || dependent.containsMatchIn(node.title) || node.children.any(::unsupported)
+                is Repeat -> dependent.containsMatchIn(node.label.orEmpty()) || node.children.any(::unsupported)
+                is GuideContainer -> node.children.any(::unsupported)
+            }
+            val parents = definition.nodes.filterIsInstance<GuideContainer>().flatMap { parent -> parent.children.map { it to parent } }.toMap()
+            val unknownAncestor = generateSequence(parents[cycle.id]) { parents[it.id] }.any { parent ->
+                dependent.containsMatchIn(when (parent) {
+                    is Section -> parent.title
+                    is Repeat -> parent.label.orEmpty()
+                    else -> ""
+                })
+            }
+            if (cycles.size != 1 || definition.nodes.filterIsInstance<Instruction>().any { it.target != null } ||
+                unknownAncestor || cycle.children.any(::unsupported) || dependent.containsMatchIn(cycle.title) || size(cycle.id) > 10_000 ||
+                definition.nodes.any { node -> simultaneous.containsMatchIn(when (node) {
+                    is Instruction -> node.text
+                    is Section -> node.title
+                    is Repeat -> node.label.orEmpty()
+                    else -> ""
+                }) }) {
+                throw InvalidGuideDefinitionException(listOf(GuideDefinitionError.UnsupportedTargetBody(cycle.id)))
+            }
         }
 
         return ValidatedGuideDefinition(

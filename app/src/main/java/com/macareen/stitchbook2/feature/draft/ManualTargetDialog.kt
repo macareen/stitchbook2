@@ -20,7 +20,7 @@ import com.macareen.stitchbook2.domain.execution.*
 @Composable
 internal fun ManualTargetDialog(target: ManualTarget?, busy: Boolean, error: String?,
     onSave: (ManualTarget?) -> Unit, onDismiss: () -> Unit,
-    suggestion: ManualTarget? = null, sourceText: String? = null) {
+    suggestion: ManualTarget? = null, sourceText: String? = null, bodyReview: Boolean = false) {
     val initial = target ?: suggestion
     var reviewed by rememberSaveable { mutableStateOf(false) }
     var unitName by rememberSaveable { mutableStateOf(initial?.unit?.name ?: TargetUnit.CENTIMETRES.name) }
@@ -31,10 +31,10 @@ internal fun ManualTargetDialog(target: ManualTarget?, busy: Boolean, error: Str
     AlertDialog(onDismissRequest = { if (!busy) onDismiss() },
         title = { Text(stringResource(R.string.manual_target_title)) },
         text = { Column(Modifier.verticalScroll(rememberScrollState())) {
-            Text(stringResource(R.string.manual_target_help))
-            if (suggestion != null) {
+            Text(stringResource(if (bodyReview) R.string.manual_target_body_help else R.string.manual_target_help))
+            if (suggestion != null || bodyReview) {
                 Text(sourceText.orEmpty())
-                Text(stringResource(R.string.pdf_target_suggestion_help))
+                if (suggestion != null) Text(stringResource(R.string.pdf_target_suggestion_help))
                 Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(value = reviewed,
                     enabled = !busy, role = Role.Checkbox, onValueChange = { reviewed = it }),
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
@@ -58,7 +58,7 @@ internal fun ManualTargetDialog(target: ManualTarget?, busy: Boolean, error: Str
                 label = { Text(stringResource(R.string.manual_target_value, unit.label)) }, isError = value.isNotBlank() && parsed == null)
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         } },
-        confirmButton = { TextButton(onClick = { parsed?.let(onSave) }, enabled = !busy && parsed != null && (suggestion == null || reviewed)) { Text(stringResource(R.string.draft_action_save)) } },
+        confirmButton = { TextButton(onClick = { parsed?.let(onSave) }, enabled = !busy && parsed != null && (!(suggestion != null || bodyReview) || reviewed)) { Text(stringResource(R.string.draft_action_save)) } },
         dismissButton = { Row {
             if (target != null) TextButton(onClick = { onSave(null) }, enabled = !busy) { Text(stringResource(R.string.manual_target_remove)) }
             TextButton(onClick = onDismiss, enabled = !busy) { Text(stringResource(R.string.cancel)) }

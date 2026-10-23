@@ -98,7 +98,10 @@ fun DraftAggregate.toDomain(): GuideDraft {
 }
 
 fun GuideDraft.toNodeEntities(): List<DraftNodeEntity> {
-    require(nodes.all { it.target == null || it.type == DraftNodeType.INSTRUCTION })
+    require(com.macareen.stitchbook2.domain.guide.DraftTargetCycles.problem(this) == null) {
+        com.macareen.stitchbook2.domain.guide.DraftTargetCycles.problem(this).orEmpty()
+    }
+    require(nodes.all { it.target == null || it.type in setOf(DraftNodeType.INSTRUCTION, DraftNodeType.SECTION) })
     val placement = nodePlacement()
     return nodes.map { node ->
         val location = checkNotNull(placement[node.id])
@@ -201,7 +204,8 @@ private fun DraftNode.toExecutableNode(): GuideNode {
         DraftNodeType.SECTION -> Section(
             id = id,
             title = title ?: invalidDraft(id, "Section title is missing."),
-            children = children
+            children = children,
+            target = target
         )
 
         DraftNodeType.RANGE -> Range(
@@ -241,7 +245,8 @@ private fun RevisionNodeEntity.toExecutableNode(
             id = nodeId,
             title = title
                 ?: malformed(nodeId, "Section title is missing."),
-            children = children
+            children = children,
+            target = targetJson?.let(com.macareen.stitchbook2.domain.execution.ManualTargets::decode)
         )
 
         DraftNodeType.RANGE -> Range(

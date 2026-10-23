@@ -1,6 +1,6 @@
 package com.macareen.stitchbook2.domain.backup
 
-const val CURRENT_BACKUP_FORMAT_VERSION = 6
+const val CURRENT_BACKUP_FORMAT_VERSION = 7
 
 /**
  * Checks a parsed backup *before* anything is written (PRODUCT_SPEC.md

@@ -98,7 +98,8 @@ fun DraftEditorRoute(
             (uiState as? DraftEditorUiState.Content)?.errorMessage,
             { target -> viewModel.setTarget(node, target, targetVersion) { targetNode = null } }, { targetNode = null },
             suggestion = targetSuggestion,
-            sourceText = node.instructionText)
+            sourceText = viewModel.targetReviewText(node),
+            bodyReview = node.type == DraftNodeType.SECTION)
     }
     replayReview?.let { review ->
         SectionReplayDialog(review, (uiState as? DraftEditorUiState.Content)?.isSaving == true,
@@ -491,6 +492,9 @@ private fun DraftOutlineRowItem(
             com.macareen.stitchbook2.feature.focus.InstructionBlocks(row.node.summary(), MaterialTheme.typography.bodyLarge)
             row.node.target?.let { Text("${stringResource(R.string.manual_target_title)}: ${it.description()}") }
             Spacer(modifier = Modifier.height(StitchbookSpacing.extraSmall))
+            if (row.node.type == DraftNodeType.SECTION) {
+                TextButton(onClick = onTarget, enabled = !isSaving) { Text(stringResource(R.string.manual_target_body_action)) }
+            }
             if (row.node.type == DraftNodeType.INSTRUCTION) {
                 androidx.compose.foundation.layout.FlowRow {
                     val suggestion = row.suggestedTarget != null

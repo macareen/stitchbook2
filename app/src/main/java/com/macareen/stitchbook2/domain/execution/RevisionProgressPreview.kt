@@ -36,7 +36,8 @@ object RevisionProgressComparison {
             val next = newByAddress[address]
             val reason = when {
                 next == null -> UnmatchedProgressReason.REMOVED_OCCURRENCE
-                old.instruction != next.instruction || old.instruction.target != null -> UnmatchedProgressReason.CHANGED_INSTRUCTION
+                old.instruction != next.instruction || hasTarget(old, sourceGuide) ||
+                    hasTarget(next, targetGuide) -> UnmatchedProgressReason.CHANGED_INSTRUCTION
                 context(old, sourceGuide) != context(next, targetGuide) -> UnmatchedProgressReason.CHANGED_CONTEXT
                 else -> null
             }
@@ -53,10 +54,14 @@ object RevisionProgressComparison {
         return records
     }
 
+    // The preview already has each occurrence's path; do not re-expand a target body for every match.
+    private fun hasTarget(record: OccurrenceRecord, guide: ValidatedGuideDefinition): Boolean =
+        record.instruction.target != null || record.nodePath.any { (guide.node(it) as? Section)?.target != null }
+
     private fun context(record: OccurrenceRecord, guide: ValidatedGuideDefinition): List<GuideNode> =
         record.nodePath.dropLast(1).map { id ->
             when (val node = requireNotNull(guide.node(id))) {
-                is Section -> Section(node.id, node.title, emptyList())
+                is Section -> Section(node.id, node.title, emptyList(), node.target)
                 is Range -> Range(node.id, node.unitLabel, node.startInclusive, node.endInclusive, emptyList())
                 is Repeat -> Repeat(node.id, node.count, node.label, emptyList())
                 is Instruction -> error("An instruction cannot contain an occurrence.")

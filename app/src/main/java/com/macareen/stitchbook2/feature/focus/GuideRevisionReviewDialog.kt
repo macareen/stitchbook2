@@ -51,8 +51,8 @@ fun GuideRevisionReviewDialog(state: GuideRevisionReviewState, onSelect: (Execut
                     if (change == null) item { Text(stringResource(R.string.revision_review_latest)) }
                     else {
                         item { Text(stringResource(R.string.revision_review_target, change.targetRevisionNumber), style = MaterialTheme.typography.titleMedium) }
-                        if (change.sourceDefinition.nodes.filterIsInstance<Instruction>().any { it.target != null } ||
-                            change.targetDefinition.nodes.filterIsInstance<Instruction>().any { it.target != null }) item {
+                        if ((change.sourceDefinition.nodes + change.targetDefinition.nodes).any {
+                            it is Instruction && it.target != null || it is com.macareen.stitchbook2.domain.execution.Section && it.target != null }) item {
                             Text(stringResource(R.string.manual_target_revision_help))
                         }
                         item {

@@ -174,12 +174,18 @@ class DraftEditorViewModel(
     fun setTarget(expected: DraftNode, target: com.macareen.stitchbook2.domain.execution.ManualTarget?, expectedVersion: Long? = null, onSaved: () -> Unit) {
         val current = draft ?: return
         if (isSaving()) return
-        if ((expectedVersion != null && current.version != expectedVersion) || current.nodes.firstOrNull { it.id == expected.id } != expected || expected.type != DraftNodeType.INSTRUCTION) {
+        if ((expectedVersion != null && current.version != expectedVersion) || current.nodes.firstOrNull { it.id == expected.id } != expected || expected.type !in setOf(DraftNodeType.INSTRUCTION, DraftNodeType.SECTION)) {
             showError("This step changed. Close and reopen the target editor.")
             return
         }
-        persist(current.copy(nodes = current.nodes.map { if (it.id == expected.id) it.copy(target = target) else it }), onSaved)
+        val updated = current.copy(nodes = current.nodes.map { if (it.id == expected.id) it.copy(target = target) else it })
+        com.macareen.stitchbook2.domain.guide.DraftTargetCycles.problem(updated)?.let { showError(it); return }
+        persist(updated, onSaved)
     }
+
+    fun targetReviewText(node: DraftNode): String = draft?.let {
+        com.macareen.stitchbook2.domain.guide.DraftTargetCycles.reviewText(it, node.id)
+    }.orEmpty()
 
     /** Wraps only this instruction; its identity/text and all siblings stay intact. */
     fun repeatInstruction(nodeId: NodeId, count: Int) {
